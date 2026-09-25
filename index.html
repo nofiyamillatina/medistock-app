@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="id" class="h-full bg-slate-50 text-slate-900 font-sans antialiased">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MEDISTOCK - Aplikasi Pemesanan Obat Apotek</title>
+  
+  <!-- Tailwind CSS via CDN with custom configuration -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: {
+              DEFAULT: '#1E293B',
+              hover: '#0F172A',
+              light: '#334155'
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+  
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- React 18 & React DOM -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Babel Standalone for JSX compilation -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    /* Custom Minimalist Clean Styling */
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #FFFFFF;
+      color: #0F172A;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #CBD5E1;
+      border-radius: 2px;
+    }
+  </style>
+</head>
+<body class="h-full bg-white min-h-screen flex flex-col selection:bg-slate-800 selection:text-white">
+  <div id="root" class="flex-1 flex flex-col min-h-screen"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo } = React;
+
+    // --- MOCK INITIAL DATA ---
+    const INITIAL_MEDICINES = [
+      { id: 'MED-1', name: 'Paracetamol 500mg', desc: 'Pereda demam & nyeri ringan hingga sedang', price: 12500, stock: 45, status: 'Tersedia' },
+      { id: 'MED-2', name: 'Amoxicillin 500mg', desc: 'Antibiotik penanganan infeksi bakteri', price: 28000, stock: 20, status: 'Tersedia' },
+      { id: 'MED-3', name: 'Vitamin C 1000mg', desc: 'Suplemen daya tahan tubuh tablet kunyah', price: 35000, stock: 15, status: 'Tersedia' },
+      { id: 'MED-4', name: 'Antasida Doen Tablet', desc: 'Obat maag & asam lambung berlebih', price: 8500, stock: 30, status: 'Tersedia' },
+      { id: 'MED-5', name: 'Mefenamic Acid 500mg', desc: 'Pereda nyeri sakit gigi & nyeri haid', price: 18000, stock: 0, status: 'Habis' }
+    ];
+
+    const INITIAL_ORDERS = [
+      {
+        id: 'MDS-9824',
+        customerName: 'Budi Santoso',
+        phone: '081234567890',
+        address: 'Jl. Merdeka No. 12, Kel. Menteng',
+        deliveryType: 'Pengantaran',
+        items: [
+          { name: 'Paracetamol 500mg', qty: 2, price: 12500 },
+          { name: 'Vitamin C 1000mg', qty: 1, price: 35000 }
+        ],
+        subtotal: 60000,
+        serviceFee: 3000,
+        totalAmount: 63000,
+        paymentStatus: 'Lunas (QRIS)',
+        orderStatus: 'Menunggu Konfirmasi',
+        timestamp: '2026-09-20 20:45'
+      },
+      {
+        id: 'MDS-9823',
+        customerName: 'Siti Rahma',
+        phone: '085711223344',
+        address: '-',
+        deliveryType: 'Ambil Sendiri',
+        items: [
+          { name: 'Amoxicillin 500mg', qty: 1, price: 28000 }
+        ],
+        subtotal: 28000,
+        serviceFee: 3000,
+        totalAmount: 31000,
+        paymentStatus: 'Lunas (QRIS)',
+        orderStatus: 'Selesai',
+        timestamp: '2026-09-20 19:15'
+      },
+      {
+        id: 'MDS-9822',
+        customerName: 'Deni Kurniawan',
+        phone: '081988776655',
+        address: 'Jl. Sudirman No. 45',
+        deliveryType: 'Pengantaran',
+        items: [
+          { name: 'Paracetamol 500mg', qty: 1, price: 12500 },
+          { name: 'Antasida Doen Tablet', qty: 2, price: 8500 }
+        ],
+        subtotal: 29500,
+        serviceFee: 3000,
+        totalAmount: 32500,
+        paymentStatus: 'Lunas (QRIS)',
+        orderStatus: 'Selesai',
+        timestamp: '2026-09-20 18:30'
+      }
+    ];
+
+    // Helper format Currency
+    const formatIDR = (val) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val);
+
+    // --- MAIN APP COMPONENT ---
+    function App() {
+      // Navigation / Route state
+      const [currentView, setCurrentView] = useState('customer'); // 'customer' | 'checkout' | 'qris' | 'admin-login' | 'admin-dashboard'
+      const [adminTab, setAdminTab] = useState('orders'); // 'orders' | 'inventory' | 'reports'
+
+      // Shared Global State
+      const [isStoreOpen, setIsStoreOpen] = useState(true);
+      const [medicines, setMedicines] = useState(INITIAL_MEDICINES);
+      const [orders, setOrders] = useState(INITIAL_ORDERS);
+      const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+      // Customer Flow State
+      const [searchQuery, setSearchQuery] = useState('');
+      const [cart, setCart] = useState([]);
+      const [deliveryMethod, setDeliveryMethod] = useState('Pengantaran');
+      const [customerInfo, setCustomerInfo] = useState({ name: '', phone: '', address: '' });
+      const [currentOrder, setCurrentOrder] = useState(null);
+      const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+      // Inventory Editable state
+      const [inventoryDraft, setInventoryDraft] = useState([]);
+
+      useEffect(() => {
+        setInventoryDraft(JSON.parse(JSON.stringify(medicines)));
+      }, [medicines]);
+
+      // Cart logic
+      const addToCart = (med) => {
+        if (!isStoreOpen) {
+          alert('Mohon maaf, toko sedang tutup saat ini.');
+          return;
+        }
+        if (med.stock <= 0 || med.status === 'Habis') return;
+
+        setCart(prev => {
+          const existing = prev.find(item => item.id === med.id);
+          if (existing) {
+            return prev.map(item => item.id === med.id ? { ...item, qty: item.qty + 1 } : item);
+          }
+          return [...prev, { ...med, qty: 1 }];
+        });
+      };
+
+      const updateCartQty = (medId, delta) => {
+        setCart(prev => {
+          return prev.map(item => {
+            if (item.id === medId) {
+              const newQty = item.qty + delta;
+              return newQty > 0 ? { ...item, qty: newQty } : null;
+            }
+            return item;
+          }).filter(Boolean);
+        });
+      };
+
+      const cartSubtotal = useMemo(() => {
+        return cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+      }, [cart]);
+
+      const serviceFee = cart.length > 0 ? 3000 : 0;
+      const cartTotal = cartSubtotal + serviceFee;
+
+      // Handle checkout submission -> move to QRIS screen
+      const handleProceedToCheckout = () => {
+        if (cart.length === 0) return;
+        setCurrentView('checkout');
+      };
+
+      const handlePayViaQRIS = (e) => {
+        e.preventDefault();
+        if (!customerInfo.name || !customerInfo.phone) {
+          alert('Mohon lengkapi Nama dan Nomor Telepon.');
+          return;
+        }
+        if (deliveryMethod === 'Pengantaran' && !customerInfo.address) {
+          alert('Mohon lengkapi Alamat Pengantaran.');
+          return;
+        }
+
+        const newOrder = {
+          id: `MDS-${Math.floor(1000 + Math.random() * 9000)}`,
+          customerName: customerInfo.name,
+          phone: customerInfo.phone,
+          address: deliveryMethod === 'Pengantaran' ? customerInfo.address : '-',
+          deliveryType: deliveryMethod,
+          items: cart.map(c => ({ name: c.name, qty: c.qty, price: c.price })),
+          subtotal: cartSubtotal,
+          serviceFee: serviceFee,
+          totalAmount: cartTotal,
+          paymentStatus: 'Lunas (QRIS)',
+          orderStatus: 'Menunggu Konfirmasi',
+          timestamp: new Date().toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })
+        };
+
+        setCurrentOrder(newOrder);
+        setCurrentView('qris');
+      };
+
+      const handleConfirmPayment = () => {
+        if (currentOrder) {
+          setOrders(prev => [currentOrder, ...prev]);
+          // Reduce stock
+          setMedicines(prev => prev.map(med => {
+            const ordered = currentOrder.items.find(i => i.name.startsWith(med.name.split(' ')[0]));
+            if (ordered) {
+              const newStock = Math.max(0, med.stock - ordered.qty);
+              return { ...med, stock: newStock, status: newStock === 0 ? 'Habis' : med.status };
+            }
+            return med;
+          }));
+        }
+        setShowSuccessModal(true);
+      };
+
+      const resetCustomerFlow = () => {
+        setCart([]);
+        setCustomerInfo({ name: '', phone: '', address: '' });
+        setCurrentOrder(null);
+        setShowSuccessModal(false);
+        setCurrentView('customer');
+      };
+
+      // Admin Order Actions
+      const handleUpdateOrderStatus = (orderId, newStatus) => {
+        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, orderStatus: newStatus } : o));
+      };
+
+      // Admin Inventory Save
+      const handleSaveInventory = () => {
+        setMedicines(inventoryDraft);
+        alert('Perubahan stok & harga berhasil disimpan!');
+      };
+
+      return (
+        <div class="flex-1 flex flex-col min-h-screen">
+          {/* TOP DEMO ROUTE SWITCHER BAR */}
+          <div class="bg-slate-900 text-white px-4 py-2 flex flex-wrap items-center justify-between text-xs font-mono border-b border-slate-800">
+            <div class="flex items-center space-x-2 py-1">
+              <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span class="font-semibold tracking-wide">MEDISTOCK UI DEMO MODE</span>
+            </div>
+            <div class="flex items-center space-x-2 py-1">
+              <button
+                onClick={() => setCurrentView('customer')}
+                class={`px-3 py-1 rounded border transition ${currentView === 'customer' || currentView === 'checkout' || currentView === 'qris' ? 'bg-white text-slate-900 border-white font-bold' : 'border-slate-700 text-slate-300 hover:text-white'}`}
+              >
+                medistock.id (Customer Flow)
+              </button>
+              <button
+                onClick={() => {
+                  if (isLoggedIn) {
+                    setCurrentView('admin-dashboard');
+                  } else {
+                    setCurrentView('admin-login');
+                  }
+                }}
+                class={`px-3 py-1 rounded border transition ${currentView === 'admin-login' || currentView === 'admin-dashboard' ? 'bg-white text-slate-900 border-white font-bold' : 'border-slate-700 text-slate-300 hover:text-white'}`}
+              >
+                medistock.id/apotek (Pharmacy Flow)
+              </button>
+            </div>
+          </div>
+
+          {/* MAIN CONTAINER */}
+          <main class="flex-1 flex flex-col bg-white">
+            {/* VIEW 1: CUSTOMER - HOME & SEARCH */}
+            {currentView === 'customer' && (
+              <CustomerHomeView
+                medicines={medicines}
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                cart={cart}
+                addToCart={addToCart}
+                updateCartQty={updateCartQty}
+                cartTotal={cartTotal}
+                cartSubtotal={cartSubtotal}
+                serviceFee={serviceFee}
+                isStoreOpen={isStoreOpen}
+                onProceedToCheckout={handleProceedToCheckout}
+              />
+            )}
+
+            {/* VIEW 2: CUSTOMER - CHECKOUT */}
+            {currentView === 'checkout' && (
+              <CheckoutView
+                cart={cart}
+                updateCartQty={updateCartQty}
+                deliveryMethod={deliveryMethod}
+                setDeliveryMethod={setDeliveryMethod}
+                customerInfo={customerInfo}
+                setCustomerInfo={setCustomerInfo}
+                cartSubtotal={cartSubtotal}
+                serviceFee={serviceFee}
+                cartTotal={cartTotal}
+                onPayViaQRIS={handlePayViaQRIS}
+                onBack={() => setCurrentView('customer')}
+              />
+            )}
+
+            {/* VIEW 3: CUSTOMER - QRIS PAYMENT & SUCCESS */}
+            {currentView === 'qris' && (
+              <QRISPaymentView
+                currentOrder={currentOrder}
+                cartTotal={cartTotal}
+                onConfirmPayment={handleConfirmPayment}
+                showSuccessModal={showSuccessModal}
+                onReset={resetCustomerFlow}
+              />
+            )}
+
+            {/* VIEW 4: PHARMACY - LOGIN */}
+            {currentView === 'admin-login' && (
+              <PharmacyLoginView
+                onLoginSuccess={() => {
+                  setIsLoggedIn(true);
+                  setCurrentView('admin-dashboard');
+                }}
+              />
+            )}
+
+            {/* VIEW 5: PHARMACY - DASHBOARD */}
+            {currentView === 'admin-dashboard' && (
+              <PharmacyDashboardView
+                isStoreOpen={isStoreOpen}
+                setIsStoreOpen={setIsStoreOpen}
+                adminTab={adminTab}
+                setAdminTab={setAdminTab}
+                orders={orders}
+                onUpdateOrderStatus={handleUpdateOrderStatus}
+                inventoryDraft={inventoryDraft}
+                setInventoryDraft={setInventoryDraft}
+                onSaveInventory={handleSaveInventory}
+                onLogout={() => {
+                  setIsLoggedIn(false);
+                  setCurrentView('admin-login');
+                }}
+              />
+            )}
+          </main>
+
+          {/* FOOTER */}
+          <footer class="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-500">
+            <p class="font-medium">MEDISTOCK &copy; 2026 - Partner Apotek: <span class="font-semibold text-slate-800">Apotek Sehat</span></p>
+            <p class="mt-1 text-slate-400">Minimalist Medicine Ordering System MVP</p>
+          </footer>
+        </div>
+      );
+    }
+
+    // =========================================================================
+    // PART 1: CUSTOMER COMPONENTS
+    // =========================================================================
+
+    function CustomerHomeView({ medicines, searchQuery, setSearchQuery, cart, addToCart, updateCartQty, cartTotal, cartSubtotal, serviceFee, isStoreOpen, onProceedToCheckout }) {
+      const filteredMedicines = useMemo(() => {
+        return medicines.filter(m => m.name.toLowerCase().includes(searchQuery.toLowerCase()) || m.desc.toLowerCase().includes(searchQuery.toLowerCase()));
+      }, [medicines, searchQuery]);
+
+      const cartCount = cart.reduce((sum, item) => sum + item.qty, 0);
+
+      return (
+        <div class="max-w-2xl mx-auto w-full px-4 py-8 flex-1 flex flex-col">
+          {/* Header 1. Home & Search Screen */}
+          <header class="border-b border-slate-200 pb-6 mb-6">
+            <div class="flex items-center justify-between">
+              <div>
+                <h1 class="text-2xl font-bold tracking-tight text-slate-900">MEDISTOCK</h1>
+                <p class="text-xs text-slate-500 font-medium mt-1">Apotek Mitra: <span class="text-slate-800 font-semibold">Apotek Sehat</span></p>
+              </div>
+              <div class="text-right">
+                <span class={`inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded border ${isStoreOpen ? 'bg-slate-100 text-slate-800 border-slate-300' : 'bg-red-50 text-red-700 border-red-200'}`}>
+                  {isStoreOpen ? '● Apotek Buka' : '○ Apotek Tutup'}
+                </span>
+              </div>
+            </div>
+          </header>
+
+          {!isStoreOpen && (
+            <div class="mb-6 p-4 border border-red-200 bg-red-50 text-red-800 text-sm font-medium rounded">
+              Apotek Sehat sedang tutup sementara. Anda masih bisa melihat katalog obat, namun pemesanan akan diproses saat toko buka.
+            </div>
+          )}
+
+          {/* Search Input */}
+          <div class="mb-8">
+            <label htmlFor="medicine-search" class="sr-only">Cari nama obat</label>
+            <div class="relative">
+              <input
+                id="medicine-search"
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Cari nama obat..."
+                class="w-full bg-white border border-slate-300 px-4 py-3 text-slate-900 text-sm focus:outline-none focus:border-slate-800 placeholder-slate-400 font-normal transition"
+              />
+              {searchQuery && (
+                <button 
+                  onClick={() => setSearchQuery('')}
+                  class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 hover:text-slate-700 px-2 py-1"
+                >
+                  CLEAR
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Medicine List */}
+          <section class="flex-1 space-y-4 mb-12">
+            <h2 class="text-xs font-bold text-slate-400 tracking-wider uppercase mb-2">Katalog Obat ({filteredMedicines.length})</h2>
+            
+            {filteredMedicines.length === 0 ? (
+              <div class="py-12 text-center border border-dashed border-slate-200 text-slate-500 text-sm">
+                Tidak ada obat yang cocok dengan kata kunci "{searchQuery}".
+              </div>
+            ) : (
+              filteredMedicines.map(med => {
+                const cartItem = cart.find(c => c.id === med.id);
+                const isOutOfStock = med.stock <= 0 || med.status === 'Habis';
+
+                return (
+                  <div key={med.id} class="border border-slate-200 p-5 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition hover:border-slate-400">
+                    <div class="flex-1">
+                      <div class="flex items-center space-x-3">
+                        <h3 class="text-base font-bold text-slate-900">{med.name}</h3>
+                        <span class={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 border ${isOutOfStock ? 'border-red-200 bg-red-50 text-red-600' : 'border-slate-200 text-slate-600'}`}>
+                          {isOutOfStock ? 'Stok Habis' : 'Stok Tersedia'}
+                        </span>
+                      </div>
+                      <p class="text-xs text-slate-500 mt-1">{med.desc}</p>
+                      <p class="text-sm font-bold text-slate-900 mt-2">{formatIDR(med.price)}</p>
+                    </div>
+
+                    <div class="sm:text-right flex sm:flex-col items-center sm:items-end justify-between sm:justify-center">
+                      {cartItem ? (
+                        <div class="flex items-center space-x-2 border border-slate-300 p-1 bg-white">
+                          <button
+                            onClick={() => updateCartQty(med.id, -1)}
+                            class="w-7 h-7 flex items-center justify-center text-sm font-bold bg-slate-100 hover:bg-slate-200 text-slate-800"
+                          >
+                            -
+                          </button>
+                          <span class="w-8 text-center text-xs font-bold text-slate-900">{cartItem.qty}</span>
+                          <button
+                            onClick={() => updateCartQty(med.id, 1)}
+                            disabled={cartItem.qty >= med.stock}
+                            class="w-7 h-7 flex items-center justify-center text-sm font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 disabled:opacity-30"
+                          >
+                            +
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => addToCart(med)}
+                          disabled={isOutOfStock || !isStoreOpen}
+                          class="px-5 py-2 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white disabled:bg-slate-200 disabled:text-slate-400 transition"
+                        >
+                          + Tambah
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </section>
+
+          {/* Sticky Bottom Cart Bar */}
+          {cartCount > 0 && (
+            <div class="sticky bottom-4 border border-slate-900 bg-slate-900 text-white p-4 shadow-xl flex items-center justify-between">
+              <div>
+                <p class="text-xs text-slate-300 font-medium">{cartCount} Item dalam keranjang</p>
+                <p class="text-base font-bold text-white">{formatIDR(cartTotal)} <span class="text-xs font-normal text-slate-400">(Inc. Jasa Rp 3.000)</span></p>
+              </div>
+              <button
+                onClick={onProceedToCheckout}
+                class="px-6 py-2.5 bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs tracking-wider uppercase transition"
+              >
+                Lanjut Checkout &rarr;
+              </button>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function CheckoutView({ cart, updateCartQty, deliveryMethod, setDeliveryMethod, customerInfo, setCustomerInfo, cartSubtotal, serviceFee, cartTotal, onPayViaQRIS, onBack }) {
+      return (
+        <div class="max-w-2xl mx-auto w-full px-4 py-8 flex-1 flex flex-col">
+          {/* Header */}
+          <div class="flex items-center justify-between border-b border-slate-200 pb-4 mb-6">
+            <button
+              onClick={onBack}
+              class="text-xs font-bold text-slate-600 hover:text-slate-900 flex items-center gap-1"
+            >
+              &larr; Kembali
+            </button>
+            <h1 class="text-lg font-bold text-slate-900">Checkout Pesanan</h1>
+            <div class="w-12"></div>
+          </div>
+
+          <form onSubmit={onPayViaQRIS} class="space-y-8">
+            {/* 1. Order Summary */}
+            <section class="border border-slate-200 p-5 bg-white">
+              <h2 class="text-xs font-bold text-slate-400 tracking-wider uppercase mb-4">Ringkasan Pesanan</h2>
+              <div class="divide-y divide-slate-100">
+                {cart.map(item => (
+                  <div key={item.id} class="py-3 flex items-center justify-between text-sm">
+                    <div>
+                      <p class="font-bold text-slate-900">{item.name}</p>
+                      <p class="text-xs text-slate-500">{formatIDR(item.price)} &times; {item.qty}</p>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                      <div class="flex items-center border border-slate-200">
+                        <button type="button" onClick={() => updateCartQty(item.id, -1)} class="px-2 py-0.5 text-xs font-bold hover:bg-slate-100">-</button>
+                        <span class="px-2 text-xs font-bold">{item.qty}</span>
+                        <button type="button" onClick={() => updateCartQty(item.id, 1)} class="px-2 py-0.5 text-xs font-bold hover:bg-slate-100">+</button>
+                      </div>
+                      <span class="font-bold text-slate-900 min-w-[70px] text-right">{formatIDR(item.price * item.qty)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* 2. Delivery Method */}
+            <section class="border border-slate-200 p-5 bg-white">
+              <h2 class="text-xs font-bold text-slate-400 tracking-wider uppercase mb-4">Metode Pengiriman</h2>
+              <div class="grid grid-cols-2 gap-4">
+                <label class={`border p-4 cursor-pointer flex items-center space-x-3 transition ${deliveryMethod === 'Pengantaran' ? 'border-slate-900 bg-slate-50' : 'border-slate-200 hover:border-slate-400'}`}>
+                  <input
+                    type="radio"
+                    name="delivery"
+                    value="Pengantaran"
+                    checked={deliveryMethod === 'Pengantaran'}
+                    onChange={(e) => setDeliveryMethod(e.target.value)}
+                    class="accent-slate-900"
+                  />
+                  <div>
+                    <span class="block text-sm font-bold text-slate-900">Pengantaran</span>
+                    <span class="block text-xs text-slate-500">Diantar kurir apotek</span>
+                  </div>
+                </label>
+
+                <label class={`border p-4 cursor-pointer flex items-center space-x-3 transition ${deliveryMethod === 'Ambil Sendiri' ? 'border-slate-900 bg-slate-50' : 'border-slate-200 hover:border-slate-400'}`}>
+                  <input
+                    type="radio"
+                    name="delivery"
+                    value="Ambil Sendiri"
+                    checked={deliveryMethod === 'Ambil Sendiri'}
+                    onChange={(e) => setDeliveryMethod(e.target.value)}
+                    class="accent-slate-900"
+                  />
+                  <div>
+                    <span class="block text-sm font-bold text-slate-900">Ambil Sendiri</span>
+                    <span class="block text-xs text-slate-500">Ambil di Apotek Sehat</span>
+                  </div>
+                </label>
+              </div>
+            </section>
+
+            {/* 3. Customer Info Input */}
+            <section class="border border-slate-200 p-5 bg-white space-y-4">
+              <h2 class="text-xs font-bold text-slate-400 tracking-wider uppercase mb-2">Informasi Pemesan</h2>
+              
+              <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Nama Lengkap *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Masukkan nama Anda"
+                  value={customerInfo.name}
+                  onChange={(e) => setCustomerInfo({ ...customerInfo, name: e.target.value })}
+                  class="w-full border border-slate-300 p-2.5 text-sm text-slate-900 focus:outline-none focus:border-slate-900"
+                />
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Nomor Telepon / WhatsApp *</label>
+                <input
+                  type="tel"
+                  required
+                  placeholder="Contoh: 081234567890"
+                  value={customerInfo.phone}
+                  onChange={(e) => setCustomerInfo({ ...customerInfo, phone: e.target.value })}
+                  class="w-full border border-slate-300 p-2.5 text-sm text-slate-900 focus:outline-none focus:border-slate-900"
+                />
+              </div>
+
+              {deliveryMethod === 'Pengantaran' && (
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Alamat Pengantaran *</label>
+                  <textarea
+                    required
+                    rows="2"
+                    placeholder="Tuliskan alamat lengkap beserta nomor rumah / patokan"
+                    value={customerInfo.address}
+                    onChange={(e) => setCustomerInfo({ ...customerInfo, address: e.target.value })}
+                    class="w-full border border-slate-300 p-2.5 text-sm text-slate-900 focus:outline-none focus:border-slate-900"
+                  ></textarea>
+                </div>
+              )}
+            </section>
+
+            {/* 4. Total Breakdown */}
+            <section class="border border-slate-200 p-5 bg-white space-y-2 text-sm">
+              <h2 class="text-xs font-bold text-slate-400 tracking-wider uppercase mb-3">Rincian Pembayaran</h2>
+              <div class="flex justify-between text-slate-600">
+                <span>Total Obat</span>
+                <span class="font-medium text-slate-900">{formatIDR(cartSubtotal)}</span>
+              </div>
+              <div class="flex justify-between text-slate-600">
+                <span>Biaya Layanan</span>
+                <span class="font-medium text-slate-900">{formatIDR(serviceFee)}</span>
+              </div>
+              <div class="border-t border-slate-200 pt-3 mt-2 flex justify-between font-bold text-base text-slate-900">
+                <span>Total Bayar</span>
+                <span>{formatIDR(cartTotal)}</span>
+              </div>
+            </section>
+
+            {/* 5. Action Button */}
+            <button
+              type="submit"
+              class="w-full py-4 bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm tracking-wider uppercase transition shadow"
+            >
+              Bayar via QRIS &rarr;
+            </button>
+          </form>
+        </div>
+      );
+    }
+
+    function QRISPaymentView({ currentOrder, cartTotal, onConfirmPayment, showSuccessModal, onReset }) {
+      const [timeLeft, setTimeLeft] = useState(900); // 15 minutes = 900 seconds
+
+      useEffect(() => {
+        if (timeLeft <= 0) return;
+        const timer = setInterval(() => {
+          setTimeLeft(prev => prev - 1);
+        }, 1000);
+        return () => clearInterval(timer);
+      }, [timeLeft]);
+
+      const formatTimer = (seconds) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      };
+
+      return (
+        <div class="max-w-md mx-auto w-full px-4 py-10 flex-1 flex flex-col justify-center">
+          <div class="border border-slate-200 bg-white p-6 sm:p-8 text-center shadow-sm">
+            {/* Header */}
+            <div class="border-b border-slate-200 pb-4 mb-6">
+              <h1 class="text-lg font-bold text-slate-900">Pembayaran QRIS</h1>
+              <div class="inline-flex items-center gap-1.5 mt-2 px-3 py-1 bg-slate-100 text-slate-700 text-xs font-mono font-bold rounded">
+                <span>WAKTU PEMBAYARAN:</span>
+                <span class="text-slate-900 font-bold">{formatTimer(timeLeft)}</span>
+              </div>
+            </div>
+
+            {/* Total Amount */}
+            <div class="mb-6">
+              <span class="text-xs text-slate-500 uppercase tracking-wider block mb-1">Total Pembayaran</span>
+              <span class="text-3xl font-extrabold text-slate-900">{formatIDR(currentOrder ? currentOrder.totalAmount : cartTotal)}</span>
+            </div>
+
+            {/* QR Code Box */}
+            <div class="my-6 border-2 border-slate-900 p-6 inline-block bg-white shadow-inner">
+              <div class="w-48 h-48 bg-slate-900 flex flex-col items-center justify-center text-white relative">
+                {/* Simulated SVG QR IS Code Pattern */}
+                <div class="absolute inset-2 border-2 border-white grid grid-cols-6 gap-1 p-2 bg-white">
+                  <div class="bg-slate-900 col-span-2 row-span-2"></div>
+                  <div class="bg-slate-900 col-span-2"></div>
+                  <div class="bg-slate-900 col-span-2 row-span-2"></div>
+                  <div class="bg-slate-900"></div>
+                  <div class="bg-slate-900"></div>
+                  <div class="bg-slate-900 col-span-2 row-span-2"></div>
+                  <div class="bg-slate-900 col-span-2"></div>
+                  <div class="bg-slate-900"></div>
+                  <div class="bg-slate-900 col-span-3"></div>
+                  <div class="bg-slate-900"></div>
+                </div>
+                <div class="z-10 bg-white text-slate-900 px-2 py-1 font-black text-xs border border-slate-900 tracking-tighter">
+                  QRIS MEDISTOCK
+                </div>
+              </div>
+            </div>
+
+            {/* Instruction */}
+            <div class="bg-slate-50 border border-slate-200 p-4 text-left text-xs text-slate-700 font-medium space-y-1 mb-8">
+              <p>1. Buka e-wallet/bank (GoPay, OVO, ShopeePay, BCA, dll)</p>
+              <p>2. Scan & Bayar nominal di atas sesuai instruksi.</p>
+            </div>
+
+            {/* Action Button */}
+            <button
+              onClick={onConfirmPayment}
+              class="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider transition"
+            >
+              Saya Sudah Bayar
+            </button>
+          </div>
+
+          {/* Payment Success Modal */}
+          {showSuccessModal && (
+            <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+              <div class="bg-white border-2 border-slate-900 p-6 sm:p-8 max-w-sm w-full text-center shadow-2xl space-y-4">
+                <div class="w-12 h-12 bg-slate-900 text-white rounded-full flex items-center justify-center mx-auto text-xl font-bold">
+                  ✓
+                </div>
+                <h2 class="text-lg font-bold text-slate-900">Pembayaran Berhasil!</h2>
+                <p class="text-xs text-slate-600 leading-relaxed">
+                  Pesanan sedang disiapkan oleh Apotek Sehat. Kurir akan segera memproses pengiriman ke alamat Anda.
+                </p>
+                <div class="border-t border-slate-200 pt-4">
+                  <button
+                    onClick={onReset}
+                    class="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold tracking-wider uppercase"
+                  >
+                    Kembali ke Beranda
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // =========================================================================
+    // PART 2: PHARMACY COMPONENTS
+    // =========================================================================
+
+    function PharmacyLoginView({ onLoginSuccess }) {
+      const [username, setUsername] = useState('apotek@medistock.id');
+      const [password, setPassword] = useState('password123');
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        onLoginSuccess();
+      };
+
+      return (
+        <div class="max-w-sm mx-auto w-full px-4 py-16 flex-1 flex flex-col justify-center">
+          <div class="border border-slate-200 bg-white p-8 shadow-sm">
+            <div class="text-center mb-8 border-b border-slate-200 pb-6">
+              <h1 class="text-xl font-bold text-slate-900">MEDISTOCK</h1>
+              <p class="text-xs font-semibold text-slate-500 tracking-wider uppercase mt-1">Portal Apotek</p>
+            </div>
+
+            <form onSubmit={handleSubmit} class="space-y-5">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Username / Email</label>
+                <input
+                  type="text"
+                  required
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  class="w-full border border-slate-300 p-2.5 text-sm text-slate-900 focus:outline-none focus:border-slate-900"
+                />
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Password</label>
+                <input
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  class="w-full border border-slate-300 p-2.5 text-sm text-slate-900 focus:outline-none focus:border-slate-900"
+                />
+              </div>
+
+              <button
+                type="submit"
+                class="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs tracking-wider uppercase transition mt-2"
+              >
+                Masuk ke Dashboard
+              </button>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    function PharmacyDashboardView({ isStoreOpen, setIsStoreOpen, adminTab, setAdminTab, orders, onUpdateOrderStatus, inventoryDraft, setInventoryDraft, onSaveInventory, onLogout }) {
+      return (
+        <div class="max-w-4xl mx-auto w-full px-4 py-8 flex-1 flex flex-col">
+          {/* Header 5. Dashboard Apotek */}
+          <header class="border-b border-slate-200 pb-6 mb-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <div class="flex items-center space-x-2">
+                  <h1 class="text-xl font-bold text-slate-900">Dashboard Apotek</h1>
+                  <span class="text-xs bg-slate-100 text-slate-700 border border-slate-300 px-2 py-0.5 font-mono">Apotek Sehat</span>
+                </div>
+                <p class="text-xs text-slate-500 mt-0.5">Kelola pesanan masuk, stok obat & laporan harian</p>
+              </div>
+
+              <div class="flex items-center space-x-4">
+                {/* Store Status Toggle */}
+                <div class="flex items-center space-x-2 border border-slate-200 px-3 py-1.5 bg-white">
+                  <span class="text-xs font-bold text-slate-700">Status Toko:</span>
+                  <button
+                    onClick={() => setIsStoreOpen(!isStoreOpen)}
+                    class={`px-2 py-0.5 text-xs font-bold transition border ${isStoreOpen ? 'bg-slate-900 text-white border-slate-900' : 'bg-slate-100 text-slate-600 border-slate-300'}`}
+                  >
+                    {isStoreOpen ? 'BUKA' : 'TUTUP'}
+                  </button>
+                </div>
+
+                <button
+                  onClick={onLogout}
+                  class="text-xs font-bold text-slate-500 hover:text-slate-900 underline"
+                >
+                  Keluar
+                </button>
+              </div>
+            </div>
+
+            {/* Tab Navigation */}
+            <div class="flex space-x-2 mt-6 border-t border-slate-100 pt-4 overflow-x-auto">
+              <button
+                onClick={() => setAdminTab('orders')}
+                class={`px-4 py-2 text-xs font-bold transition uppercase tracking-wider border-b-2 ${adminTab === 'orders' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-700'}`}
+              >
+                Pesanan Masuk ({orders.filter(o => o.orderStatus === 'Menunggu Konfirmasi').length})
+              </button>
+              <button
+                onClick={() => setAdminTab('inventory')}
+                class={`px-4 py-2 text-xs font-bold transition uppercase tracking-wider border-b-2 ${adminTab === 'inventory' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-700'}`}
+              >
+                Kelola Stok & Harga
+              </button>
+              <button
+                onClick={() => setAdminTab('reports')}
+                class={`px-4 py-2 text-xs font-bold transition uppercase tracking-wider border-b-2 ${adminTab === 'reports' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-700'}`}
+              >
+                Laporan Penjualan
+              </button>
+            </div>
+          </header>
+
+          {/* TAB 1: PESANAN MASUK */}
+          {adminTab === 'orders' && (
+            <IncomingOrdersTab orders={orders} onUpdateOrderStatus={onUpdateOrderStatus} />
+          )}
+
+          {/* TAB 2: KELOLA STOK & HARGA */}
+          {adminTab === 'inventory' && (
+            <InventoryTab
+              inventoryDraft={inventoryDraft}
+              setInventoryDraft={setInventoryDraft}
+              onSaveInventory={onSaveInventory}
+            />
+          )}
+
+          {/* TAB 3: LAPORAN PENJUALAN */}
+          {adminTab === 'reports' && (
+            <SalesReportTab orders={orders} />
+          )}
+        </div>
+      );
+    }
+
+    // --- TAB: INCOMING ORDERS ---
+    function IncomingOrdersTab({ orders, onUpdateOrderStatus }) {
+      return (
+        <section class="space-y-4">
+          <h2 class="text-xs font-bold text-slate-400 tracking-wider uppercase">Daftar Pesanan Terbaru</h2>
+          
+          {orders.length === 0 ? (
+            <div class="py-12 text-center border border-dashed border-slate-200 text-slate-500 text-sm">
+              Belum ada pesanan masuk saat ini.
+            </div>
+          ) : (
+            orders.map(order => (
+              <div key={order.id} class="border border-slate-200 p-5 bg-white space-y-4">
+                <div class="flex flex-wrap items-center justify-between border-b border-slate-100 pb-3 gap-2">
+                  <div>
+                    <span class="text-sm font-bold text-slate-900 mr-3">{order.id}</span>
+                    <span class="text-xs font-semibold text-slate-600 mr-2">{order.customerName}</span>
+                    <span class="text-xs px-2 py-0.5 bg-slate-100 border border-slate-200 text-slate-700 font-mono">
+                      {order.deliveryType}
+                    </span>
+                  </div>
+
+                  <div class="flex items-center space-x-2">
+                    <span class="text-xs font-bold px-2 py-0.5 bg-slate-900 text-white">
+                      {order.paymentStatus}
+                    </span>
+                    <span class={`text-xs font-bold px-2 py-0.5 border ${
+                      order.orderStatus === 'Menunggu Konfirmasi' ? 'bg-amber-50 text-amber-800 border-amber-200' :
+                      order.orderStatus === 'Selesai' ? 'bg-slate-100 text-slate-800 border-slate-300' :
+                      'bg-red-50 text-red-700 border-red-200'
+                    }`}>
+                      {order.orderStatus}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Items */}
+                <div class="space-y-1 text-xs text-slate-700">
+                  {order.items.map((item, idx) => (
+                    <div key={idx} class="flex justify-between">
+                      <span>• {item.name} &times; {item.qty}</span>
+                      <span class="font-mono text-slate-900">{formatIDR(item.price * item.qty)}</span>
+                    </div>
+                  ))}
+                  <div class="border-t border-slate-100 pt-2 mt-2 flex justify-between font-bold text-sm text-slate-900">
+                    <span>Total Transaksi</span>
+                    <span>{formatIDR(order.totalAmount)}</span>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                {order.orderStatus === 'Menunggu Konfirmasi' && (
+                  <div class="flex space-x-3 pt-2">
+                    <button
+                      onClick={() => onUpdateOrderStatus(order.id, 'Selesai')}
+                      class="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider transition"
+                    >
+                      Konfirmasi & Siapkan
+                    </button>
+                    <button
+                      onClick={() => onUpdateOrderStatus(order.id, 'Dibatalkan')}
+                      class="px-5 py-2.5 border border-slate-300 hover:border-slate-800 text-slate-700 hover:text-slate-900 font-bold text-xs uppercase tracking-wider transition"
+                    >
+                      Tolak
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </section>
+      );
+    }
+
+    // --- TAB: INVENTORY ---
+    function InventoryTab({ inventoryDraft, setInventoryDraft, onSaveInventory }) {
+      const handlePriceChange = (id, newPrice) => {
+        setInventoryDraft(prev => prev.map(m => m.id === id ? { ...m, price: Number(newPrice) || 0 } : m));
+      };
+
+      const handleStockChange = (id, newStock) => {
+        const stockNum = Math.max(0, Number(newStock) || 0);
+        setInventoryDraft(prev => prev.map(m => m.id === id ? { 
+          ...m, 
+          stock: stockNum,
+          status: stockNum === 0 ? 'Habis' : m.status
+        } : m));
+      };
+
+      const handleToggleStatus = (id) => {
+        setInventoryDraft(prev => prev.map(m => m.id === id ? {
+          ...m,
+          status: m.status === 'Tersedia' ? 'Habis' : 'Tersedia'
+        } : m));
+      };
+
+      return (
+        <section class="space-y-6">
+          <div class="flex items-center justify-between">
+            <h2 class="text-xs font-bold text-slate-400 tracking-wider uppercase">Daftar Obat & Pengaturan</h2>
+            <button
+              onClick={onSaveInventory}
+              class="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider transition shadow"
+            >
+              Simpan Perubahan
+            </button>
+          </div>
+
+          <div class="border border-slate-200 overflow-x-auto bg-white">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  <th class="p-3">Nama Obat</th>
+                  <th class="p-3">Harga (IDR)</th>
+                  <th class="p-3">Jumlah Stok</th>
+                  <th class="p-3 text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-200 text-sm">
+                {inventoryDraft.map(item => (
+                  <tr key={item.id} class="hover:bg-slate-50/50">
+                    <td class="p-3 font-bold text-slate-900">{item.name}</td>
+                    <td class="p-3">
+                      <div class="flex items-center border border-slate-300 w-32 px-2 py-1 bg-white">
+                        <span class="text-xs text-slate-400 mr-1 font-mono">Rp</span>
+                        <input
+                          type="number"
+                          value={item.price}
+                          onChange={(e) => handlePriceChange(item.id, e.target.value)}
+                          class="w-full text-sm font-bold text-slate-900 focus:outline-none"
+                        />
+                      </div>
+                    </td>
+                    <td class="p-3">
+                      <input
+                        type="number"
+                        value={item.stock}
+                        onChange={(e) => handleStockChange(item.id, e.target.value)}
+                        class="border border-slate-300 w-24 p-1 text-sm font-bold text-slate-900 text-center focus:outline-none bg-white"
+                      />
+                    </td>
+                    <td class="p-3 text-center">
+                      <button
+                        onClick={() => handleToggleStatus(item.id)}
+                        class={`px-3 py-1 text-xs font-bold border transition ${
+                          item.status === 'Tersedia' ? 'bg-slate-900 text-white border-slate-900' : 'bg-slate-100 text-slate-500 border-slate-300'
+                        }`}
+                      >
+                        {item.status === 'Tersedia' ? 'Tersedia' : 'Habis'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="sticky bottom-4 border border-slate-900 bg-slate-900 text-white p-4 shadow-xl flex items-center justify-between">
+            <span class="text-xs text-slate-300 font-medium">Lakukan perubahan harga & stok secara langsung di tabel di atas.</span>
+            <button
+              onClick={onSaveInventory}
+              class="px-6 py-2.5 bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs tracking-wider uppercase transition"
+            >
+              Simpan Perubahan
+            </button>
+          </div>
+        </section>
+      );
+    }
+
+    // --- TAB: SALES REPORT ---
+    function SalesReportTab({ orders }) {
+      const completedOrders = useMemo(() => {
+        return orders.filter(o => o.orderStatus === 'Selesai');
+      }, [orders]);
+
+      const totalSalesToday = useMemo(() => {
+        return completedOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+      }, [completedOrders]);
+
+      return (
+        <section class="space-y-6">
+          <h2 class="text-xs font-bold text-slate-400 tracking-wider uppercase">Ringkasan Penjualan Hari Ini</h2>
+
+          {/* Summary Cards */}
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="border border-slate-200 p-6 bg-white space-y-1">
+              <span class="text-xs font-bold text-slate-400 uppercase tracking-wider block">Total Penjualan Hari Ini</span>
+              <span class="text-3xl font-extrabold text-slate-900">{formatIDR(totalSalesToday)}</span>
+            </div>
+
+            <div class="border border-slate-200 p-6 bg-white space-y-1">
+              <span class="text-xs font-bold text-slate-400 uppercase tracking-wider block">Total Pesanan Selesai</span>
+              <span class="text-3xl font-extrabold text-slate-900">{completedOrders.length} Pesanan</span>
+            </div>
+          </div>
+
+          {/* Transaction History Table */}
+          <div>
+            <h3 class="text-xs font-bold text-slate-400 tracking-wider uppercase mb-3">Riwayat Transaksi</h3>
+            <div class="border border-slate-200 overflow-x-auto bg-white">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                    <th class="p-3">Waktu / Tanggal</th>
+                    <th class="p-3">ID Pesanan</th>
+                    <th class="p-3">Pemesan</th>
+                    <th class="p-3">Total Harga</th>
+                    <th class="p-3 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200 text-xs">
+                  {orders.map(order => (
+                    <tr key={order.id} class="hover:bg-slate-50/50">
+                      <td class="p-3 text-slate-500 font-mono">{order.timestamp}</td>
+                      <td class="p-3 font-bold text-slate-900">{order.id}</td>
+                      <td class="p-3 text-slate-700">{order.customerName}</td>
+                      <td class="p-3 font-bold text-slate-900">{formatIDR(order.totalAmount)}</td>
+                      <td class="p-3 text-center">
+                        <span class={`inline-block px-2.5 py-0.5 font-bold uppercase text-[10px] border ${
+                          order.orderStatus === 'Selesai' ? 'bg-slate-900 text-white border-slate-900' :
+                          order.orderStatus === 'Dibatalkan' ? 'bg-red-50 text-red-600 border-red-200' :
+                          'bg-amber-50 text-amber-800 border-amber-200'
+                        }`}>
+                          {order.orderStatus}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    // Render App
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
