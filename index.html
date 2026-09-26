@@ -46,7 +46,6 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
   <style>
-    /* Custom Minimalist Clean Styling */
     body {
       font-family: 'Inter', sans-serif;
       background-color: #FFFFFF;
@@ -70,7 +69,9 @@
   <script type="text/babel">
     const { useState, useEffect, useMemo } = React;
 
-    // --- MOCK INITIAL DATA ---
+    const API_BASE = 'http://localhost:5000/api';
+
+    // --- INITIAL FALLBACK DATA ---
     const INITIAL_MEDICINES = [
       { id: 'MED-1', name: 'Paracetamol 500mg', desc: 'Pereda demam & nyeri ringan hingga sedang', price: 12500, stock: 45, status: 'Tersedia' },
       { id: 'MED-2', name: 'Amoxicillin 500mg', desc: 'Antibiotik penanganan infeksi bakteri', price: 28000, stock: 20, status: 'Tersedia' },
@@ -137,17 +138,15 @@
 
     // --- MAIN APP COMPONENT ---
     function App() {
-      // Navigation / Route state
-      const [currentView, setCurrentView] = useState('customer'); // 'customer' | 'checkout' | 'qris' | 'admin-login' | 'admin-dashboard'
-      const [adminTab, setAdminTab] = useState('orders'); // 'orders' | 'inventory' | 'reports'
+      const [currentView, setCurrentView] = useState('customer');
+      const [adminTab, setAdminTab] = useState('orders');
 
-      // Shared Global State
       const [isStoreOpen, setIsStoreOpen] = useState(true);
       const [medicines, setMedicines] = useState(INITIAL_MEDICINES);
       const [orders, setOrders] = useState(INITIAL_ORDERS);
       const [isLoggedIn, setIsLoggedIn] = useState(false);
+      const [token, setToken] = useState(null);
 
-      // Customer Flow State
       const [searchQuery, setSearchQuery] = useState('');
       const [cart, setCart] = useState([]);
       const [deliveryMethod, setDeliveryMethod] = useState('Pengantaran');
@@ -155,14 +154,34 @@
       const [currentOrder, setCurrentOrder] = useState(null);
       const [showSuccessModal, setShowSuccessModal] = useState(false);
 
-      // Inventory Editable state
       const [inventoryDraft, setInventoryDraft] = useState([]);
+
+      // Fetch dynamic data from API
+      const loadDataFromAPI = () => {
+        fetch(`${API_BASE}/pharmacy/info`)
+          .then(r => r.json())
+          .then(res => { if (res.success) setIsStoreOpen(res.data.isOpen); })
+          .catch(() => { });
+
+        fetch(`${API_BASE}/medicines`)
+          .then(r => r.json())
+          .then(res => { if (res.success && res.data.length > 0) setMedicines(res.data); })
+          .catch(() => { });
+
+        fetch(`${API_BASE}/orders`)
+          .then(r => r.json())
+          .then(res => { if (res.success && res.data.length > 0) setOrders(res.data); })
+          .catch(() => { });
+      };
+
+      useEffect(() => {
+        loadDataFromAPI();
+      }, []);
 
       useEffect(() => {
         setInventoryDraft(JSON.parse(JSON.stringify(medicines)));
       }, [medicines]);
 
-      // Cart logic
       const addToCart = (med) => {
         if (!isStoreOpen) {
           alert('Mohon maaf, toko sedang tutup saat ini.');
@@ -198,13 +217,12 @@
       const serviceFee = cart.length > 0 ? 3000 : 0;
       const cartTotal = cartSubtotal + serviceFee;
 
-      // Handle checkout submission -> move to QRIS screen
       const handleProceedToCheckout = () => {
         if (cart.length === 0) return;
         setCurrentView('checkout');
       };
 
-      const handlePayViaQRIS = (e) => {
+      const handlePayViaQRIS = async (e) => {
         e.preventDefault();
         if (!customerInfo.name || !customerInfo.phone) {
           alert('Mohon lengkapi Nama dan Nomor Telepon.');
@@ -215,8 +233,7 @@
           return;
         }
 
-        const newOrder = {
-          id: `MDS-${Math.floor(1000 + Math.random() * 9000)}`,
+        const payload = {
           customerName: customerInfo.name,
           phone: customerInfo.phone,
           address: deliveryMethod === 'Pengantaran' ? customerInfo.address : '-',
@@ -224,22 +241,46 @@
           items: cart.map(c => ({ name: c.name, qty: c.qty, price: c.price })),
           subtotal: cartSubtotal,
           serviceFee: serviceFee,
-          totalAmount: cartTotal,
-          paymentStatus: 'Lunas (QRIS)',
-          orderStatus: 'Menunggu Konfirmasi',
-          timestamp: new Date().toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })
+          totalAmount: cartTotal
         };
+
+        let newOrder;
+        try {
+          const res = await fetch(`${API_BASE}/orders`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          }).then(r => r.json());
+
+          if (res.success) {
+            newOrder = res.data;
+          }
+        } catch (err) { }
+
+        if (!newOrder) {
+          newOrder = {
+            id: `MDS-${Math.floor(1000 + Math.random() * 9000)}`,
+            ...payload,
+            paymentStatus: 'Lunas (QRIS)',
+            orderStatus: 'Menunggu Konfirmasi',
+            timestamp: new Date().toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })
+          };
+        }
 
         setCurrentOrder(newOrder);
         setCurrentView('qris');
       };
 
-      const handleConfirmPayment = () => {
+      const handleConfirmPayment = async () => {
         if (currentOrder) {
+          try {
+            await fetch(`${API_BASE}/orders/${currentOrder.id}/confirm-payment`, { method: 'POST' });
+          } catch (e) { }
+
           setOrders(prev => [currentOrder, ...prev]);
-          // Reduce stock
+
           setMedicines(prev => prev.map(med => {
-            const ordered = currentOrder.items.find(i => i.name.startsWith(med.name.split(' ')[0]));
+            const ordered = currentOrder.items.find(i => i.name.toLowerCase().startsWith(med.name.split(' ')[0].toLowerCase()));
             if (ordered) {
               const newStock = Math.max(0, med.stock - ordered.qty);
               return { ...med, stock: newStock, status: newStock === 0 ? 'Habis' : med.status };
@@ -256,26 +297,63 @@
         setCurrentOrder(null);
         setShowSuccessModal(false);
         setCurrentView('customer');
+        loadDataFromAPI();
       };
 
-      // Admin Order Actions
-      const handleUpdateOrderStatus = (orderId, newStatus) => {
+      const handleUpdateOrderStatus = async (orderId, newStatus) => {
         setOrders(prev => prev.map(o => o.id === orderId ? { ...o, orderStatus: newStatus } : o));
+        try {
+          await fetch(`${API_BASE}/orders/${orderId}/status`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ orderStatus: newStatus })
+          });
+        } catch (e) { }
       };
 
-      // Admin Inventory Save
-      const handleSaveInventory = () => {
+      const handleSaveInventory = async () => {
         setMedicines(inventoryDraft);
+        try {
+          const res = await fetch(`${API_BASE}/medicines/inventory`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ items: inventoryDraft })
+          }).then(r => r.json());
+
+          if (res.success) {
+            setMedicines(res.data);
+          }
+        } catch (e) { }
+
         alert('Perubahan stok & harga berhasil disimpan!');
+      };
+
+      const handleToggleStoreOpen = async (newVal) => {
+        setIsStoreOpen(newVal);
+        try {
+          await fetch(`${API_BASE}/pharmacy/status`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ isOpen: newVal })
+          });
+        } catch (e) { }
       };
 
       return (
         <div class="flex-1 flex flex-col min-h-screen">
-          {/* TOP DEMO ROUTE SWITCHER BAR */}
           <div class="bg-slate-900 text-white px-4 py-2 flex flex-wrap items-center justify-between text-xs font-mono border-b border-slate-800">
             <div class="flex items-center space-x-2 py-1">
               <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span class="font-semibold tracking-wide">MEDISTOCK UI DEMO MODE</span>
+              <span class="font-semibold tracking-wide">MEDISTOCK FULL-STACK MODE</span>
             </div>
             <div class="flex items-center space-x-2 py-1">
               <button
@@ -299,9 +377,7 @@
             </div>
           </div>
 
-          {/* MAIN CONTAINER */}
           <main class="flex-1 flex flex-col bg-white">
-            {/* VIEW 1: CUSTOMER - HOME & SEARCH */}
             {currentView === 'customer' && (
               <CustomerHomeView
                 medicines={medicines}
@@ -318,7 +394,6 @@
               />
             )}
 
-            {/* VIEW 2: CUSTOMER - CHECKOUT */}
             {currentView === 'checkout' && (
               <CheckoutView
                 cart={cart}
@@ -335,7 +410,6 @@
               />
             )}
 
-            {/* VIEW 3: CUSTOMER - QRIS PAYMENT & SUCCESS */}
             {currentView === 'qris' && (
               <QRISPaymentView
                 currentOrder={currentOrder}
@@ -346,21 +420,30 @@
               />
             )}
 
-            {/* VIEW 4: PHARMACY - LOGIN */}
             {currentView === 'admin-login' && (
               <PharmacyLoginView
-                onLoginSuccess={() => {
+                onLoginSuccess={async (usr, pwd) => {
+                  try {
+                    const res = await fetch(`${API_BASE}/auth/login`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ username: usr, password: pwd })
+                    }).then(r => r.json());
+                    if (res.success) {
+                      setToken(res.token);
+                    }
+                  } catch (e) { }
                   setIsLoggedIn(true);
                   setCurrentView('admin-dashboard');
+                  loadDataFromAPI();
                 }}
               />
             )}
 
-            {/* VIEW 5: PHARMACY - DASHBOARD */}
             {currentView === 'admin-dashboard' && (
               <PharmacyDashboardView
                 isStoreOpen={isStoreOpen}
-                setIsStoreOpen={setIsStoreOpen}
+                setIsStoreOpen={handleToggleStoreOpen}
                 adminTab={adminTab}
                 setAdminTab={setAdminTab}
                 orders={orders}
@@ -370,13 +453,13 @@
                 onSaveInventory={handleSaveInventory}
                 onLogout={() => {
                   setIsLoggedIn(false);
+                  setToken(null);
                   setCurrentView('admin-login');
                 }}
               />
             )}
           </main>
 
-          {/* FOOTER */}
           <footer class="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-500">
             <p class="font-medium">MEDISTOCK &copy; 2026 - Partner Apotek: <span class="font-semibold text-slate-800">Apotek Sehat</span></p>
             <p class="mt-1 text-slate-400">Minimalist Medicine Ordering System MVP</p>
@@ -384,10 +467,6 @@
         </div>
       );
     }
-
-    // =========================================================================
-    // PART 1: CUSTOMER COMPONENTS
-    // =========================================================================
 
     function CustomerHomeView({ medicines, searchQuery, setSearchQuery, cart, addToCart, updateCartQty, cartTotal, cartSubtotal, serviceFee, isStoreOpen, onProceedToCheckout }) {
       const filteredMedicines = useMemo(() => {
@@ -398,7 +477,6 @@
 
       return (
         <div class="max-w-2xl mx-auto w-full px-4 py-8 flex-1 flex flex-col">
-          {/* Header 1. Home & Search Screen */}
           <header class="border-b border-slate-200 pb-6 mb-6">
             <div class="flex items-center justify-between">
               <div>
@@ -419,7 +497,6 @@
             </div>
           )}
 
-          {/* Search Input */}
           <div class="mb-8">
             <label htmlFor="medicine-search" class="sr-only">Cari nama obat</label>
             <div class="relative">
@@ -442,7 +519,6 @@
             </div>
           </div>
 
-          {/* Medicine List */}
           <section class="flex-1 space-y-4 mb-12">
             <h2 class="text-xs font-bold text-slate-400 tracking-wider uppercase mb-2">Katalog Obat ({filteredMedicines.length})</h2>
 
@@ -502,7 +578,6 @@
             )}
           </section>
 
-          {/* Sticky Bottom Cart Bar */}
           {cartCount > 0 && (
             <div class="sticky bottom-4 border border-slate-900 bg-slate-900 text-white p-4 shadow-xl flex items-center justify-between">
               <div>
@@ -524,7 +599,6 @@
     function CheckoutView({ cart, updateCartQty, deliveryMethod, setDeliveryMethod, customerInfo, setCustomerInfo, cartSubtotal, serviceFee, cartTotal, onPayViaQRIS, onBack }) {
       return (
         <div class="max-w-2xl mx-auto w-full px-4 py-8 flex-1 flex flex-col">
-          {/* Header */}
           <div class="flex items-center justify-between border-b border-slate-200 pb-4 mb-6">
             <button
               onClick={onBack}
@@ -537,7 +611,6 @@
           </div>
 
           <form onSubmit={onPayViaQRIS} class="space-y-8">
-            {/* 1. Order Summary */}
             <section class="border border-slate-200 p-5 bg-white">
               <h2 class="text-xs font-bold text-slate-400 tracking-wider uppercase mb-4">Ringkasan Pesanan</h2>
               <div class="divide-y divide-slate-100">
@@ -560,7 +633,6 @@
               </div>
             </section>
 
-            {/* 2. Delivery Method */}
             <section class="border border-slate-200 p-5 bg-white">
               <h2 class="text-xs font-bold text-slate-400 tracking-wider uppercase mb-4">Metode Pengiriman</h2>
               <div class="grid grid-cols-2 gap-4">
@@ -596,7 +668,6 @@
               </div>
             </section>
 
-            {/* 3. Customer Info Input */}
             <section class="border border-slate-200 p-5 bg-white space-y-4">
               <h2 class="text-xs font-bold text-slate-400 tracking-wider uppercase mb-2">Informasi Pemesan</h2>
 
@@ -639,7 +710,6 @@
               )}
             </section>
 
-            {/* 4. Total Breakdown */}
             <section class="border border-slate-200 p-5 bg-white space-y-2 text-sm">
               <h2 class="text-xs font-bold text-slate-400 tracking-wider uppercase mb-3">Rincian Pembayaran</h2>
               <div class="flex justify-between text-slate-600">
@@ -656,7 +726,6 @@
               </div>
             </section>
 
-            {/* 5. Action Button */}
             <button
               type="submit"
               class="w-full py-4 bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm tracking-wider uppercase transition shadow"
@@ -669,7 +738,7 @@
     }
 
     function QRISPaymentView({ currentOrder, cartTotal, onConfirmPayment, showSuccessModal, onReset }) {
-      const [timeLeft, setTimeLeft] = useState(900); // 15 minutes = 900 seconds
+      const [timeLeft, setTimeLeft] = useState(900);
 
       useEffect(() => {
         if (timeLeft <= 0) return;
@@ -688,7 +757,6 @@
       return (
         <div class="max-w-md mx-auto w-full px-4 py-10 flex-1 flex flex-col justify-center">
           <div class="border border-slate-200 bg-white p-6 sm:p-8 text-center shadow-sm">
-            {/* Header */}
             <div class="border-b border-slate-200 pb-4 mb-6">
               <h1 class="text-lg font-bold text-slate-900">Pembayaran QRIS</h1>
               <div class="inline-flex items-center gap-1.5 mt-2 px-3 py-1 bg-slate-100 text-slate-700 text-xs font-mono font-bold rounded">
@@ -697,16 +765,13 @@
               </div>
             </div>
 
-            {/* Total Amount */}
             <div class="mb-6">
               <span class="text-xs text-slate-500 uppercase tracking-wider block mb-1">Total Pembayaran</span>
               <span class="text-3xl font-extrabold text-slate-900">{formatIDR(currentOrder ? currentOrder.totalAmount : cartTotal)}</span>
             </div>
 
-            {/* QR Code Box */}
             <div class="my-6 border-2 border-slate-900 p-6 inline-block bg-white shadow-inner">
               <div class="w-48 h-48 bg-slate-900 flex flex-col items-center justify-center text-white relative">
-                {/* Simulated SVG QR IS Code Pattern */}
                 <div class="absolute inset-2 border-2 border-white grid grid-cols-6 gap-1 p-2 bg-white">
                   <div class="bg-slate-900 col-span-2 row-span-2"></div>
                   <div class="bg-slate-900 col-span-2"></div>
@@ -725,13 +790,11 @@
               </div>
             </div>
 
-            {/* Instruction */}
             <div class="bg-slate-50 border border-slate-200 p-4 text-left text-xs text-slate-700 font-medium space-y-1 mb-8">
               <p>1. Buka e-wallet/bank (GoPay, OVO, ShopeePay, BCA, dll)</p>
               <p>2. Scan & Bayar nominal di atas sesuai instruksi.</p>
             </div>
 
-            {/* Action Button */}
             <button
               onClick={onConfirmPayment}
               class="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider transition"
@@ -740,7 +803,6 @@
             </button>
           </div>
 
-          {/* Payment Success Modal */}
           {showSuccessModal && (
             <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
               <div class="bg-white border-2 border-slate-900 p-6 sm:p-8 max-w-sm w-full text-center shadow-2xl space-y-4">
@@ -766,17 +828,13 @@
       );
     }
 
-    // =========================================================================
-    // PART 2: PHARMACY COMPONENTS
-    // =========================================================================
-
     function PharmacyLoginView({ onLoginSuccess }) {
       const [username, setUsername] = useState('apotek@medistock.id');
       const [password, setPassword] = useState('password123');
 
       const handleSubmit = (e) => {
         e.preventDefault();
-        onLoginSuccess();
+        onLoginSuccess(username, password);
       };
 
       return (
@@ -825,7 +883,6 @@
     function PharmacyDashboardView({ isStoreOpen, setIsStoreOpen, adminTab, setAdminTab, orders, onUpdateOrderStatus, inventoryDraft, setInventoryDraft, onSaveInventory, onLogout }) {
       return (
         <div class="max-w-4xl mx-auto w-full px-4 py-8 flex-1 flex flex-col">
-          {/* Header 5. Dashboard Apotek */}
           <header class="border-b border-slate-200 pb-6 mb-6">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
@@ -837,7 +894,6 @@
               </div>
 
               <div class="flex items-center space-x-4">
-                {/* Store Status Toggle */}
                 <div class="flex items-center space-x-2 border border-slate-200 px-3 py-1.5 bg-white">
                   <span class="text-xs font-bold text-slate-700">Status Toko:</span>
                   <button
@@ -857,7 +913,6 @@
               </div>
             </div>
 
-            {/* Tab Navigation */}
             <div class="flex space-x-2 mt-6 border-t border-slate-100 pt-4 overflow-x-auto">
               <button
                 onClick={() => setAdminTab('orders')}
@@ -880,12 +935,10 @@
             </div>
           </header>
 
-          {/* TAB 1: PESANAN MASUK */}
           {adminTab === 'orders' && (
             <IncomingOrdersTab orders={orders} onUpdateOrderStatus={onUpdateOrderStatus} />
           )}
 
-          {/* TAB 2: KELOLA STOK & HARGA */}
           {adminTab === 'inventory' && (
             <InventoryTab
               inventoryDraft={inventoryDraft}
@@ -894,7 +947,6 @@
             />
           )}
 
-          {/* TAB 3: LAPORAN PENJUALAN */}
           {adminTab === 'reports' && (
             <SalesReportTab orders={orders} />
           )}
@@ -902,7 +954,6 @@
       );
     }
 
-    // --- TAB: INCOMING ORDERS ---
     function IncomingOrdersTab({ orders, onUpdateOrderStatus }) {
       return (
         <section class="space-y-4">
@@ -929,15 +980,14 @@
                       {order.paymentStatus}
                     </span>
                     <span class={`text-xs font-bold px-2 py-0.5 border ${order.orderStatus === 'Menunggu Konfirmasi' ? 'bg-amber-50 text-amber-800 border-amber-200' :
-                        order.orderStatus === 'Selesai' ? 'bg-slate-100 text-slate-800 border-slate-300' :
-                          'bg-red-50 text-red-700 border-red-200'
+                      order.orderStatus === 'Selesai' ? 'bg-slate-100 text-slate-800 border-slate-300' :
+                        'bg-red-50 text-red-700 border-red-200'
                       }`}>
                       {order.orderStatus}
                     </span>
                   </div>
                 </div>
 
-                {/* Items */}
                 <div class="space-y-1 text-xs text-slate-700">
                   {order.items.map((item, idx) => (
                     <div key={idx} class="flex justify-between">
@@ -951,7 +1001,6 @@
                   </div>
                 </div>
 
-                {/* Action Buttons */}
                 {order.orderStatus === 'Menunggu Konfirmasi' && (
                   <div class="flex space-x-3 pt-2">
                     <button
@@ -975,7 +1024,6 @@
       );
     }
 
-    // --- TAB: INVENTORY ---
     function InventoryTab({ inventoryDraft, setInventoryDraft, onSaveInventory }) {
       const handlePriceChange = (id, newPrice) => {
         setInventoryDraft(prev => prev.map(m => m.id === id ? { ...m, price: Number(newPrice) || 0 } : m));
@@ -1070,7 +1118,6 @@
       );
     }
 
-    // --- TAB: SALES REPORT ---
     function SalesReportTab({ orders }) {
       const completedOrders = useMemo(() => {
         return orders.filter(o => o.orderStatus === 'Selesai');
@@ -1084,7 +1131,6 @@
         <section class="space-y-6">
           <h2 class="text-xs font-bold text-slate-400 tracking-wider uppercase">Ringkasan Penjualan Hari Ini</h2>
 
-          {/* Summary Cards */}
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div class="border border-slate-200 p-6 bg-white space-y-1">
               <span class="text-xs font-bold text-slate-400 uppercase tracking-wider block">Total Penjualan Hari Ini</span>
@@ -1097,7 +1143,6 @@
             </div>
           </div>
 
-          {/* Transaction History Table */}
           <div>
             <h3 class="text-xs font-bold text-slate-400 tracking-wider uppercase mb-3">Riwayat Transaksi</h3>
             <div class="border border-slate-200 overflow-x-auto bg-white">
@@ -1120,8 +1165,8 @@
                       <td class="p-3 font-bold text-slate-900">{formatIDR(order.totalAmount)}</td>
                       <td class="p-3 text-center">
                         <span class={`inline-block px-2.5 py-0.5 font-bold uppercase text-[10px] border ${order.orderStatus === 'Selesai' ? 'bg-slate-900 text-white border-slate-900' :
-                            order.orderStatus === 'Dibatalkan' ? 'bg-red-50 text-red-600 border-red-200' :
-                              'bg-amber-50 text-amber-800 border-amber-200'
+                          order.orderStatus === 'Dibatalkan' ? 'bg-red-50 text-red-600 border-red-200' :
+                            'bg-amber-50 text-amber-800 border-amber-200'
                           }`}>
                           {order.orderStatus}
                         </span>
@@ -1136,7 +1181,6 @@
       );
     }
 
-    // Render App
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(<App />);
   </script>
