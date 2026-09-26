@@ -1,21 +1,30 @@
-import { query, run, getOne } from '../config/database.js';
+import prisma from '../config/database.js';
 
 // Get all orders (Pharmacy Dashboard & Reports)
 export const getOrders = async (req, res) => {
   try {
-    const orders = await query(`SELECT * FROM orders ORDER BY rowid DESC`);
+    const rawOrders = await prisma.orders.findMany({
+      include: {
+        items: true
+      },
+      orderBy: { id: 'desc' }
+    });
 
-    // Attach items to each order
-    for (const order of orders) {
-      const items = await query(`SELECT name, qty, price FROM order_items WHERE order_id = ?`, [order.id]);
-      order.items = items;
-      order.customerName = order.customer_name;
-      order.deliveryType = order.delivery_type;
-      order.serviceFee = order.service_fee;
-      order.totalAmount = order.total_amount;
-      order.paymentStatus = order.payment_status;
-      order.orderStatus = order.order_status;
-    }
+    // Attach items to each order and format to match frontend expectation
+    const orders = rawOrders.map(order => ({
+      ...order,
+      customerName: order.customer_name,
+      deliveryType: order.delivery_type,
+      serviceFee: order.service_fee,
+      totalAmount: order.total_amount,
+      paymentStatus: order.payment_status,
+      orderStatus: order.order_status,
+      items: order.items.map(item => ({
+        name: item.name,
+        qty: item.qty,
+        price: item.price
+      }))
+    }));
 
     res.json({ success: true, data: orders });
   } catch (error) {
@@ -36,30 +45,28 @@ export const createOrder = async (req, res) => {
     const orderId = `MDS-${Math.floor(1000 + Math.random() * 9000)}`;
     const timestamp = new Date().toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' });
 
-    await run(
-      `INSERT INTO orders (id, customer_name, phone, address, delivery_type, subtotal, service_fee, total_amount, payment_status, order_status, timestamp)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        orderId,
-        customerName,
+    await prisma.orders.create({
+      data: {
+        id: orderId,
+        customer_name: customerName,
         phone,
-        deliveryType === 'Pengantaran' ? address : '-',
-        deliveryType,
+        address: deliveryType === 'Pengantaran' ? address : '-',
+        delivery_type: deliveryType,
         subtotal,
-        serviceFee || 3000,
-        totalAmount,
-        'Lunas (QRIS)',
-        'Menunggu Konfirmasi',
-        timestamp
-      ]
-    );
-
-    for (const item of items) {
-      await run(
-        `INSERT INTO order_items (order_id, name, qty, price) VALUES (?, ?, ?, ?)`,
-        [orderId, item.name, item.qty, item.price]
-      );
-    }
+        service_fee: serviceFee || 3000,
+        total_amount: totalAmount,
+        payment_status: 'Lunas (QRIS)',
+        order_status: 'Menunggu Konfirmasi',
+        timestamp,
+        items: {
+          create: items.map(item => ({
+            name: item.name,
+            qty: item.qty,
+            price: item.price
+          }))
+        }
+      }
+    });
 
     const createdOrder = {
       id: orderId,
@@ -91,22 +98,23 @@ export const createOrder = async (req, res) => {
 export const confirmPayment = async (req, res) => {
   try {
     const { id } = req.params;
-    const order = await getOne(`SELECT * FROM orders WHERE id = ?`, [id]);
+    const order = await prisma.orders.findUnique({ where: { id }, include: { items: true } });
 
     if (!order) {
       return res.status(404).json({ success: false, message: 'Pesanan tidak ditemukan.' });
     }
 
-    const items = await query(`SELECT name, qty FROM order_items WHERE order_id = ?`, [id]);
-
     // Deduct stock for matching medicines
-    const medicines = await query(`SELECT * FROM medicines`);
-    for (const item of items) {
+    const medicines = await prisma.medicines.findMany();
+    for (const item of order.items) {
       const matchedMed = medicines.find(m => item.name.toLowerCase().startsWith(m.name.split(' ')[0].toLowerCase()));
       if (matchedMed) {
         const newStock = Math.max(0, matchedMed.stock - item.qty);
         const newStatus = newStock === 0 ? 'Habis' : matchedMed.status;
-        await run(`UPDATE medicines SET stock = ?, status = ? WHERE id = ?`, [newStock, newStatus, matchedMed.id]);
+        await prisma.medicines.update({
+          where: { id: matchedMed.id },
+          data: { stock: newStock, status: newStatus }
+        });
       }
     }
 
@@ -127,7 +135,10 @@ export const updateOrderStatus = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Status baru wajib diisi.' });
     }
 
-    await run(`UPDATE orders SET order_status = ? WHERE id = ?`, [orderStatus, id]);
+    await prisma.orders.update({
+      where: { id },
+      data: { order_status: orderStatus }
+    });
 
     res.json({ success: true, message: `Status pesanan ${id} berhasil diperbarui menjadi '${orderStatus}'.` });
   } catch (error) {

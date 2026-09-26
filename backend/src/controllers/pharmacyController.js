@@ -1,8 +1,10 @@
-import { getOne, run } from '../config/database.js';
+import prisma from '../config/database.js';
 
 export const getPharmacyInfo = async (req, res) => {
   try {
-    const info = await getOne(`SELECT * FROM pharmacy_info WHERE id = 'APOTEK-1'`);
+    const info = await prisma.pharmacy_info.findUnique({
+      where: { id: 'APOTEK-1' }
+    });
     res.json({
       success: true,
       data: {
@@ -22,7 +24,13 @@ export const toggleStoreStatus = async (req, res) => {
     const { isOpen } = req.body;
     const is_open = isOpen ? 1 : 0;
 
-    await run(`UPDATE pharmacy_info SET is_open = ?, updated_at = CURRENT_TIMESTAMP WHERE id = 'APOTEK-1'`, [is_open]);
+    await prisma.pharmacy_info.update({
+      where: { id: 'APOTEK-1' },
+      data: {
+        is_open,
+        updated_at: new Date()
+      }
+    });
 
     res.json({
       success: true,

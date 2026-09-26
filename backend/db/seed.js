@@ -1,5 +1,4 @@
-import { run, query, getOne } from '../src/config/database.js';
-import { initTables } from './init.js';
+import prisma from '../src/config/database.js';
 
 const INITIAL_MEDICINES = [
   { id: 'MED-1', name: 'Paracetamol 500mg', desc: 'Pereda demam & nyeri ringan hingga sedang', price: 12500, stock: 45, status: 'Tersedia' },
@@ -63,69 +62,75 @@ const INITIAL_ORDERS = [
 ];
 
 export async function seedDatabase() {
-  await initTables();
-
   // Check Pharmacy Info
-  const pharmacy = await getOne(`SELECT * FROM pharmacy_info WHERE id = 'APOTEK-1'`);
+  const pharmacy = await prisma.pharmacy_info.findUnique({ where: { id: 'APOTEK-1' } });
   if (!pharmacy) {
-    await run(
-      `INSERT INTO pharmacy_info (id, name, is_open) VALUES (?, ?, ?)`,
-      ['APOTEK-1', 'Apotek Sehat', 1]
-    );
+    await prisma.pharmacy_info.create({
+      data: {
+        id: 'APOTEK-1',
+        name: 'Apotek Sehat',
+        is_open: 1
+      }
+    });
     console.log('🌱 Seeded Pharmacy Info');
   }
 
   // Seed Medicines
-  const existingMeds = await query(`SELECT COUNT(*) as count FROM medicines`);
-  if (existingMeds[0].count === 0) {
-    for (const med of INITIAL_MEDICINES) {
-      await run(
-        `INSERT INTO medicines (id, name, desc, price, stock, status) VALUES (?, ?, ?, ?, ?, ?)`,
-        [med.id, med.name, med.desc, med.price, med.stock, med.status]
-      );
-    }
+  const existingMedsCount = await prisma.medicines.count();
+  if (existingMedsCount === 0) {
+    await prisma.medicines.createMany({
+      data: INITIAL_MEDICINES.map(m => ({
+        id: m.id,
+        name: m.name,
+        desc: m.desc,
+        price: m.price,
+        stock: m.stock,
+        status: m.status
+      }))
+    });
     console.log('🌱 Seeded Initial Medicines catalog');
   }
 
   // Seed Orders
-  const existingOrders = await query(`SELECT COUNT(*) as count FROM orders`);
-  if (existingOrders[0].count === 0) {
+  const existingOrdersCount = await prisma.orders.count();
+  if (existingOrdersCount === 0) {
     for (const order of INITIAL_ORDERS) {
-      await run(
-        `INSERT INTO orders (id, customer_name, phone, address, delivery_type, subtotal, service_fee, total_amount, payment_status, order_status, timestamp)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          order.id,
-          order.customerName,
-          order.phone,
-          order.address,
-          order.deliveryType,
-          order.subtotal,
-          order.serviceFee,
-          order.totalAmount,
-          order.paymentStatus,
-          order.orderStatus,
-          order.timestamp
-        ]
-      );
-
-      for (const item of order.items) {
-        await run(
-          `INSERT INTO order_items (order_id, name, qty, price) VALUES (?, ?, ?, ?)`,
-          [order.id, item.name, item.qty, item.price]
-        );
-      }
+      await prisma.orders.create({
+        data: {
+          id: order.id,
+          customer_name: order.customerName,
+          phone: order.phone,
+          address: order.address,
+          delivery_type: order.deliveryType,
+          subtotal: order.subtotal,
+          service_fee: order.serviceFee,
+          total_amount: order.totalAmount,
+          payment_status: order.paymentStatus,
+          order_status: order.orderStatus,
+          timestamp: order.timestamp,
+          items: {
+            create: order.items.map(i => ({
+              name: i.name,
+              qty: i.qty,
+              price: i.price
+            }))
+          }
+        }
+      });
     }
     console.log('🌱 Seeded Initial Orders & Order Items');
   }
 }
 
 if (process.argv[1]?.endsWith('seed.js')) {
-  seedDatabase().then(() => {
+  seedDatabase().then(async () => {
     console.log('✅ Database seeding complete.');
+    await prisma.$disconnect();
     process.exit(0);
-  }).catch(err => {
+  }).catch(async (err) => {
     console.error('❌ Seeding error:', err);
+    await prisma.$disconnect();
     process.exit(1);
   });
 }
+
