@@ -1,4 +1,5 @@
 import prisma from '../src/config/database.js';
+import bcrypt from 'bcryptjs';
 
 const INITIAL_MEDICINES = [
   { id: 'MED-1', name: 'Paracetamol 500mg', desc: 'Pereda demam & nyeri ringan hingga sedang', price: 12500, stock: 45, status: 'Tersedia' },
@@ -75,6 +76,31 @@ export async function seedDatabase() {
     console.log('🌱 Seeded Pharmacy Info');
   }
 
+  // Seed Initial User (Pharmacy Staff)
+  const existingUser = await prisma.users.findFirst({
+    where: {
+      OR: [
+        { email: 'apotek@medistock.id' },
+        { username: 'apotek' }
+      ]
+    }
+  });
+
+  if (!existingUser) {
+    const password_hash = await bcrypt.hash('password123', 10);
+    await prisma.users.create({
+      data: {
+        id: 'USER-APOTEK-1',
+        email: 'apotek@medistock.id',
+        username: 'apotek',
+        password_hash,
+        role: 'pharmacy_staff',
+        pharmacy_id: 'APOTEK-1'
+      }
+    });
+    console.log('🌱 Seeded Pharmacy Staff User (apotek@medistock.id)');
+  }
+
   // Seed Medicines
   const existingMedsCount = await prisma.medicines.count();
   if (existingMedsCount === 0) {
@@ -133,4 +159,5 @@ if (process.argv[1]?.endsWith('seed.js')) {
     process.exit(1);
   });
 }
+
 

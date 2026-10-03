@@ -38,7 +38,6 @@ medistock-app/
 │   ├── vite.config.js
 │   └── package.json
 ├── server.py                       # Zero-dependency Python API Server (untuk instant preview tanpa node)
-├── index.html                      # Single-file HTML Preview (Updated with REST API Integration)
 └── README.md                       # Dokumentasi Lengkap
 ```
 

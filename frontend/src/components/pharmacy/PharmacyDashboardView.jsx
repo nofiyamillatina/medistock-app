@@ -8,12 +8,18 @@ export default function PharmacyDashboardView({
   setIsStoreOpen,
   adminTab,
   setAdminTab,
-  orders,
+  orders = [],
   onUpdateOrderStatus,
-  inventoryDraft,
+  inventoryDraft = [],
   setInventoryDraft,
   onSaveInventory,
-  onLogout
+  onLogout,
+  loadingOrders = false,
+  errorOrders = null,
+  onRetryOrders,
+  loadingMedicines = false,
+  errorMedicines = null,
+  onRetryMedicines
 }) {
   const pendingOrdersCount = orders.filter((o) => o.orderStatus === 'Menunggu Konfirmasi').length;
 
@@ -96,7 +102,13 @@ export default function PharmacyDashboardView({
 
       {/* TAB 1: PESANAN MASUK */}
       {adminTab === 'orders' && (
-        <IncomingOrdersTab orders={orders} onUpdateOrderStatus={onUpdateOrderStatus} />
+        <IncomingOrdersTab
+          orders={orders}
+          onUpdateOrderStatus={onUpdateOrderStatus}
+          loadingOrders={loadingOrders}
+          errorOrders={errorOrders}
+          onRetryOrders={onRetryOrders}
+        />
       )}
 
       {/* TAB 2: KELOLA STOK & HARGA */}
@@ -105,6 +117,9 @@ export default function PharmacyDashboardView({
           inventoryDraft={inventoryDraft}
           setInventoryDraft={setInventoryDraft}
           onSaveInventory={onSaveInventory}
+          loadingMedicines={loadingMedicines}
+          errorMedicines={errorMedicines}
+          onRetryMedicines={onRetryMedicines}
         />
       )}
 
@@ -113,3 +128,4 @@ export default function PharmacyDashboardView({
     </div>
   );
 }
+

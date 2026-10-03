@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { formatIDR } from '../../services/formatters.js';
 
 export default function CustomerHomeView({
-  medicines,
+  medicines = [],
   searchQuery,
   setSearchQuery,
   cart,
@@ -10,13 +10,16 @@ export default function CustomerHomeView({
   updateCartQty,
   cartTotal,
   isStoreOpen,
-  onProceedToCheckout
+  onProceedToCheckout,
+  loadingMedicines = false,
+  errorMedicines = null,
+  onRetryMedicines
 }) {
   const filteredMedicines = useMemo(() => {
     return medicines.filter(
       (m) =>
         m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        m.desc.toLowerCase().includes(searchQuery.toLowerCase())
+        (m.desc && m.desc.toLowerCase().includes(searchQuery.toLowerCase()))
     );
   }, [medicines, searchQuery]);
 
@@ -81,12 +84,30 @@ export default function CustomerHomeView({
       {/* Medicine List */}
       <section className="flex-1 space-y-4 mb-12">
         <h2 className="text-xs font-bold text-slate-400 tracking-wider uppercase mb-2">
-          Katalog Obat ({filteredMedicines.length})
+          Katalog Obat ({loadingMedicines ? '...' : filteredMedicines.length})
         </h2>
 
-        {filteredMedicines.length === 0 ? (
+        {loadingMedicines ? (
+          <div className="py-12 text-center border border-slate-200 bg-white text-slate-500 text-sm space-y-2">
+            <p className="font-semibold">Memuat katalog obat...</p>
+          </div>
+        ) : errorMedicines ? (
+          <div className="py-8 px-6 text-center border border-red-200 bg-red-50 text-red-800 text-sm rounded space-y-3">
+            <p className="font-bold">{errorMedicines}</p>
+            {onRetryMedicines && (
+              <button
+                onClick={onRetryMedicines}
+                className="px-4 py-2 bg-red-700 hover:bg-red-800 text-white text-xs font-bold uppercase tracking-wider transition"
+              >
+                Coba Lagi
+              </button>
+            )}
+          </div>
+        ) : filteredMedicines.length === 0 ? (
           <div className="py-12 text-center border border-dashed border-slate-200 text-slate-500 text-sm">
-            Tidak ada obat yang cocok dengan kata kunci "{searchQuery}".
+            {searchQuery
+              ? `Tidak ada obat yang cocok dengan kata kunci "${searchQuery}".`
+              : 'Belum ada obat yang tersedia di katalog.'}
           </div>
         ) : (
           filteredMedicines.map((med) => {
@@ -172,3 +193,4 @@ export default function CustomerHomeView({
     </div>
   );
 }
+

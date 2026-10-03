@@ -1,14 +1,36 @@
 import React from 'react';
 import { formatIDR } from '../../services/formatters.js';
 
-export default function IncomingOrdersTab({ orders, onUpdateOrderStatus }) {
+export default function IncomingOrdersTab({
+  orders = [],
+  onUpdateOrderStatus,
+  loadingOrders = false,
+  errorOrders = null,
+  onRetryOrders
+}) {
   return (
     <section className="space-y-4">
       <h2 className="text-xs font-bold text-slate-400 tracking-wider uppercase">
         Daftar Pesanan Terbaru
       </h2>
 
-      {orders.length === 0 ? (
+      {loadingOrders ? (
+        <div className="py-12 text-center border border-slate-200 bg-white text-slate-500 text-sm">
+          Memuat pesanan masuk...
+        </div>
+      ) : errorOrders ? (
+        <div className="py-8 px-6 text-center border border-red-200 bg-red-50 text-red-800 text-sm rounded space-y-3">
+          <p className="font-bold">{errorOrders}</p>
+          {onRetryOrders && (
+            <button
+              onClick={onRetryOrders}
+              className="px-4 py-2 bg-red-700 hover:bg-red-800 text-white text-xs font-bold uppercase tracking-wider transition"
+            >
+              Coba Lagi
+            </button>
+          )}
+        </div>
+      ) : orders.length === 0 ? (
         <div className="py-12 text-center border border-dashed border-slate-200 text-slate-500 text-sm">
           Belum ada pesanan masuk saat ini.
         </div>
@@ -83,3 +105,4 @@ export default function IncomingOrdersTab({ orders, onUpdateOrderStatus }) {
     </section>
   );
 }
+

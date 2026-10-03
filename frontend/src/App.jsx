@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import DemoBanner from './components/common/DemoBanner.jsx';
 import Footer from './components/common/Footer.jsx';
 import CustomerHomeView from './components/customer/CustomerHomeView.jsx';
@@ -8,78 +8,27 @@ import PharmacyLoginView from './components/pharmacy/PharmacyLoginView.jsx';
 import PharmacyDashboardView from './components/pharmacy/PharmacyDashboardView.jsx';
 import { apiService } from './services/api.js';
 
-const INITIAL_MEDICINES = [
-  { id: 'MED-1', name: 'Paracetamol 500mg', desc: 'Pereda demam & nyeri ringan hingga sedang', price: 12500, stock: 45, status: 'Tersedia' },
-  { id: 'MED-2', name: 'Amoxicillin 500mg', desc: 'Antibiotik penanganan infeksi bakteri', price: 28000, stock: 20, status: 'Tersedia' },
-  { id: 'MED-3', name: 'Vitamin C 1000mg', desc: 'Suplemen daya tahan tubuh tablet kunyah', price: 35000, stock: 15, status: 'Tersedia' },
-  { id: 'MED-4', name: 'Antasida Doen Tablet', desc: 'Obat maag & asam lambung berlebih', price: 8500, stock: 30, status: 'Tersedia' },
-  { id: 'MED-5', name: 'Mefenamic Acid 500mg', desc: 'Pereda nyeri sakit gigi & nyeri haid', price: 18000, stock: 0, status: 'Habis' }
-];
-
-const INITIAL_ORDERS = [
-  {
-    id: 'MDS-9824',
-    customerName: 'Budi Santoso',
-    phone: '081234567890',
-    address: 'Jl. Merdeka No. 12, Kel. Menteng',
-    deliveryType: 'Pengantaran',
-    items: [
-      { name: 'Paracetamol 500mg', qty: 2, price: 12500 },
-      { name: 'Vitamin C 1000mg', qty: 1, price: 35000 }
-    ],
-    subtotal: 60000,
-    serviceFee: 3000,
-    totalAmount: 63000,
-    paymentStatus: 'Lunas (QRIS)',
-    orderStatus: 'Menunggu Konfirmasi',
-    timestamp: '2026-09-20 20:45'
-  },
-  {
-    id: 'MDS-9823',
-    customerName: 'Siti Rahma',
-    phone: '085711223344',
-    address: '-',
-    deliveryType: 'Ambil Sendiri',
-    items: [
-      { name: 'Amoxicillin 500mg', qty: 1, price: 28000 }
-    ],
-    subtotal: 28000,
-    serviceFee: 3000,
-    totalAmount: 31000,
-    paymentStatus: 'Lunas (QRIS)',
-    orderStatus: 'Selesai',
-    timestamp: '2026-09-20 19:15'
-  },
-  {
-    id: 'MDS-9822',
-    customerName: 'Deni Kurniawan',
-    phone: '081988776655',
-    address: 'Jl. Sudirman No. 45',
-    deliveryType: 'Pengantaran',
-    items: [
-      { name: 'Paracetamol 500mg', qty: 1, price: 12500 },
-      { name: 'Antasida Doen Tablet', qty: 2, price: 8500 }
-    ],
-    subtotal: 29500,
-    serviceFee: 3000,
-    totalAmount: 32500,
-    paymentStatus: 'Lunas (QRIS)',
-    orderStatus: 'Selesai',
-    timestamp: '2026-09-20 18:30'
-  }
-];
-
 export default function App() {
   // Router / Navigation state
   const [currentView, setCurrentView] = useState('customer'); // 'customer' | 'checkout' | 'qris' | 'admin-login' | 'admin-dashboard'
   const [adminTab, setAdminTab] = useState('orders'); // 'orders' | 'inventory' | 'reports'
 
-  // Shared Application State
+  // Application Data State
   const [isStoreOpen, setIsStoreOpen] = useState(true);
-  const [medicines, setMedicines] = useState(INITIAL_MEDICINES);
-  const [orders, setOrders] = useState(INITIAL_ORDERS);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [token, setToken] = useState(null);
+  const [medicines, setMedicines] = useState([]);
+  const [orders, setOrders] = useState([]);
+
+  // Auth State
+  const [isLoggedIn, setIsLoggedIn] = useState(() => Boolean(localStorage.getItem('medistock_token')));
+  const [token, setToken] = useState(() => localStorage.getItem('medistock_token') || null);
+
+  // Loading & Error States
+  const [loadingMedicines, setLoadingMedicines] = useState(false);
+  const [errorMedicines, setErrorMedicines] = useState(null);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+  const [errorOrders, setErrorOrders] = useState(null);
+  const [loadingPharmacyInfo, setLoadingPharmacyInfo] = useState(false);
+  const [errorPharmacyInfo, setErrorPharmacyInfo] = useState(null);
 
   // Customer State
   const [searchQuery, setSearchQuery] = useState('');
@@ -92,32 +41,51 @@ export default function App() {
   // Inventory Editing Draft State
   const [inventoryDraft, setInventoryDraft] = useState([]);
 
-  // Fetch initial data from Backend API
-  const fetchAllData = async () => {
-    try {
-      const pInfo = await apiService.getPharmacyInfo();
-      if (pInfo && pInfo.success) {
-        setIsStoreOpen(pInfo.data.isOpen);
-      }
-
-      const medRes = await apiService.getMedicines();
-      if (medRes && medRes.success) {
-        setMedicines(medRes.data);
-      }
-
-      const ordRes = await apiService.getOrders();
-      if (ordRes && ordRes.success) {
-        setOrders(ordRes.data);
-      }
-    } catch (err) {
-      console.warn('Backend API connection warning:', err);
+  // Data Fetching Handlers
+  const fetchPharmacyInfo = useCallback(async () => {
+    setLoadingPharmacyInfo(true);
+    setErrorPharmacyInfo(null);
+    const pInfo = await apiService.getPharmacyInfo();
+    if (pInfo && pInfo.success) {
+      setIsStoreOpen(pInfo.data.isOpen);
+    } else {
+      setErrorPharmacyInfo(pInfo?.message || 'Gagal memuat informasi apotek.');
     }
-  };
-
-  useEffect(() => {
-    fetchAllData();
+    setLoadingPharmacyInfo(false);
   }, []);
 
+  const fetchMedicines = useCallback(async (query = '') => {
+    setLoadingMedicines(true);
+    setErrorMedicines(null);
+    const medRes = await apiService.getMedicines(query);
+    if (medRes && medRes.success) {
+      setMedicines(medRes.data);
+    } else {
+      setErrorMedicines(medRes?.message || 'Gagal memuat katalog obat dari server.');
+    }
+    setLoadingMedicines(false);
+  }, []);
+
+  const fetchOrders = useCallback(async () => {
+    setLoadingOrders(true);
+    setErrorOrders(null);
+    const ordRes = await apiService.getOrders();
+    if (ordRes && ordRes.success) {
+      setOrders(ordRes.data);
+    } else {
+      setErrorOrders(ordRes?.message || 'Gagal memuat data pesanan dari server.');
+    }
+    setLoadingOrders(false);
+  }, []);
+
+  // Initial mount data load
+  useEffect(() => {
+    fetchPharmacyInfo();
+    fetchMedicines();
+    fetchOrders();
+  }, [fetchPharmacyInfo, fetchMedicines, fetchOrders]);
+
+  // Keep inventory draft in sync with medicines state
   useEffect(() => {
     setInventoryDraft(JSON.parse(JSON.stringify(medicines)));
   }, [medicines]);
@@ -160,7 +128,7 @@ export default function App() {
   const serviceFee = cart.length > 0 ? 3000 : 0;
   const cartTotal = cartSubtotal + serviceFee;
 
-  // Navigation Handlers
+  // Navigation & Checkout Handlers
   const handleProceedToCheckout = () => {
     if (cart.length === 0) return;
     setCurrentView('checkout');
@@ -188,45 +156,20 @@ export default function App() {
       totalAmount: cartTotal
     };
 
-    // Try API call
     const res = await apiService.createOrder(orderPayload);
-    let newOrder;
     if (res && res.success) {
-      newOrder = res.data;
+      setCurrentOrder(res.data);
+      setCurrentView('qris');
     } else {
-      // Local fallback
-      newOrder = {
-        id: `MDS-${Math.floor(1000 + Math.random() * 9000)}`,
-        ...orderPayload,
-        paymentStatus: 'Lunas (QRIS)',
-        orderStatus: 'Menunggu Konfirmasi',
-        timestamp: new Date().toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })
-      };
+      alert(res?.message || 'Gagal membuat pesanan di server. Silakan coba lagi.');
     }
-
-    setCurrentOrder(newOrder);
-    setCurrentView('qris');
   };
 
   const handleConfirmPayment = async () => {
     if (currentOrder) {
       await apiService.confirmPayment(currentOrder.id);
-
-      setOrders((prev) => [currentOrder, ...prev]);
-
-      // Deduct stock locally
-      setMedicines((prev) =>
-        prev.map((med) => {
-          const ordered = currentOrder.items.find((i) =>
-            i.name.toLowerCase().startsWith(med.name.split(' ')[0].toLowerCase())
-          );
-          if (ordered) {
-            const newStock = Math.max(0, med.stock - ordered.qty);
-            return { ...med, stock: newStock, status: newStock === 0 ? 'Habis' : med.status };
-          }
-          return med;
-        })
-      );
+      fetchOrders();
+      fetchMedicines();
     }
     setShowSuccessModal(true);
   };
@@ -243,40 +186,56 @@ export default function App() {
   const handlePharmacyLogin = async (username, password) => {
     const res = await apiService.loginPharmacy(username, password);
     if (res && res.success) {
+      localStorage.setItem('medistock_token', res.token);
+      localStorage.setItem('medistock_user', JSON.stringify(res.user));
       setIsLoggedIn(true);
       setToken(res.token);
       setCurrentView('admin-dashboard');
-      fetchAllData();
+      fetchPharmacyInfo();
+      fetchMedicines();
+      fetchOrders();
+      return { success: true };
     } else {
-      // Prototype fallback
-      if ((username === 'apotek@medistock.id' || username === 'admin') && password === 'password123') {
-        setIsLoggedIn(true);
-        setCurrentView('admin-dashboard');
-      } else {
-        alert(res?.message || 'Login gagal.');
-      }
+      return { success: false, message: res?.message || 'Username/email atau password tidak valid.' };
     }
+  };
+
+  const handlePharmacyLogout = () => {
+    localStorage.removeItem('medistock_token');
+    localStorage.removeItem('medistock_user');
+    setIsLoggedIn(false);
+    setToken(null);
+    setCurrentView('admin-login');
   };
 
   const handleToggleStoreOpen = async (newStatus) => {
     setIsStoreOpen(newStatus);
-    await apiService.toggleStoreStatus(newStatus, token);
+    const res = await apiService.toggleStoreStatus(newStatus, token);
+    if (res && res.success) {
+      fetchPharmacyInfo();
+    } else {
+      alert(res?.message || 'Gagal mengubah status apotek.');
+      fetchPharmacyInfo();
+    }
   };
 
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
-    setOrders((prev) =>
-      prev.map((o) => (o.id === orderId ? { ...o, orderStatus: newStatus } : o))
-    );
-    await apiService.updateOrderStatus(orderId, newStatus, token);
+    const res = await apiService.updateOrderStatus(orderId, newStatus, token);
+    if (res && res.success) {
+      fetchOrders();
+    } else {
+      alert(res?.message || 'Gagal memperbarui status pesanan.');
+    }
   };
 
   const handleSaveInventory = async () => {
-    setMedicines(inventoryDraft);
     const res = await apiService.saveInventory(inventoryDraft, token);
     if (res && res.success) {
       setMedicines(res.data);
+      alert('Perubahan stok & harga berhasil disimpan!');
+    } else {
+      alert(res?.message || 'Gagal memperbarui inventaris.');
     }
-    alert('Perubahan stok & harga berhasil disimpan!');
   };
 
   return (
@@ -301,6 +260,9 @@ export default function App() {
             cartTotal={cartTotal}
             isStoreOpen={isStoreOpen}
             onProceedToCheckout={handleProceedToCheckout}
+            loadingMedicines={loadingMedicines}
+            errorMedicines={errorMedicines}
+            onRetryMedicines={() => fetchMedicines(searchQuery)}
           />
         )}
 
@@ -345,11 +307,13 @@ export default function App() {
             inventoryDraft={inventoryDraft}
             setInventoryDraft={setInventoryDraft}
             onSaveInventory={handleSaveInventory}
-            onLogout={() => {
-              setIsLoggedIn(false);
-              setToken(null);
-              setCurrentView('admin-login');
-            }}
+            onLogout={handlePharmacyLogout}
+            loadingOrders={loadingOrders}
+            errorOrders={errorOrders}
+            onRetryOrders={fetchOrders}
+            loadingMedicines={loadingMedicines}
+            errorMedicines={errorMedicines}
+            onRetryMedicines={fetchMedicines}
           />
         )}
       </main>
@@ -359,3 +323,4 @@ export default function App() {
     </div>
   );
 }
+

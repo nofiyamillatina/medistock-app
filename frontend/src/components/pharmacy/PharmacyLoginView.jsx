@@ -1,12 +1,25 @@
 import React, { useState } from 'react';
 
 export default function PharmacyLoginView({ onLoginSuccess }) {
-  const [username, setUsername] = useState('apotek@medistock.id');
-  const [password, setPassword] = useState('password123');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onLoginSuccess(username, password);
+    setErrorMessage('');
+    setIsSubmitting(true);
+    try {
+      const res = await onLoginSuccess(username, password);
+      if (res && !res.success) {
+        setErrorMessage(res.message || 'Login gagal. Silakan periksa kredensial Anda.');
+      }
+    } catch (err) {
+      setErrorMessage('Terjadi kesalahan saat menghubungi server.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -19,6 +32,12 @@ export default function PharmacyLoginView({ onLoginSuccess }) {
           </p>
         </div>
 
+        {errorMessage && (
+          <div className="mb-5 p-3 border border-red-200 bg-red-50 text-red-700 text-xs font-medium rounded">
+            {errorMessage}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
@@ -27,6 +46,7 @@ export default function PharmacyLoginView({ onLoginSuccess }) {
             <input
               type="text"
               required
+              placeholder="Masukkan username atau email"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="w-full border border-slate-300 p-2.5 text-sm text-slate-900 focus:outline-none focus:border-slate-900"
@@ -40,6 +60,7 @@ export default function PharmacyLoginView({ onLoginSuccess }) {
             <input
               type="password"
               required
+              placeholder="Masukkan password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full border border-slate-300 p-2.5 text-sm text-slate-900 focus:outline-none focus:border-slate-900"
@@ -48,12 +69,14 @@ export default function PharmacyLoginView({ onLoginSuccess }) {
 
           <button
             type="submit"
-            className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs tracking-wider uppercase transition mt-2"
+            disabled={isSubmitting}
+            className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs tracking-wider uppercase transition mt-2 disabled:opacity-50"
           >
-            Masuk ke Dashboard
+            {isSubmitting ? 'Memproses...' : 'Masuk ke Dashboard'}
           </button>
         </form>
       </div>
     </div>
   );
 }
+
