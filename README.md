@@ -141,3 +141,33 @@ npm run dev
 - **Pharmacy Portal**:
   - Email: `apotek@medistock.id`
   - Password: `password123`
+
+---
+
+## 🌐 Deployment Readiness & Production Setup
+
+MEDISTOCK dirancang dengan arsitektur terpisah (Decoupled Architecture) antara **Frontend (React + Vite)** dan **Backend (Express + Prisma)**:
+
+### 1. Environment Variables
+- **Backend (`backend/.env`)**:
+  - `PORT`: Port server backend (otomatis disesuaikan platform seperti Render/Railway/Heroku).
+  - `HOST`: Host binding (default: `0.0.0.0`).
+  - `DATABASE_URL`: Path SQLite database (`file:../db/medistock.db`).
+  - `JWT_SECRET`: Secret key acak untuk enkripsi JWT token (wajib diisi di production).
+  - `NODE_ENV`: Set `production`.
+  - `ALLOWED_ORIGIN`: URL Frontend production untuk kebijakan CORS (misal: `https://medistock.vercel.app`).
+
+- **Frontend (`frontend/.env`)**:
+  - `VITE_API_BASE_URL`: Base URL Backend API production (misal: `https://medistock-api.onrender.com/api`). Jika dikosongkan pada development, otomatis menggunakan Vite proxy (`/api`).
+
+### 2. Deploying Backend (Express + Prisma SQLite)
+- **Rekomendasi Platform**: Render / Railway / Fly.io / VPS (Ubuntu).
+- **Build Command**: `npm run build` (menjalankan `prisma generate`).
+- **Migration Command**: `npx prisma migrate deploy`
+- **Start Command**: `npm run start` (menjalankan `node src/server.js`).
+
+### 3. Deploying Frontend (React Static Build)
+- **Rekomendasi Platform**: Vercel / Netlify / Cloudflare Pages.
+- **Build Command**: `npm run build`
+- **Output Directory**: `dist`
+

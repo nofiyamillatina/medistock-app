@@ -1,4 +1,5 @@
-const API_BASE_URL = 'http://localhost:5000/api';
+const RAW_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+const API_BASE_URL = RAW_BASE_URL.endsWith('/') ? RAW_BASE_URL.slice(0, -1) : RAW_BASE_URL;
 
 const getHeaders = (customToken = null) => {
   const headers = { 'Content-Type': 'application/json' };

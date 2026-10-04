@@ -12,27 +12,33 @@ dotenv.config();
 
 // --- Startup validation ---
 if (!process.env.JWT_SECRET) {
-  console.warn('⚠️  WARNING: JWT_SECRET is not set. Using a default value is INSECURE in production.');
-  console.warn('   Set JWT_SECRET in your .env file. See backend/.env.example for reference.');
+  if (process.env.NODE_ENV === 'production') {
+    console.warn('⚠️  CRITICAL WARNING: JWT_SECRET is not set in environment variables!');
+  } else {
+    console.warn('⚠️  WARNING: JWT_SECRET is not set. Set JWT_SECRET in your .env file. See backend/.env.example for reference.');
+  }
 }
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const HOST = process.env.HOST || '0.0.0.0';
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
 // --- CORS Configuration ---
 // In development, allow the Vite dev server (localhost:3000).
-// In production, set ALLOWED_ORIGIN env var to your actual frontend domain.
-const allowedOrigins = NODE_ENV === 'production'
-  ? (process.env.ALLOWED_ORIGIN ? [process.env.ALLOWED_ORIGIN] : [])
-  : ['http://localhost:3000', 'http://127.0.0.1:3000'];
+// In production, set ALLOWED_ORIGIN env var to your actual frontend domain(s) or wildcard '*'.
+const rawAllowedOrigin = process.env.ALLOWED_ORIGIN || process.env.CORS_ORIGIN;
+const allowedOrigins = rawAllowedOrigin
+  ? rawAllowedOrigin.split(',').map(s => s.trim())
+  : (NODE_ENV === 'production' ? [] : ['http://localhost:3000', 'http://127.0.0.1:3000']);
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (e.g., curl, mobile apps, same-origin)
+    // Allow requests with no origin (e.g., curl, mobile apps, same-origin, server-to-server)
     if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    // In development, be permissive to avoid friction
+    if (allowedOrigins.length === 0 || allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
     if (NODE_ENV !== 'production') return callback(null, true);
     return callback(new Error(`CORS policy: origin '${origin}' not allowed.`));
   },
@@ -86,10 +92,10 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 // --- Start Server ---
 seedDatabase().then(() => {
-  app.listen(PORT, () => {
-    console.log(`🚀 MEDISTOCK Backend Server running on http://localhost:${PORT}`);
+  app.listen(PORT, HOST, () => {
+    console.log(`🚀 MEDISTOCK Backend Server running on http://${HOST}:${PORT}`);
     console.log(`   Environment : ${NODE_ENV}`);
-    console.log(`   CORS origin : ${allowedOrigins.join(', ') || '(all — non-production fallback)'}`);
+    console.log(`   CORS origin : ${allowedOrigins.join(', ') || '(permissive fallback)'}`);
   });
 }).catch(err => {
   console.error('❌ Failed to start server due to DB initialization error:', err);

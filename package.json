@@ -8,9 +8,13 @@
     "dev:backend": "npm run dev --prefix backend",
     "dev:frontend": "npm run dev --prefix frontend",
     "build": "npm run build --prefix frontend",
+    "build:frontend": "npm run build --prefix frontend",
+    "build:backend": "npm run build --prefix backend",
+    "start:backend": "npm run start --prefix backend",
     "install:all": "npm install --prefix backend && npm install --prefix frontend",
     "db:generate": "npm run db:generate --prefix backend",
     "db:migrate": "npm run db:migrate --prefix backend",
+    "db:migrate:deploy": "npm run db:migrate:deploy --prefix backend",
     "db:migrate:status": "npm run db:migrate:status --prefix backend",
     "db:seed": "npm run db:seed --prefix backend"
   },
