@@ -1,0 +1,20 @@
+{
+  "name": "medistock-app",
+  "version": "1.0.0",
+  "description": "MEDISTOCK - Pharmacy Ordering & Management App (Monorepo Root)",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently --names BACKEND,FRONTEND --prefix-colors cyan,magenta \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
+    "dev:backend": "npm run dev --prefix backend",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "build": "npm run build --prefix frontend",
+    "install:all": "npm install --prefix backend && npm install --prefix frontend",
+    "db:generate": "npm run db:generate --prefix backend",
+    "db:migrate": "npm run db:migrate --prefix backend",
+    "db:migrate:status": "npm run db:migrate:status --prefix backend",
+    "db:seed": "npm run db:seed --prefix backend"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

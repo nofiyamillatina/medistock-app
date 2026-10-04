@@ -14,7 +14,11 @@ export const loginPharmacy = async (req, res) => {
       });
     }
 
-    const JWT_SECRET = process.env.JWT_SECRET || 'medistock_super_secret_key_2026';
+    const JWT_SECRET = process.env.JWT_SECRET;
+    if (!JWT_SECRET) {
+      console.error('❌ JWT_SECRET is not configured. Cannot issue token.');
+      return res.status(500).json({ success: false, message: 'Konfigurasi server tidak lengkap. Hubungi administrator.' });
+    }
 
     const user = await prisma.users.findFirst({
       where: {
