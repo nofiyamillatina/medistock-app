@@ -85,6 +85,22 @@ export default function App() {
     fetchOrders();
   }, [fetchPharmacyInfo, fetchMedicines, fetchOrders]);
 
+  // Refresh the customer catalog when the app returns to the foreground, and periodically while viewing it.
+  useEffect(() => {
+    if (currentView !== 'customer') return undefined;
+    const refreshOnFocus = () => {
+      if (document.visibilityState === 'visible') fetchMedicines();
+    };
+    window.addEventListener('focus', refreshOnFocus);
+    document.addEventListener('visibilitychange', refreshOnFocus);
+    const intervalId = window.setInterval(refreshOnFocus, 20000);
+    return () => {
+      window.removeEventListener('focus', refreshOnFocus);
+      document.removeEventListener('visibilitychange', refreshOnFocus);
+      window.clearInterval(intervalId);
+    };
+  }, [currentView, fetchMedicines]);
+
   // Keep inventory draft in sync with medicines state
   useEffect(() => {
     setInventoryDraft(JSON.parse(JSON.stringify(medicines)));
@@ -101,6 +117,10 @@ export default function App() {
     setCart((prev) => {
       const existing = prev.find((item) => item.id === med.id);
       if (existing) {
+        if (existing.qty >= med.stock) {
+          alert(`Stok tersedia hanya ${med.stock}.`);
+          return prev;
+        }
         return prev.map((item) => (item.id === med.id ? { ...item, qty: item.qty + 1 } : item));
       }
       return [...prev, { ...med, qty: 1 }];
@@ -109,6 +129,12 @@ export default function App() {
 
   const updateCartQty = (medId, delta) => {
     setCart((prev) => {
+      const medicine = medicines.find((item) => item.id === medId);
+      const currentItem = prev.find((item) => item.id === medId);
+      if (delta > 0 && medicine && currentItem && currentItem.qty + delta > medicine.stock) {
+        alert(`Stok tersedia hanya ${medicine.stock}.`);
+        return prev;
+      }
       return prev
         .map((item) => {
           if (item.id === medId) {
@@ -131,6 +157,16 @@ export default function App() {
   // Navigation & Checkout Handlers
   const handleProceedToCheckout = () => {
     if (cart.length === 0) return;
+    const unavailable = cart.find((item) => {
+      const medicine = medicines.find((candidate) => candidate.id === item.id);
+      return !medicine || item.qty > medicine.stock;
+    });
+    if (unavailable) {
+      const medicine = medicines.find((candidate) => candidate.id === unavailable.id);
+      alert(medicine ? `Stok ${medicine.name} tersedia hanya ${medicine.stock}.` : 'Obat tidak lagi tersedia. Katalog akan diperbarui.');
+      fetchMedicines();
+      return;
+    }
     setCurrentView('checkout');
   };
 
@@ -162,12 +198,18 @@ export default function App() {
       setCurrentView('qris');
     } else {
       alert(res?.message || 'Gagal membuat pesanan di server. Silakan coba lagi.');
+      fetchMedicines();
     }
   };
 
   const handleConfirmPayment = async () => {
     if (currentOrder) {
-      await apiService.confirmPayment(currentOrder.id);
+      const result = await apiService.confirmPayment(currentOrder.id);
+      if (!result?.success) {
+        alert(result?.message || 'Pembayaran gagal diproses. Periksa kembali stok obat.');
+        fetchMedicines();
+        return;
+      }
       fetchOrders();
       fetchMedicines();
     }

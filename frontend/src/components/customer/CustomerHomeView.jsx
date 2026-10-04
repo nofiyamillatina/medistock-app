@@ -134,6 +134,10 @@ export default function CustomerHomeView({
                   </div>
                   <p className="text-xs text-slate-500 mt-1">{med.desc}</p>
                   <p className="text-sm font-bold text-slate-900 mt-2">{formatIDR(med.price)}</p>
+                  <p className="text-xs font-semibold text-slate-700 mt-2">Stok: {med.stock}</p>
+                  <p className={`text-xs font-medium mt-0.5 ${isOutOfStock ? 'text-red-600' : 'text-slate-600'}`}>
+                    {isOutOfStock ? 'Habis' : 'Tersedia'}
+                  </p>
                 </div>
 
                 <div className="sm:text-right flex sm:flex-col items-center sm:items-end justify-between sm:justify-center">

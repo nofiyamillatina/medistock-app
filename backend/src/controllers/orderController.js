@@ -104,17 +104,38 @@ export const confirmPayment = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Pesanan tidak ditemukan.' });
     }
 
-    // Deduct stock for matching medicines
+    // Validate the full order before deducting any stock.
     const medicines = await prisma.medicines.findMany();
+    const deductions = [];
     for (const item of order.items) {
       const matchedMed = medicines.find(m => item.name.toLowerCase().startsWith(m.name.split(' ')[0].toLowerCase()));
       if (matchedMed) {
-        const newStock = Math.max(0, matchedMed.stock - item.qty);
+        const pendingQty = deductions
+          .filter(deduction => deduction.medicineId === matchedMed.id)
+          .reduce((sum, deduction) => sum + deduction.qty, 0);
+        if (!Number.isInteger(item.qty) || item.qty <= 0 || matchedMed.stock - pendingQty < item.qty) {
+          return res.status(409).json({
+            success: false,
+            message: `Stok ${matchedMed.name} tidak mencukupi. Stok tersedia hanya ${Math.max(0, matchedMed.stock - pendingQty)}.`
+          });
+        }
+        deductions.push({ medicineId: matchedMed.id, qty: item.qty });
+      }
+    }
+
+    for (const deduction of deductions) {
+      const matchedMed = medicines.find(m => m.id === deduction.medicineId);
+      if (matchedMed) {
+        const totalQty = deductions
+          .filter(item => item.medicineId === matchedMed.id)
+          .reduce((sum, item) => sum + item.qty, 0);
+        const newStock = matchedMed.stock - totalQty;
         const newStatus = newStock === 0 ? 'Habis' : matchedMed.status;
         await prisma.medicines.update({
           where: { id: matchedMed.id },
           data: { stock: newStock, status: newStatus }
         });
+        matchedMed.stock = newStock;
       }
     }
 
