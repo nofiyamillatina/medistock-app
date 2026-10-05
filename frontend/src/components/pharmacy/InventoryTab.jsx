@@ -1,4 +1,6 @@
 import React from 'react';
+import { isValidStockInput, STOCK_VALIDATION_MESSAGE } from '../../utils/stock.js';
+import { isRestrictedMedicine, RESTRICTED_MEDICINE_WARNING } from '../../config/restrictedMedicines.js';
 
 export default function InventoryTab({
   inventoryDraft = [],
@@ -16,6 +18,7 @@ export default function InventoryTab({
   const [showAddForm, setShowAddForm] = React.useState(false);
   const [form, setForm] = React.useState({ name: '', desc: '', price: '', stock: '' });
   const [formError, setFormError] = React.useState('');
+  const [stockErrors, setStockErrors] = React.useState({});
   const handlePriceChange = (id, newPrice) => {
     setInventoryDraft((prev) =>
       prev.map((m) => (m.id === id ? { ...m, price: newPrice } : m))
@@ -23,6 +26,7 @@ export default function InventoryTab({
   };
 
   const handleStockChange = (id, newStock) => {
+    setStockErrors((prev) => ({ ...prev, [id]: isValidStockInput(newStock) ? '' : STOCK_VALIDATION_MESSAGE }));
     setInventoryDraft((prev) =>
       prev.map((m) =>
         m.id === id
@@ -42,15 +46,34 @@ export default function InventoryTab({
     const stock = Number(form.stock);
     if (!form.name.trim()) return setFormError('Nama obat wajib diisi.');
     if (form.price === '' || !Number.isFinite(price) || price < 0) return setFormError('Harga harus angka minimal 0.');
-    if (form.stock === '' || !Number.isInteger(stock) || stock < 0) return setFormError('Stok harus bilangan bulat minimal 0.');
+    if (!isValidStockInput(form.stock)) return setFormError(STOCK_VALIDATION_MESSAGE);
+    const restricted = isRestrictedMedicine(form.name);
+    if (restricted && !window.confirm(RESTRICTED_MEDICINE_WARNING)) return;
     setFormError('');
-    const result = await onAddMedicine({ ...form, name: form.name.trim(), price, stock });
+    const result = await onAddMedicine({ ...form, name: form.name.trim(), price, stock, restrictedConfirmed: restricted });
     if (result?.success) {
       setForm({ name: '', desc: '', price: '', stock: '' });
       setShowAddForm(false);
     } else {
       setFormError(result?.message || 'Gagal menambahkan obat.');
     }
+  };
+
+  const handleSaveInventory = () => {
+    const invalidStockErrors = {};
+    for (const item of inventoryDraft) {
+      if (!isValidStockInput(item.stock)) invalidStockErrors[item.id] = STOCK_VALIDATION_MESSAGE;
+    }
+    setStockErrors(invalidStockErrors);
+    if (Object.keys(invalidStockErrors).length > 0) return;
+
+    const restrictedItems = inventoryDraft.filter((item) => isRestrictedMedicine(item.name));
+    if (restrictedItems.length > 0 && !window.confirm(`${RESTRICTED_MEDICINE_WARNING}\n\n${restrictedItems.map((item) => item.name).join(', ')}`)) return;
+    onSaveInventory(inventoryDraft.map((item) => ({
+      ...item,
+      stock: Number(item.stock),
+      restrictedConfirmed: isRestrictedMedicine(item.name)
+    })));
   };
 
   return (
@@ -125,12 +148,14 @@ export default function InventoryTab({
                   </td>
                   <td className="p-3">
                     <input
-                      type="number" min="0" step="1"
-                      value={item.stock}
+                      type="number" min="0" step="1" inputMode="numeric"
+                      value={item.stock ?? 0}
                       disabled={!canManageInventory || savingInventory}
                       onChange={(e) => handleStockChange(item.id, e.target.value)}
+                      aria-invalid={Boolean(stockErrors[item.id])}
                       className="border border-slate-300 w-24 p-1 text-sm font-bold text-slate-900 text-center focus:outline-none bg-white"
                     />
+                    {stockErrors[item.id] && <p className="mt-1 w-32 text-left text-[10px] font-medium text-red-700">{stockErrors[item.id]}</p>}
                   </td>
                   <td className="p-3 text-center">
                     <span
@@ -157,7 +182,7 @@ export default function InventoryTab({
           Lakukan perubahan data obat secara langsung di tabel di atas.
           </span>
           <button
-            onClick={onSaveInventory}
+            onClick={handleSaveInventory}
             disabled={!canManageInventory || savingInventory}
             className="px-6 py-2.5 bg-primary hover:bg-primary-hover text-white font-bold text-xs tracking-wider uppercase transition disabled:opacity-50"
           >

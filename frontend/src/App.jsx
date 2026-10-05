@@ -7,6 +7,7 @@ import QRISPaymentView from './components/customer/QRISPaymentView.jsx';
 import PharmacyLoginView from './components/pharmacy/PharmacyLoginView.jsx';
 import PharmacyDashboardView from './components/pharmacy/PharmacyDashboardView.jsx';
 import { apiService } from './services/api.js';
+import { getDisplayStock, isValidStockInput, STOCK_VALIDATION_MESSAGE } from './utils/stock.js';
 
 export default function App() {
   // Router / Navigation state
@@ -65,7 +66,7 @@ export default function App() {
     setErrorMedicines(null);
     const medRes = await apiService.getMedicines(query);
     if (medRes && medRes.success) {
-      setMedicines(medRes.data);
+      setMedicines(medRes.data.map((medicine) => ({ ...medicine, stock: getDisplayStock(medicine.stock) })));
     } else {
       setErrorMedicines(medRes?.message || 'Gagal memuat katalog obat dari server.');
     }
@@ -118,18 +119,19 @@ export default function App() {
       alert('Mohon maaf, toko sedang tutup saat ini.');
       return;
     }
-    if (med.stock <= 0 || med.status === 'Habis') return;
+    const availableStock = getDisplayStock(med.stock);
+    if (availableStock === 0) return;
 
     setCart((prev) => {
       const existing = prev.find((item) => item.id === med.id);
       if (existing) {
-        if (existing.qty >= med.stock) {
-          alert(`Stok tersedia hanya ${med.stock}.`);
+        if (existing.qty >= availableStock) {
+          alert(`Stok tersedia hanya ${availableStock}.`);
           return prev;
         }
         return prev.map((item) => (item.id === med.id ? { ...item, qty: item.qty + 1 } : item));
       }
-      return [...prev, { ...med, qty: 1 }];
+      return [...prev, { ...med, stock: availableStock, qty: 1 }];
     });
   };
 
@@ -137,8 +139,9 @@ export default function App() {
     setCart((prev) => {
       const medicine = medicines.find((item) => item.id === medId);
       const currentItem = prev.find((item) => item.id === medId);
-      if (delta > 0 && medicine && currentItem && currentItem.qty + delta > medicine.stock) {
-        alert(`Stok tersedia hanya ${medicine.stock}.`);
+      const availableStock = medicine ? getDisplayStock(medicine.stock) : 0;
+      if (delta > 0 && medicine && currentItem && currentItem.qty + delta > availableStock) {
+        alert(`Stok tersedia hanya ${availableStock}.`);
         return prev;
       }
       return prev
@@ -165,11 +168,11 @@ export default function App() {
     if (cart.length === 0) return;
     const unavailable = cart.find((item) => {
       const medicine = medicines.find((candidate) => candidate.id === item.id);
-      return !medicine || item.qty > medicine.stock;
+      return !medicine || item.qty > getDisplayStock(medicine.stock);
     });
     if (unavailable) {
       const medicine = medicines.find((candidate) => candidate.id === unavailable.id);
-      alert(medicine ? `Stok ${medicine.name} tersedia hanya ${medicine.stock}.` : 'Obat tidak lagi tersedia. Katalog akan diperbarui.');
+      alert(medicine ? `Stok ${medicine.name} tersedia hanya ${getDisplayStock(medicine.stock)}.` : 'Obat tidak lagi tersedia. Katalog akan diperbarui.');
       fetchMedicines();
       return;
     }
@@ -276,11 +279,15 @@ export default function App() {
     }
   };
 
-  const handleSaveInventory = async () => {
+  const handleSaveInventory = async (items = inventoryDraft) => {
     if (!canManageInventory || savingInventory) return;
+    if (!items.every((item) => isValidStockInput(item.stock))) {
+      alert(STOCK_VALIDATION_MESSAGE);
+      return;
+    }
     setSavingInventory(true);
     try {
-      const res = await apiService.saveInventory(inventoryDraft, token);
+      const res = await apiService.saveInventory(items.map((item) => ({ ...item, stock: Number(item.stock) })), token);
       if (res && res.success) {
         await fetchMedicines();
         alert('Perubahan inventaris berhasil disimpan!');
@@ -290,6 +297,9 @@ export default function App() {
 
   const handleAddMedicine = async (medicine) => {
     if (!canManageInventory || savingInventory) return { success: false, message: 'Akses ditolak atau permintaan sedang diproses.' };
+    if (!isValidStockInput(medicine.stock) || typeof medicine.stock !== 'number') {
+      return { success: false, message: STOCK_VALIDATION_MESSAGE };
+    }
     setSavingInventory(true);
     try {
       const res = await apiService.createMedicine(medicine, token);

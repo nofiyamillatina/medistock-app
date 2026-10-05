@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Search } from 'lucide-react';
 import { formatIDR } from '../../services/formatters.js';
+import { getDisplayStock } from '../../utils/stock.js';
 
 export default function CustomerHomeView({
   medicines = [],
@@ -113,8 +114,9 @@ export default function CustomerHomeView({
           </div>
         ) : (
           filteredMedicines.map((med) => {
+            const stock = getDisplayStock(med.stock);
             const cartItem = cart.find((c) => c.id === med.id);
-            const isOutOfStock = med.stock <= 0 || med.status === 'Habis';
+            const isOutOfStock = stock === 0;
 
             return (
               <div
@@ -136,7 +138,7 @@ export default function CustomerHomeView({
                   </div>
                   <p className="text-xs text-slate-500 mt-1">{med.desc}</p>
                   <p className="text-lg font-bold text-navy mt-3">{formatIDR(med.price)}</p>
-                  <p className="text-xs font-semibold text-slate-700 mt-2">Stok: {med.stock}</p>
+                  <p className="text-xs font-semibold text-slate-700 mt-2">Stok: {stock}</p>
                   <p className={`text-xs font-semibold mt-0.5 ${isOutOfStock ? 'text-red-600' : 'text-emerald-700'}`}>
                     {isOutOfStock ? 'Habis' : 'Tersedia'}
                   </p>
@@ -156,7 +158,7 @@ export default function CustomerHomeView({
                       </span>
                       <button
                         onClick={() => updateCartQty(med.id, 1)}
-                        disabled={cartItem.qty >= med.stock}
+                        disabled={cartItem.qty >= stock}
                         className="w-8 h-8 flex items-center justify-center text-sm font-bold rounded-lg bg-slate-100 hover:bg-primary-soft text-navy disabled:opacity-30"
                       >
                         +

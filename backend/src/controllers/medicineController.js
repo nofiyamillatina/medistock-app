@@ -1,4 +1,5 @@
 import prisma from '../config/database.js';
+import { isRestrictedMedicine, RESTRICTED_MEDICINE_WARNING } from '../config/restrictedMedicines.js';
 
 // Get all medicines catalog (Customer & Admin)
 export const getMedicines = async (req, res) => {
@@ -36,7 +37,7 @@ const validateMedicineFields = (body, { partial = false } = {}) => {
     }
   }
   if (!partial || Object.hasOwn(body, 'stock')) {
-    if (!isNumericValue(body.stock) || !Number.isInteger(Number(body.stock)) || Number(body.stock) < 0) {
+    if (typeof body.stock !== 'number' || !Number.isInteger(body.stock) || body.stock < 0 || Object.is(body.stock, -0)) {
       errors.stock = 'Stok harus berupa bilangan bulat minimal 0.';
     }
   }
@@ -65,6 +66,9 @@ export const createMedicine = async (req, res) => {
   const errors = validateMedicineFields(req.body || {});
   if (Object.keys(errors).length) {
     return res.status(400).json({ success: false, message: Object.values(errors)[0], errors });
+  }
+  if (isRestrictedMedicine(req.body.name) && req.body.restrictedConfirmed !== true) {
+    return res.status(400).json({ success: false, code: 'RESTRICTED_MEDICINE_CONFIRMATION_REQUIRED', message: RESTRICTED_MEDICINE_WARNING });
   }
   try {
     const stock = Number(req.body.stock);
@@ -110,6 +114,18 @@ export const updateInventory = async (req, res) => {
       const errors = validateMedicineFields(item, { partial: true });
       if (Object.keys(errors).length) {
         return res.status(400).json({ success: false, message: Object.values(errors)[0], errors });
+      }
+    }
+
+    const existingMedicines = await prisma.medicines.findMany({
+      where: { id: { in: items.map((item) => item.id) } },
+      select: { id: true, name: true }
+    });
+    const existingNames = new Map(existingMedicines.map((medicine) => [medicine.id, medicine.name]));
+    for (const item of items) {
+      const medicineName = Object.hasOwn(item, 'name') ? item.name : existingNames.get(item.id);
+      if (isRestrictedMedicine(medicineName) && item.restrictedConfirmed !== true) {
+        return res.status(400).json({ success: false, code: 'RESTRICTED_MEDICINE_CONFIRMATION_REQUIRED', message: RESTRICTED_MEDICINE_WARNING });
       }
     }
 
