@@ -1,5 +1,5 @@
 import React from 'react';
-import { isValidStockInput, STOCK_VALIDATION_MESSAGE } from '../../utils/stock.js';
+import { normalizeStockInput } from '../../utils/stock.js';
 import { isRestrictedMedicine, RESTRICTED_MEDICINE_WARNING } from '../../config/restrictedMedicines.js';
 
 export default function InventoryTab({
@@ -16,9 +16,8 @@ export default function InventoryTab({
   canManageInventory = false
 }) {
   const [showAddForm, setShowAddForm] = React.useState(false);
-  const [form, setForm] = React.useState({ name: '', desc: '', price: '', stock: '' });
+  const [form, setForm] = React.useState({ name: '', desc: '', price: '', stock: 0 });
   const [formError, setFormError] = React.useState('');
-  const [stockErrors, setStockErrors] = React.useState({});
   const handlePriceChange = (id, newPrice) => {
     setInventoryDraft((prev) =>
       prev.map((m) => (m.id === id ? { ...m, price: newPrice } : m))
@@ -26,33 +25,50 @@ export default function InventoryTab({
   };
 
   const handleStockChange = (id, newStock) => {
-    setStockErrors((prev) => ({ ...prev, [id]: isValidStockInput(newStock) ? '' : STOCK_VALIDATION_MESSAGE }));
+    const stock = normalizeStockInput(newStock);
     setInventoryDraft((prev) =>
       prev.map((m) =>
         m.id === id
           ? {
               ...m,
-              stock: newStock,
-              status: Number(newStock) === 0 ? 'Habis' : 'Tersedia'
+              stock,
+              status: stock === 0 ? 'Habis' : 'Tersedia'
             }
           : m
       )
     );
   };
 
+  const handleStockKeyDown = (event, currentStock, setStock) => {
+    if (event.ctrlKey || event.metaKey || event.altKey || ['Backspace', 'Delete', 'Tab', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
+    if (/^[0-9]$/.test(event.key)) {
+      if (normalizeStockInput(currentStock) === 0 && event.key !== '0') {
+        event.preventDefault();
+        setStock(Number(event.key));
+      }
+      return;
+    }
+    event.preventDefault();
+  };
+
+  const handleStockPaste = (event, setStock) => {
+    event.preventDefault();
+    const pasted = event.clipboardData.getData('text');
+    if (/^\d+$/.test(pasted)) setStock(normalizeStockInput(pasted));
+  };
+
   const handleAddSubmit = async (event) => {
     event.preventDefault();
     const price = Number(form.price);
-    const stock = Number(form.stock);
+    const stock = normalizeStockInput(form.stock);
     if (!form.name.trim()) return setFormError('Nama obat wajib diisi.');
     if (form.price === '' || !Number.isFinite(price) || price < 0) return setFormError('Harga harus angka minimal 0.');
-    if (!isValidStockInput(form.stock)) return setFormError(STOCK_VALIDATION_MESSAGE);
     const restricted = isRestrictedMedicine(form.name);
     if (restricted && !window.confirm(RESTRICTED_MEDICINE_WARNING)) return;
     setFormError('');
     const result = await onAddMedicine({ ...form, name: form.name.trim(), price, stock, restrictedConfirmed: restricted });
     if (result?.success) {
-      setForm({ name: '', desc: '', price: '', stock: '' });
+      setForm({ name: '', desc: '', price: '', stock: 0 });
       setShowAddForm(false);
     } else {
       setFormError(result?.message || 'Gagal menambahkan obat.');
@@ -60,18 +76,11 @@ export default function InventoryTab({
   };
 
   const handleSaveInventory = () => {
-    const invalidStockErrors = {};
-    for (const item of inventoryDraft) {
-      if (!isValidStockInput(item.stock)) invalidStockErrors[item.id] = STOCK_VALIDATION_MESSAGE;
-    }
-    setStockErrors(invalidStockErrors);
-    if (Object.keys(invalidStockErrors).length > 0) return;
-
     const restrictedItems = inventoryDraft.filter((item) => isRestrictedMedicine(item.name));
     if (restrictedItems.length > 0 && !window.confirm(`${RESTRICTED_MEDICINE_WARNING}\n\n${restrictedItems.map((item) => item.name).join(', ')}`)) return;
     onSaveInventory(inventoryDraft.map((item) => ({
       ...item,
-      stock: Number(item.stock),
+      stock: normalizeStockInput(item.stock),
       restrictedConfirmed: isRestrictedMedicine(item.name)
     })));
   };
@@ -90,7 +99,7 @@ export default function InventoryTab({
           <label className="text-xs font-bold text-slate-600">Nama Obat<input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="mt-1 w-full border border-slate-300 p-2 text-sm font-normal" /></label>
           <label className="text-xs font-bold text-slate-600">Deskripsi<input value={form.desc} onChange={(e) => setForm({ ...form, desc: e.target.value })} className="mt-1 w-full border border-slate-300 p-2 text-sm font-normal" /></label>
           <label className="text-xs font-bold text-slate-600">Harga<input required type="number" min="0" step="1" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="mt-1 w-full border border-slate-300 p-2 text-sm font-normal" /></label>
-          <label className="text-xs font-bold text-slate-600">Stok<input required type="number" min="0" step="1" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} className="mt-1 w-full border border-slate-300 p-2 text-sm font-normal" /></label>
+          <label className="text-xs font-bold text-slate-600">Stok<input type="number" min={0} step={1} value={normalizeStockInput(form.stock)} onKeyDown={(e) => handleStockKeyDown(e, form.stock, (stock) => setForm((prev) => ({ ...prev, stock })))} onPaste={(e) => handleStockPaste(e, (stock) => setForm((prev) => ({ ...prev, stock })))} onChange={(e) => setForm((prev) => ({ ...prev, stock: normalizeStockInput(e.target.value) }))} className={`mt-1 w-full border border-slate-300 p-2 text-sm font-normal ${normalizeStockInput(form.stock) === 0 ? 'text-slate-400' : 'text-slate-900'}`} /></label>
           {formError && <p className="sm:col-span-2 text-sm text-red-700">{formError}</p>}
           <div className="sm:col-span-2 flex justify-end gap-2"><button type="button" disabled={savingInventory} onClick={() => { setShowAddForm(false); setFormError(''); }} className="px-4 py-2 border border-slate-300 text-slate-700 text-xs font-bold uppercase disabled:opacity-50">Batal</button><button disabled={savingInventory} className="px-4 py-2 bg-primary hover:bg-primary-hover text-white text-xs font-bold uppercase disabled:opacity-50">{savingInventory ? 'Menambahkan...' : 'Tambah Obat'}</button></div>
         </form>
@@ -148,24 +157,24 @@ export default function InventoryTab({
                   </td>
                   <td className="p-3">
                     <input
-                      type="number" min="0" step="1" inputMode="numeric"
-                      value={item.stock ?? 0}
+                      type="number" min={0} step={1} inputMode="numeric"
+                      value={normalizeStockInput(item.stock)}
                       disabled={!canManageInventory || savingInventory}
+                      onKeyDown={(e) => handleStockKeyDown(e, item.stock, (stock) => handleStockChange(item.id, stock))}
+                      onPaste={(e) => handleStockPaste(e, (stock) => handleStockChange(item.id, stock))}
                       onChange={(e) => handleStockChange(item.id, e.target.value)}
-                      aria-invalid={Boolean(stockErrors[item.id])}
-                      className="border border-slate-300 w-24 p-1 text-sm font-bold text-slate-900 text-center focus:outline-none bg-white"
+                      className={`border border-slate-300 w-24 p-1 text-sm font-bold text-center focus:outline-none bg-white ${normalizeStockInput(item.stock) === 0 ? 'text-slate-400' : 'text-slate-900'}`}
                     />
-                    {stockErrors[item.id] && <p className="mt-1 w-32 text-left text-[10px] font-medium text-red-700">{stockErrors[item.id]}</p>}
                   </td>
                   <td className="p-3 text-center">
                     <span
-                      className={`inline-block px-3 py-1 text-xs font-bold border ${
-                        item.status === 'Tersedia'
+                    className={`inline-block px-3 py-1 text-xs font-bold border ${
+                        normalizeStockInput(item.stock) > 0
                           ? 'bg-success-soft text-emerald-700 border-emerald-200'
                           : 'bg-slate-100 text-slate-500 border-slate-300'
                       }`}
                     >
-                      {item.status === 'Tersedia' ? 'Tersedia' : 'Habis'}
+                      {normalizeStockInput(item.stock) > 0 ? 'Tersedia' : 'Habis'}
                     </span>
                   </td>
                   {canManageInventory && <td className="p-3 text-center"><button disabled={deletingMedicineId === item.id || savingInventory} onClick={() => onDeleteMedicine(item)} className="px-3 py-1 border border-red-300 text-red-700 text-xs font-bold disabled:opacity-50">{deletingMedicineId === item.id ? 'Menghapus...' : 'Hapus'}</button></td>}
