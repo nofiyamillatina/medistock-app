@@ -14,6 +14,7 @@ export default function CheckoutView({
   onPayViaQRIS,
   onBack
 }) {
+  const [phoneError, setPhoneError] = React.useState('');
   return (
     <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 py-8 flex-1 flex flex-col">
       {/* Header */}
@@ -28,7 +29,33 @@ export default function CheckoutView({
         <div className="w-12"></div>
       </div>
 
-      <form onSubmit={onPayViaQRIS} className="space-y-8">
+      <form
+        onSubmit={(e) => {
+          const phone = customerInfo.phone;
+
+          if (!phone) {
+            e.preventDefault();
+            setPhoneError('Nomor telepon wajib diisi.');
+            return;
+          }
+
+          if (!/^\d+$/.test(phone)) {
+            e.preventDefault();
+            setPhoneError('Nomor telepon hanya boleh berisi angka.');
+            return;
+          }
+
+          if (!/^08\d{8,11}$/.test(phone)) {
+            e.preventDefault();
+            setPhoneError('Nomor telepon tidak valid.');
+            return;
+          }
+
+          setPhoneError('');
+          onPayViaQRIS(e);
+        }}
+        className="space-y-8"
+      >
         {/* 1. Order Summary */}
         <section className="border border-slate-200 rounded-xl p-5 sm:p-6 bg-white shadow-sm">
           <h2 className="text-sm font-bold text-navy tracking-wide mb-4">
@@ -77,9 +104,8 @@ export default function CheckoutView({
           </h2>
           <div className="grid grid-cols-2 gap-4">
             <label
-              className={`border p-4 cursor-pointer flex items-center space-x-3 transition ${
-                deliveryMethod === 'Pengantaran' ? 'border-primary bg-primary-soft' : 'border-slate-200 hover:border-primary'
-              }`}
+              className={`border p-4 cursor-pointer flex items-center space-x-3 transition ${deliveryMethod === 'Pengantaran' ? 'border-primary bg-primary-soft' : 'border-slate-200 hover:border-primary'
+                }`}
             >
               <input
                 type="radio"
@@ -96,9 +122,8 @@ export default function CheckoutView({
             </label>
 
             <label
-              className={`border p-4 cursor-pointer flex items-center space-x-3 transition ${
-                deliveryMethod === 'Ambil Sendiri' ? 'border-primary bg-primary-soft' : 'border-slate-200 hover:border-primary'
-              }`}
+              className={`border p-4 cursor-pointer flex items-center space-x-3 transition ${deliveryMethod === 'Ambil Sendiri' ? 'border-primary bg-primary-soft' : 'border-slate-200 hover:border-primary'
+                }`}
             >
               <input
                 type="radio"
@@ -140,14 +165,37 @@ export default function CheckoutView({
             <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
               Nomor Telepon / WhatsApp *
             </label>
+
             <input
               type="tel"
+              inputMode="numeric"
               required
               placeholder="Contoh: 081234567890"
               value={customerInfo.phone}
-              onChange={(e) => setCustomerInfo({ ...customerInfo, phone: e.target.value })}
-              className="w-full border border-slate-300 p-3 text-sm text-slate-900 focus:outline-none focus:border-primary"
+              onChange={(e) => {
+                const value = e.target.value.replace(/\D/g, '');
+
+                setCustomerInfo({
+                  ...customerInfo,
+                  phone: value
+                });
+
+                if (phoneError) {
+                  setPhoneError('');
+                }
+              }}
+              className={`w-full border p-3 text-sm text-slate-900 focus:outline-none ${phoneError
+                ? 'border-red-500 focus:border-red-500'
+                : 'border-slate-300 focus:border-primary'
+                }`
+              }
             />
+
+            {phoneError && (
+              <p className="mt-1 text-xs text-red-600">
+                {phoneError}
+              </p>
+            )}
           </div>
 
           {deliveryMethod === 'Pengantaran' && (

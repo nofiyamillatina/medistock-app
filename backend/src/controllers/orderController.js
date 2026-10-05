@@ -42,6 +42,21 @@ export const createOrder = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Data pesanan tidak lengkap.' });
     }
 
+    // Validasi nomor telepon
+    if (!/^\d+$/.test(phone)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Nomor telepon hanya boleh berisi angka.'
+      });
+    }
+
+    if (!/^08\d{8,11}$/.test(phone)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Nomor telepon tidak valid.'
+      });
+    }
+
     const orderId = `MDS-${Math.floor(1000 + Math.random() * 9000)}`;
     const timestamp = new Date().toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' });
 
