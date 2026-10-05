@@ -40,6 +40,12 @@ export default function App() {
 
   // Inventory Editing Draft State
   const [inventoryDraft, setInventoryDraft] = useState([]);
+  const [savingInventory, setSavingInventory] = useState(false);
+  const [deletingMedicineId, setDeletingMedicineId] = useState(null);
+  const pharmacyUser = (() => {
+    try { return JSON.parse(localStorage.getItem('medistock_user') || 'null'); } catch { return null; }
+  })();
+  const canManageInventory = isLoggedIn && pharmacyUser?.role === 'pharmacy_staff';
 
   // Data Fetching Handlers
   const fetchPharmacyInfo = useCallback(async () => {
@@ -271,13 +277,35 @@ export default function App() {
   };
 
   const handleSaveInventory = async () => {
-    const res = await apiService.saveInventory(inventoryDraft, token);
-    if (res && res.success) {
-      setMedicines(res.data);
-      alert('Perubahan stok & harga berhasil disimpan!');
-    } else {
-      alert(res?.message || 'Gagal memperbarui inventaris.');
-    }
+    if (!canManageInventory || savingInventory) return;
+    setSavingInventory(true);
+    try {
+      const res = await apiService.saveInventory(inventoryDraft, token);
+      if (res && res.success) {
+        await fetchMedicines();
+        alert('Perubahan inventaris berhasil disimpan!');
+      } else alert(res?.message || 'Gagal memperbarui inventaris.');
+    } finally { setSavingInventory(false); }
+  };
+
+  const handleAddMedicine = async (medicine) => {
+    if (!canManageInventory || savingInventory) return { success: false, message: 'Akses ditolak atau permintaan sedang diproses.' };
+    setSavingInventory(true);
+    try {
+      const res = await apiService.createMedicine(medicine, token);
+      if (res?.success) await fetchMedicines();
+      return res;
+    } finally { setSavingInventory(false); }
+  };
+
+  const handleDeleteMedicine = async (medicine) => {
+    if (!canManageInventory || !window.confirm('Apakah Anda yakin ingin menghapus obat ini?')) return;
+    setDeletingMedicineId(medicine.id);
+    try {
+      const res = await apiService.deleteMedicine(medicine.id, token);
+      if (res?.success) await fetchMedicines();
+      else alert(res?.message || 'Gagal menghapus obat.');
+    } finally { setDeletingMedicineId(null); }
   };
 
   return (
@@ -356,6 +384,11 @@ export default function App() {
             loadingMedicines={loadingMedicines}
             errorMedicines={errorMedicines}
             onRetryMedicines={fetchMedicines}
+            onAddMedicine={handleAddMedicine}
+            onDeleteMedicine={handleDeleteMedicine}
+            canManageInventory={canManageInventory}
+            savingInventory={savingInventory}
+            deletingMedicineId={deletingMedicineId}
           />
         )}
       </main>

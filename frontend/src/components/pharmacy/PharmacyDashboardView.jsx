@@ -19,7 +19,12 @@ export default function PharmacyDashboardView({
   onRetryOrders,
   loadingMedicines = false,
   errorMedicines = null,
-  onRetryMedicines
+  onRetryMedicines,
+  onAddMedicine,
+  onDeleteMedicine,
+  canManageInventory = false,
+  savingInventory = false,
+  deletingMedicineId = null
 }) {
   const pendingOrdersCount = orders.filter((o) => o.orderStatus === 'Menunggu Konfirmasi').length;
 
@@ -120,6 +125,11 @@ export default function PharmacyDashboardView({
           loadingMedicines={loadingMedicines}
           errorMedicines={errorMedicines}
           onRetryMedicines={onRetryMedicines}
+          onAddMedicine={onAddMedicine}
+          onDeleteMedicine={onDeleteMedicine}
+          canManageInventory={canManageInventory}
+          savingInventory={savingInventory}
+          deletingMedicineId={deletingMedicineId}
         />
       )}
 

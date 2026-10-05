@@ -64,6 +64,33 @@ export const apiService = {
     }
   },
 
+  async createMedicine(medicine, token = null) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/medicines`, {
+        method: 'POST',
+        headers: getHeaders(token),
+        body: JSON.stringify(medicine)
+      });
+      return await res.json();
+    } catch (err) {
+      console.error('API Error createMedicine:', err);
+      return { success: false, message: 'Server backend tidak dapat dihubungi.' };
+    }
+  },
+
+  async deleteMedicine(id, token = null) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/medicines/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: getHeaders(token)
+      });
+      return await res.json();
+    } catch (err) {
+      console.error('API Error deleteMedicine:', err);
+      return { success: false, message: 'Server backend tidak dapat dihubungi.' };
+    }
+  },
+
   // Orders
   async getOrders() {
     try {
