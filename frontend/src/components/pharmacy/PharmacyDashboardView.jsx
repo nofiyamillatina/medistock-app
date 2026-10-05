@@ -29,31 +29,31 @@ export default function PharmacyDashboardView({
   const pendingOrdersCount = orders.filter((o) => o.orderStatus === 'Menunggu Konfirmasi').length;
 
   return (
-    <div className="max-w-4xl mx-auto w-full px-4 py-8 flex-1 flex flex-col">
+    <div className="max-w-6xl mx-auto w-full px-4 sm:px-6 py-8 flex-1 flex flex-col">
       {/* Header 5. Dashboard Apotek */}
       <header className="border-b border-slate-200 pb-6 mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center space-x-2">
-              <h1 className="text-xl font-bold text-slate-900">Dashboard Apotek</h1>
-              <span className="text-xs bg-slate-100 text-slate-700 border border-slate-300 px-2 py-0.5 font-mono">
+              <h1 className="text-2xl font-extrabold text-navy">Dashboard Apotek</h1>
+              <span className="text-xs bg-primary-soft text-primary border border-sky-200 px-2.5 py-1 rounded-full font-semibold">
                 Apotek Sehat
               </span>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-sm text-neutral mt-1">
               Kelola pesanan masuk, stok obat & laporan harian
             </p>
           </div>
 
           <div className="flex items-center space-x-4">
             {/* Store Status Toggle */}
-            <div className="flex items-center space-x-2 border border-slate-200 px-3 py-1.5 bg-white">
+            <div className="flex items-center space-x-2 border border-slate-200 rounded-lg px-3 py-2 bg-white shadow-sm">
               <span className="text-xs font-bold text-slate-700">Status Toko:</span>
               <button
                 onClick={() => setIsStoreOpen(!isStoreOpen)}
                 className={`px-2 py-0.5 text-xs font-bold transition border ${
                   isStoreOpen
-                    ? 'bg-slate-900 text-white border-slate-900'
+                    ? 'bg-success text-white border-success'
                     : 'bg-slate-100 text-slate-600 border-slate-300'
                 }`}
               >
@@ -63,7 +63,7 @@ export default function PharmacyDashboardView({
 
             <button
               onClick={onLogout}
-              className="text-xs font-bold text-slate-500 hover:text-slate-900 underline"
+              className="text-xs font-bold text-neutral hover:text-navy underline"
             >
               Keluar
             </button>
@@ -76,7 +76,7 @@ export default function PharmacyDashboardView({
             onClick={() => setAdminTab('orders')}
             className={`px-4 py-2 text-xs font-bold transition uppercase tracking-wider border-b-2 ${
               adminTab === 'orders'
-                ? 'border-slate-900 text-slate-900'
+                ? 'border-primary text-primary'
                 : 'border-transparent text-slate-400 hover:text-slate-700'
             }`}
           >
@@ -86,7 +86,7 @@ export default function PharmacyDashboardView({
             onClick={() => setAdminTab('inventory')}
             className={`px-4 py-2 text-xs font-bold transition uppercase tracking-wider border-b-2 ${
               adminTab === 'inventory'
-                ? 'border-slate-900 text-slate-900'
+                ? 'border-primary text-primary'
                 : 'border-transparent text-slate-400 hover:text-slate-700'
             }`}
           >
@@ -96,7 +96,7 @@ export default function PharmacyDashboardView({
             onClick={() => setAdminTab('reports')}
             className={`px-4 py-2 text-xs font-bold transition uppercase tracking-wider border-b-2 ${
               adminTab === 'reports'
-                ? 'border-slate-900 text-slate-900'
+                ? 'border-primary text-primary'
                 : 'border-transparent text-slate-400 hover:text-slate-700'
             }`}
           >

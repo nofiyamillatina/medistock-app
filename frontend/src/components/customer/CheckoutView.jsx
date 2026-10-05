@@ -15,12 +15,12 @@ export default function CheckoutView({
   onBack
 }) {
   return (
-    <div className="max-w-2xl mx-auto w-full px-4 py-8 flex-1 flex flex-col">
+    <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 py-8 flex-1 flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-slate-200 pb-4 mb-6">
         <button
           onClick={onBack}
-          className="text-xs font-bold text-slate-600 hover:text-slate-900 flex items-center gap-1"
+          className="text-sm font-semibold text-primary hover:text-primary-hover flex items-center gap-1"
         >
           &larr; Kembali
         </button>
@@ -30,8 +30,8 @@ export default function CheckoutView({
 
       <form onSubmit={onPayViaQRIS} className="space-y-8">
         {/* 1. Order Summary */}
-        <section className="border border-slate-200 p-5 bg-white">
-          <h2 className="text-xs font-bold text-slate-400 tracking-wider uppercase mb-4">
+        <section className="border border-slate-200 rounded-xl p-5 sm:p-6 bg-white shadow-sm">
+          <h2 className="text-sm font-bold text-navy tracking-wide mb-4">
             Ringkasan Pesanan
           </h2>
           <div className="divide-y divide-slate-100">
@@ -71,14 +71,14 @@ export default function CheckoutView({
         </section>
 
         {/* 2. Delivery Method */}
-        <section className="border border-slate-200 p-5 bg-white">
-          <h2 className="text-xs font-bold text-slate-400 tracking-wider uppercase mb-4">
+        <section className="border border-slate-200 rounded-xl p-5 sm:p-6 bg-white shadow-sm">
+          <h2 className="text-sm font-bold text-navy tracking-wide mb-4">
             Metode Pengiriman
           </h2>
           <div className="grid grid-cols-2 gap-4">
             <label
               className={`border p-4 cursor-pointer flex items-center space-x-3 transition ${
-                deliveryMethod === 'Pengantaran' ? 'border-slate-900 bg-slate-50' : 'border-slate-200 hover:border-slate-400'
+                deliveryMethod === 'Pengantaran' ? 'border-primary bg-primary-soft' : 'border-slate-200 hover:border-primary'
               }`}
             >
               <input
@@ -87,7 +87,7 @@ export default function CheckoutView({
                 value="Pengantaran"
                 checked={deliveryMethod === 'Pengantaran'}
                 onChange={(e) => setDeliveryMethod(e.target.value)}
-                className="accent-slate-900"
+                className="accent-primary"
               />
               <div>
                 <span className="block text-sm font-bold text-slate-900">Pengantaran</span>
@@ -97,7 +97,7 @@ export default function CheckoutView({
 
             <label
               className={`border p-4 cursor-pointer flex items-center space-x-3 transition ${
-                deliveryMethod === 'Ambil Sendiri' ? 'border-slate-900 bg-slate-50' : 'border-slate-200 hover:border-slate-400'
+                deliveryMethod === 'Ambil Sendiri' ? 'border-primary bg-primary-soft' : 'border-slate-200 hover:border-primary'
               }`}
             >
               <input
@@ -106,7 +106,7 @@ export default function CheckoutView({
                 value="Ambil Sendiri"
                 checked={deliveryMethod === 'Ambil Sendiri'}
                 onChange={(e) => setDeliveryMethod(e.target.value)}
-                className="accent-slate-900"
+                className="accent-primary"
               />
               <div>
                 <span className="block text-sm font-bold text-slate-900">Ambil Sendiri</span>
@@ -117,8 +117,8 @@ export default function CheckoutView({
         </section>
 
         {/* 3. Customer Info Input */}
-        <section className="border border-slate-200 p-5 bg-white space-y-4">
-          <h2 className="text-xs font-bold text-slate-400 tracking-wider uppercase mb-2">
+        <section className="border border-slate-200 rounded-xl p-5 sm:p-6 bg-white space-y-4 shadow-sm">
+          <h2 className="text-sm font-bold text-navy tracking-wide mb-2">
             Informasi Pemesan
           </h2>
 
@@ -132,7 +132,7 @@ export default function CheckoutView({
               placeholder="Masukkan nama Anda"
               value={customerInfo.name}
               onChange={(e) => setCustomerInfo({ ...customerInfo, name: e.target.value })}
-              className="w-full border border-slate-300 p-2.5 text-sm text-slate-900 focus:outline-none focus:border-slate-900"
+              className="w-full border border-slate-300 p-3 text-sm text-slate-900 focus:outline-none focus:border-primary"
             />
           </div>
 
@@ -146,7 +146,7 @@ export default function CheckoutView({
               placeholder="Contoh: 081234567890"
               value={customerInfo.phone}
               onChange={(e) => setCustomerInfo({ ...customerInfo, phone: e.target.value })}
-              className="w-full border border-slate-300 p-2.5 text-sm text-slate-900 focus:outline-none focus:border-slate-900"
+              className="w-full border border-slate-300 p-3 text-sm text-slate-900 focus:outline-none focus:border-primary"
             />
           </div>
 
@@ -161,15 +161,15 @@ export default function CheckoutView({
                 placeholder="Tuliskan alamat lengkap beserta nomor rumah / patokan"
                 value={customerInfo.address}
                 onChange={(e) => setCustomerInfo({ ...customerInfo, address: e.target.value })}
-                className="w-full border border-slate-300 p-2.5 text-sm text-slate-900 focus:outline-none focus:border-slate-900"
+                className="w-full border border-slate-300 p-3 text-sm text-slate-900 focus:outline-none focus:border-primary"
               ></textarea>
             </div>
           )}
         </section>
 
         {/* 4. Total Breakdown */}
-        <section className="border border-slate-200 p-5 bg-white space-y-2 text-sm">
-          <h2 className="text-xs font-bold text-slate-400 tracking-wider uppercase mb-3">
+        <section className="border border-slate-200 rounded-xl p-5 sm:p-6 bg-white space-y-2 text-sm shadow-sm">
+          <h2 className="text-sm font-bold text-navy tracking-wide mb-3">
             Rincian Pembayaran
           </h2>
           <div className="flex justify-between text-slate-600">
@@ -189,7 +189,7 @@ export default function CheckoutView({
         {/* 5. Action Button */}
         <button
           type="submit"
-          className="w-full py-4 bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm tracking-wider uppercase transition shadow"
+          className="w-full py-4 rounded-lg bg-primary hover:bg-primary-hover text-white font-bold text-sm tracking-wider uppercase transition shadow-sm"
         >
           Bayar via QRIS &rarr;
         </button>

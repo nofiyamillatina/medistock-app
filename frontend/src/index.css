@@ -1,13 +1,53 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: 'Inter', sans-serif;
-  background-color: #FFFFFF;
-  color: #0F172A;
+@layer base {
+  :root {
+    font-family: 'Inter', sans-serif;
+    color: #0F172A;
+    background: #F8FAFC;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    min-width: 320px;
+    font-family: 'Inter', sans-serif;
+    background-color: #F8FAFC;
+    color: #0F172A;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  }
+
+  button {
+    border-radius: 0.5rem;
+    transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+  }
+
+  button:focus-visible, a:focus-visible {
+    outline: 2px solid #0284C7;
+    outline-offset: 2px;
+  }
+
+  input:not([type='radio']):not([type='checkbox']), textarea, select {
+    border-radius: 0.5rem;
+    border-color: #CBD5E1;
+    background-color: #FFFFFF;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+  }
+
+  input:not([type='radio']):not([type='checkbox']):focus, textarea:focus, select:focus {
+    border-color: #0284C7;
+    outline: none;
+    box-shadow: 0 0 0 3px rgb(2 132 199 / 15%);
+  }
+
+  input::placeholder, textarea::placeholder {
+    color: #94A3B8;
+  }
 }
 
 .custom-scrollbar::-webkit-scrollbar {

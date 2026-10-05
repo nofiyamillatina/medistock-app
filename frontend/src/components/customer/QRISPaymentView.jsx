@@ -20,7 +20,7 @@ export default function QRISPaymentView({
 
   return (
     <div className="max-w-md mx-auto w-full px-4 py-10 flex-1 flex flex-col justify-center">
-      <div className="border border-slate-200 bg-white p-6 sm:p-8 text-center shadow-sm">
+      <div className="border border-slate-200 rounded-2xl bg-white p-6 sm:p-8 text-center shadow-sm">
         {/* Header */}
         <div className="border-b border-slate-200 pb-4 mb-6">
           <h1 className="text-lg font-bold text-slate-900">Pembayaran QRIS</h1>
@@ -70,7 +70,7 @@ export default function QRISPaymentView({
         {/* Action Button */}
         <button
           onClick={onConfirmPayment}
-          className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider transition"
+          className="w-full py-3.5 bg-primary hover:bg-primary-hover text-white font-bold text-xs uppercase tracking-wider transition shadow-sm"
         >
           Saya Sudah Bayar
         </button>
@@ -79,8 +79,8 @@ export default function QRISPaymentView({
       {/* Payment Success Modal */}
       {showSuccessModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white border-2 border-slate-900 p-6 sm:p-8 max-w-sm w-full text-center shadow-2xl space-y-4">
-            <div className="w-12 h-12 bg-slate-900 text-white rounded-full flex items-center justify-center mx-auto text-xl font-bold">
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 max-w-sm w-full text-center shadow-2xl space-y-4">
+            <div className="w-12 h-12 bg-success text-white rounded-full flex items-center justify-center mx-auto text-xl font-bold">
               ✓
             </div>
             <h2 className="text-lg font-bold text-slate-900">Pembayaran Berhasil!</h2>
@@ -90,7 +90,7 @@ export default function QRISPaymentView({
             <div className="border-t border-slate-200 pt-4">
               <button
                 onClick={onReset}
-                className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold tracking-wider uppercase"
+                className="w-full py-3 bg-primary hover:bg-primary-hover text-white text-xs font-bold tracking-wider uppercase"
               >
                 Kembali ke Beranda
               </button>

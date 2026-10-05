@@ -2,7 +2,7 @@ import React from 'react';
 
 export default function DemoBanner({ currentView, setCurrentView, isLoggedIn }) {
   return (
-    <div className="bg-slate-900 text-white px-4 py-2 flex flex-wrap items-center justify-between text-xs font-mono border-b border-slate-800">
+    <div className="bg-navy text-white px-4 py-2.5 flex flex-wrap items-center justify-between text-xs font-sans border-b border-slate-800">
       <div className="flex items-center space-x-2 py-1">
         <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
         <span className="font-semibold tracking-wide">MEDISTOCK</span>
@@ -11,7 +11,7 @@ export default function DemoBanner({ currentView, setCurrentView, isLoggedIn }) 
         <button
           onClick={() => setCurrentView('customer')}
           className={`px-3 py-1 rounded border transition ${currentView === 'customer' || currentView === 'checkout' || currentView === 'qris'
-              ? 'bg-white text-slate-900 border-white font-bold'
+              ? 'bg-primary text-white border-primary font-bold'
               : 'border-slate-700 text-slate-300 hover:text-white'
             }`}
         >
@@ -26,7 +26,7 @@ export default function DemoBanner({ currentView, setCurrentView, isLoggedIn }) 
             }
           }}
           className={`px-3 py-1 rounded border transition ${currentView === 'admin-login' || currentView === 'admin-dashboard'
-              ? 'bg-white text-slate-900 border-white font-bold'
+              ? 'bg-primary text-white border-primary font-bold'
               : 'border-slate-700 text-slate-300 hover:text-white'
             }`}
         >

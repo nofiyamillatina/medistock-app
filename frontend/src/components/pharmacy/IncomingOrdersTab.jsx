@@ -10,7 +10,7 @@ export default function IncomingOrdersTab({
 }) {
   return (
     <section className="space-y-4">
-      <h2 className="text-xs font-bold text-slate-400 tracking-wider uppercase">
+      <h2 className="text-sm font-bold text-navy tracking-wide">
         Daftar Pesanan Terbaru
       </h2>
 
@@ -36,7 +36,7 @@ export default function IncomingOrdersTab({
         </div>
       ) : (
         orders.map((order) => (
-          <div key={order.id} className="border border-slate-200 p-5 bg-white space-y-4">
+          <div key={order.id} className="border border-slate-200 rounded-xl p-5 sm:p-6 bg-white space-y-4 shadow-sm">
             <div className="flex flex-wrap items-center justify-between border-b border-slate-100 pb-3 gap-2">
               <div>
                 <span className="text-sm font-bold text-slate-900 mr-3">{order.id}</span>
@@ -49,15 +49,15 @@ export default function IncomingOrdersTab({
               </div>
 
               <div className="flex items-center space-x-2">
-                <span className="text-xs font-bold px-2 py-0.5 bg-slate-900 text-white">
+                <span className="text-xs font-bold px-2 py-0.5 rounded bg-navy text-white">
                   {order.paymentStatus}
                 </span>
                 <span
                   className={`text-xs font-bold px-2 py-0.5 border ${
                     order.orderStatus === 'Menunggu Konfirmasi'
-                      ? 'bg-amber-50 text-amber-800 border-amber-200'
+                      ? 'bg-primary-soft text-primary border-sky-200'
                       : order.orderStatus === 'Selesai'
-                      ? 'bg-slate-100 text-slate-800 border-slate-300'
+                      ? 'bg-success-soft text-emerald-700 border-emerald-200'
                       : 'bg-red-50 text-red-700 border-red-200'
                   }`}
                 >
@@ -87,13 +87,13 @@ export default function IncomingOrdersTab({
               <div className="flex space-x-3 pt-2">
                 <button
                   onClick={() => onUpdateOrderStatus(order.id, 'Selesai')}
-                  className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider transition"
+                  className="flex-1 py-2.5 bg-success hover:bg-emerald-600 text-white font-bold text-xs uppercase tracking-wider transition"
                 >
                   Konfirmasi & Siapkan
                 </button>
                 <button
                   onClick={() => onUpdateOrderStatus(order.id, 'Dibatalkan')}
-                  className="px-5 py-2.5 border border-slate-300 hover:border-slate-800 text-slate-700 hover:text-slate-900 font-bold text-xs uppercase tracking-wider transition"
+                  className="px-5 py-2.5 border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 font-bold text-xs uppercase tracking-wider transition"
                 >
                   Tolak
                 </button>

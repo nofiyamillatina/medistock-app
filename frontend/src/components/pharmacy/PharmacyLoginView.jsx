@@ -24,9 +24,9 @@ export default function PharmacyLoginView({ onLoginSuccess }) {
 
   return (
     <div className="max-w-sm mx-auto w-full px-4 py-16 flex-1 flex flex-col justify-center">
-      <div className="border border-slate-200 bg-white p-8 shadow-sm">
+      <div className="border border-slate-200 rounded-2xl bg-white p-8 shadow-sm">
         <div className="text-center mb-8 border-b border-slate-200 pb-6">
-          <h1 className="text-xl font-bold text-slate-900">MEDISTOCK</h1>
+          <h1 className="text-2xl font-extrabold text-navy">MEDISTOCK</h1>
           <p className="text-xs font-semibold text-slate-500 tracking-wider uppercase mt-1">
             Portal Apotek
           </p>
@@ -49,7 +49,7 @@ export default function PharmacyLoginView({ onLoginSuccess }) {
               placeholder="Masukkan username atau email"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full border border-slate-300 p-2.5 text-sm text-slate-900 focus:outline-none focus:border-slate-900"
+              className="w-full border border-slate-300 p-3 text-sm text-slate-900 focus:outline-none focus:border-primary"
             />
           </div>
 
@@ -63,14 +63,14 @@ export default function PharmacyLoginView({ onLoginSuccess }) {
               placeholder="Masukkan password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full border border-slate-300 p-2.5 text-sm text-slate-900 focus:outline-none focus:border-slate-900"
+              className="w-full border border-slate-300 p-3 text-sm text-slate-900 focus:outline-none focus:border-primary"
             />
           </div>
 
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs tracking-wider uppercase transition mt-2 disabled:opacity-50"
+            className="w-full py-3.5 bg-primary hover:bg-primary-hover text-white font-bold text-xs tracking-wider uppercase transition mt-2 disabled:opacity-50"
           >
             {isSubmitting ? 'Memproses...' : 'Masuk ke Dashboard'}
           </button>
