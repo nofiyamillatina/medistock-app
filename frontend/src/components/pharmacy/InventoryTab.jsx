@@ -30,10 +30,10 @@ export default function InventoryTab({
       prev.map((m) =>
         m.id === id
           ? {
-              ...m,
-              stock,
-              status: stock === 0 ? 'Habis' : 'Tersedia'
-            }
+            ...m,
+            stock,
+            status: stock === 0 ? 'Habis' : 'Tersedia'
+          }
           : m
       )
     );
@@ -180,11 +180,10 @@ export default function InventoryTab({
                   <td className="p-3"><input disabled={!canManageInventory || savingInventory} value={item.image_url || ''} placeholder="/images/..." onChange={(e) => setInventoryDraft((prev) => prev.map((m) => m.id === item.id ? { ...m, image_url: e.target.value } : m))} className="w-36 border border-slate-300 p-1 text-xs text-slate-700 disabled:bg-slate-100 font-mono" /></td>
                   <td className="p-3 text-center">
                     <span
-                    className={`inline-block px-3 py-1 text-xs font-bold border ${
-                        normalizeStockInput(item.stock) > 0
+                      className={`inline-block px-3 py-1 text-xs font-bold border ${normalizeStockInput(item.stock) > 0
                           ? 'bg-success-soft text-emerald-700 border-emerald-200'
                           : 'bg-slate-100 text-slate-500 border-slate-300'
-                      }`}
+                        }`}
                     >
                       {normalizeStockInput(item.stock) > 0 ? 'Tersedia' : 'Habis'}
                     </span>
@@ -200,7 +199,7 @@ export default function InventoryTab({
       {inventoryDraft.length > 0 && !loadingMedicines && !errorMedicines && (
         <div className="sticky bottom-4 border border-slate-900 bg-slate-900 text-white p-4 shadow-xl flex items-center justify-between">
           <span className="text-xs text-slate-300 font-medium">
-          Lakukan perubahan data obat secara langsung di tabel di atas.
+            Lakukan perubahan data obat secara langsung di tabel di atas.
           </span>
           <button
             onClick={handleSaveInventory}

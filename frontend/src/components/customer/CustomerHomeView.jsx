@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Search } from 'lucide-react';
 import MedicineCard from './MedicineCard.jsx';
+import { formatIDR } from '../../services/formatters.js';
 
 export default function CustomerHomeView({
   medicines = [],
@@ -39,11 +40,10 @@ export default function CustomerHomeView({
           </div>
           <div className="text-right">
             <span
-              className={`inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded border ${
-                isStoreOpen
+              className={`inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded border ${isStoreOpen
                   ? 'bg-success-soft text-emerald-700 border-emerald-200'
                   : 'bg-red-50 text-red-700 border-red-200'
-              }`}
+                }`}
             >
               {isStoreOpen ? '● Apotek Buka' : '○ Apotek Tutup'}
             </span>
