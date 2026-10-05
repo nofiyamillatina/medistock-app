@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F1F5F9"/>
+      <stop offset="100%" stop-color="#E2E8F0"/>
+    </linearGradient>
+    <linearGradient id="boxGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284C7"/>
+      <stop offset="100%" stop-color="#0369A1"/>
+    </linearGradient>
+    <linearGradient id="strip" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#38BDF8"/>
+      <stop offset="100%" stop-color="#0284C7"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#0F172A" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="400" height="300" fill="url(#bg)"/>
+
+  <!-- Subtle background pattern ring -->
+  <circle cx="200" cy="150" r="110" fill="none" stroke="#0284C7" stroke-opacity="0.08" stroke-width="40"/>
+
+  <!-- Product Box -->
+  <g filter="url(#shadow)">
+    <!-- Main Box Body -->
+    <rect x="110" y="50" width="180" height="200" rx="12" fill="#FFFFFF"/>
+    
+    <!-- Top Accent Bar -->
+    <path d="M 110 62 A 12 12 0 0 1 122 50 L 278 50 A 12 12 0 0 1 290 62 L 290 100 L 110 100 Z" fill="url(#boxGrad)"/>
+    
+    <!-- Cross Symbol -->
+    <circle cx="250" cy="75" r="14" fill="#FFFFFF" fill-opacity="0.2"/>
+    <path d="M 246 75 H 254 M 250 71 V 79" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"/>
+
+    <!-- Brand Header -->
+    <text x="130" y="80" fill="#FFFFFF" font-family="Plus Jakarta Sans, sans-serif" font-weight="800" font-size="14" letter-spacing="1">MEDISTOCK</text>
+    
+    <!-- Medicine Name -->
+    <text x="130" y="130" fill="#0F172A" font-family="Plus Jakarta Sans, sans-serif" font-weight="800" font-size="18">Paracetamol</text>
+    <text x="130" y="148" fill="#0284C7" font-family="Inter, sans-serif" font-weight="700" font-size="14">500 mg</text>
+    
+    <!-- Description Badge -->
+    <rect x="130" y="162" width="115" height="20" rx="4" fill="#F0F9FF"/>
+    <text x="136" y="176" fill="#0369A1" font-family="Inter, sans-serif" font-weight="600" font-size="10">Pereda Demam & Nyeri</text>
+    
+    <!-- Blister Pack Illustration -->
+    <rect x="130" y="195" width="140" height="35" rx="6" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1"/>
+    
+    <!-- Tablets in blister -->
+    <circle cx="150" cy="212" r="9" fill="#FFFFFF" stroke="#0284C7" stroke-width="2"/>
+    <line x1="145" y1="212" x2="155" y2="212" stroke="#0284C7" stroke-width="1.5"/>
+    
+    <circle cx="180" cy="212" r="9" fill="#FFFFFF" stroke="#0284C7" stroke-width="2"/>
+    <line x1="175" y1="212" x2="185" y2="212" stroke="#0284C7" stroke-width="1.5"/>
+
+    <circle cx="210" cy="212" r="9" fill="#FFFFFF" stroke="#0284C7" stroke-width="2"/>
+    <line x1="205" y1="212" x2="215" y2="212" stroke="#0284C7" stroke-width="1.5"/>
+
+    <circle cx="240" cy="212" r="9" fill="#FFFFFF" stroke="#0284C7" stroke-width="2"/>
+    <line x1="235" y1="212" x2="245" y2="212" stroke="#0284C7" stroke-width="1.5"/>
+
+    <!-- Bottom colored stripe -->
+    <path d="M 110 242 L 290 242 L 290 238 A 12 12 0 0 1 278 250 L 122 250 A 12 12 0 0 1 110 238 Z" fill="url(#strip)"/>
+  </g>
+</svg>

@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F0FDF4"/>
+      <stop offset="100%" stop-color="#DCFCE7"/>
+    </linearGradient>
+    <linearGradient id="boxGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#16A34A"/>
+      <stop offset="100%" stop-color="#15803D"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#16A34A" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <rect width="400" height="300" fill="url(#bg)"/>
+  <circle cx="200" cy="150" r="110" fill="none" stroke="#16A34A" stroke-opacity="0.08" stroke-width="40"/>
+
+  <g filter="url(#shadow)">
+    <rect x="110" y="50" width="180" height="200" rx="12" fill="#FFFFFF"/>
+    
+    <path d="M 110 62 A 12 12 0 0 1 122 50 L 278 50 A 12 12 0 0 1 290 62 L 290 100 L 110 100 Z" fill="url(#boxGrad)"/>
+    
+    <text x="130" y="80" fill="#FFFFFF" font-family="Plus Jakarta Sans, sans-serif" font-weight="800" font-size="14" letter-spacing="1">LAMBUNG</text>
+    
+    <text x="130" y="130" fill="#0F172A" font-family="Plus Jakarta Sans, sans-serif" font-weight="800" font-size="17">Antasida Doen</text>
+    <text x="130" y="148" fill="#16A34A" font-family="Inter, sans-serif" font-weight="700" font-size="14">Tablet Kunyah</text>
+    
+    <rect x="130" y="162" width="130" height="20" rx="4" fill="#DCFCE7"/>
+    <text x="136" y="176" fill="#14532D" font-family="Inter, sans-serif" font-weight="600" font-size="10">Pereda Maag & Asam Lambung</text>
+    
+    <g transform="translate(130, 195)">
+      <rect x="10" y="5" width="120" height="30" rx="6" fill="#F8FAFC" stroke="#BBF7D0" stroke-width="1.5"/>
+      <circle cx="35" cy="20" r="8" fill="#DCFCE7" stroke="#16A34A" stroke-width="2"/>
+      <circle cx="70" cy="20" r="8" fill="#DCFCE7" stroke="#16A34A" stroke-width="2"/>
+      <circle cx="105" cy="20" r="8" fill="#DCFCE7" stroke="#16A34A" stroke-width="2"/>
+    </g>
+
+    <path d="M 110 242 L 290 242 L 290 238 A 12 12 0 0 1 278 250 L 122 250 A 12 12 0 0 1 110 238 Z" fill="#16A34A"/>
+  </g>
+</svg>

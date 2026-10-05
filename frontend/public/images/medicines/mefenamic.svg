@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F3E8FF"/>
+      <stop offset="100%" stop-color="#E9D5FF"/>
+    </linearGradient>
+    <linearGradient id="boxGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#9333EA"/>
+      <stop offset="100%" stop-color="#7E22CE"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#9333EA" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <rect width="400" height="300" fill="url(#bg)"/>
+  <circle cx="200" cy="150" r="110" fill="none" stroke="#9333EA" stroke-opacity="0.08" stroke-width="40"/>
+
+  <g filter="url(#shadow)">
+    <rect x="110" y="50" width="180" height="200" rx="12" fill="#FFFFFF"/>
+    
+    <path d="M 110 62 A 12 12 0 0 1 122 50 L 278 50 A 12 12 0 0 1 290 62 L 290 100 L 110 100 Z" fill="url(#boxGrad)"/>
+    
+    <text x="130" y="80" fill="#FFFFFF" font-family="Plus Jakarta Sans, sans-serif" font-weight="800" font-size="14" letter-spacing="1">ANALGESIK</text>
+    
+    <text x="130" y="126" fill="#0F172A" font-family="Plus Jakarta Sans, sans-serif" font-weight="800" font-size="15">Mefenamic Acid</text>
+    <text x="130" y="146" fill="#9333EA" font-family="Inter, sans-serif" font-weight="700" font-size="14">500 mg</text>
+    
+    <rect x="130" y="160" width="130" height="20" rx="4" fill="#F3E8FF"/>
+    <text x="136" y="174" fill="#581C87" font-family="Inter, sans-serif" font-weight="600" font-size="10">Pereda Nyeri Haid & Gigi</text>
+    
+    <g transform="translate(130, 195)">
+      <rect x="10" y="5" width="120" height="30" rx="6" fill="#F8FAFC" stroke="#E9D5FF" stroke-width="1.5"/>
+      <ellipse cx="35" cy="20" rx="12" ry="7" fill="#F3E8FF" stroke="#9333EA" stroke-width="1.5"/>
+      <ellipse cx="70" cy="20" rx="12" ry="7" fill="#F3E8FF" stroke="#9333EA" stroke-width="1.5"/>
+      <ellipse cx="105" cy="20" rx="12" ry="7" fill="#F3E8FF" stroke="#9333EA" stroke-width="1.5"/>
+    </g>
+
+    <path d="M 110 242 L 290 242 L 290 238 A 12 12 0 0 1 278 250 L 122 250 A 12 12 0 0 1 110 238 Z" fill="#9333EA"/>
+  </g>
+</svg>

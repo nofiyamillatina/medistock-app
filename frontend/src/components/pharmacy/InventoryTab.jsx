@@ -16,7 +16,7 @@ export default function InventoryTab({
   canManageInventory = false
 }) {
   const [showAddForm, setShowAddForm] = React.useState(false);
-  const [form, setForm] = React.useState({ name: '', desc: '', price: '', stock: 0 });
+  const [form, setForm] = React.useState({ name: '', desc: '', price: '', stock: 0, image_url: '' });
   const [formError, setFormError] = React.useState('');
   const handlePriceChange = (id, newPrice) => {
     setInventoryDraft((prev) =>
@@ -66,9 +66,9 @@ export default function InventoryTab({
     const restricted = isRestrictedMedicine(form.name);
     if (restricted && !window.confirm(RESTRICTED_MEDICINE_WARNING)) return;
     setFormError('');
-    const result = await onAddMedicine({ ...form, name: form.name.trim(), price, stock, restrictedConfirmed: restricted });
+    const result = await onAddMedicine({ ...form, name: form.name.trim(), price, stock, image_url: form.image_url?.trim() || null, restrictedConfirmed: restricted });
     if (result?.success) {
-      setForm({ name: '', desc: '', price: '', stock: 0 });
+      setForm({ name: '', desc: '', price: '', stock: 0, image_url: '' });
       setShowAddForm(false);
     } else {
       setFormError(result?.message || 'Gagal menambahkan obat.');
@@ -81,6 +81,7 @@ export default function InventoryTab({
     onSaveInventory(inventoryDraft.map((item) => ({
       ...item,
       stock: normalizeStockInput(item.stock),
+      image_url: item.image_url?.trim() || null,
       restrictedConfirmed: isRestrictedMedicine(item.name)
     })));
   };
@@ -100,6 +101,7 @@ export default function InventoryTab({
           <label className="text-xs font-bold text-slate-600">Deskripsi<input value={form.desc} onChange={(e) => setForm({ ...form, desc: e.target.value })} className="mt-1 w-full border border-slate-300 p-2 text-sm font-normal" /></label>
           <label className="text-xs font-bold text-slate-600">Harga<input required type="number" min="0" step="1" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="mt-1 w-full border border-slate-300 p-2 text-sm font-normal" /></label>
           <label className="text-xs font-bold text-slate-600">Stok<input type="number" min={0} step={1} value={normalizeStockInput(form.stock)} onKeyDown={(e) => handleStockKeyDown(e, form.stock, (stock) => setForm((prev) => ({ ...prev, stock })))} onPaste={(e) => handleStockPaste(e, (stock) => setForm((prev) => ({ ...prev, stock })))} onChange={(e) => setForm((prev) => ({ ...prev, stock: normalizeStockInput(e.target.value) }))} className={`mt-1 w-full border border-slate-300 p-2 text-sm font-normal ${normalizeStockInput(form.stock) === 0 ? 'text-slate-400' : 'text-slate-900'}`} /></label>
+          <label className="text-xs font-bold text-slate-600 sm:col-span-2">URL Gambar (Opsional)<input placeholder="Contoh: /images/medicines/paracetamol.svg atau https://..." value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} className="mt-1 w-full border border-slate-300 p-2 text-sm font-normal" /></label>
           {formError && <p className="sm:col-span-2 text-sm text-red-700">{formError}</p>}
           <div className="sm:col-span-2 flex justify-end gap-2"><button type="button" disabled={savingInventory} onClick={() => { setShowAddForm(false); setFormError(''); }} className="px-4 py-2 border border-slate-300 text-slate-700 text-xs font-bold uppercase disabled:opacity-50">Batal</button><button disabled={savingInventory} className="px-4 py-2 bg-primary hover:bg-primary-hover text-white text-xs font-bold uppercase disabled:opacity-50">{savingInventory ? 'Menambahkan...' : 'Tambah Obat'}</button></div>
         </form>
@@ -130,10 +132,12 @@ export default function InventoryTab({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-neutral uppercase tracking-wider">
+                <th className="p-3 w-14 text-center">Gambar</th>
                 <th className="p-3">Nama Obat</th>
                 <th className="p-3">Deskripsi</th>
                 <th className="p-3">Harga (IDR)</th>
                 <th className="p-3">Jumlah Stok</th>
+                <th className="p-3">URL Gambar</th>
                 <th className="p-3 text-center">Status</th>
                 {canManageInventory && <th className="p-3 text-center">Aksi</th>}
               </tr>
@@ -141,10 +145,17 @@ export default function InventoryTab({
             <tbody className="divide-y divide-slate-200 text-sm">
               {inventoryDraft.map((item) => (
                 <tr key={item.id} className="hover:bg-slate-50/50">
-                  <td className="p-3"><input disabled={!canManageInventory || savingInventory} value={item.name} onChange={(e) => setInventoryDraft((prev) => prev.map((m) => m.id === item.id ? { ...m, name: e.target.value } : m))} className="w-44 border border-slate-300 p-1 font-bold text-slate-900 disabled:bg-slate-100" /></td>
-                  <td className="p-3"><input disabled={!canManageInventory || savingInventory} value={item.desc || ''} onChange={(e) => setInventoryDraft((prev) => prev.map((m) => m.id === item.id ? { ...m, desc: e.target.value } : m))} className="w-48 border border-slate-300 p-1 text-slate-700 disabled:bg-slate-100" /></td>
+                  <td className="p-3 text-center">
+                    {item.image_url ? (
+                      <img src={item.image_url} alt={item.name} className="w-10 h-10 object-contain rounded border border-slate-200 bg-slate-50 mx-auto" />
+                    ) : (
+                      <div className="w-10 h-10 rounded border border-slate-200 bg-slate-100 flex items-center justify-center text-[9px] text-slate-400 font-semibold mx-auto">No Img</div>
+                    )}
+                  </td>
+                  <td className="p-3"><input disabled={!canManageInventory || savingInventory} value={item.name} onChange={(e) => setInventoryDraft((prev) => prev.map((m) => m.id === item.id ? { ...m, name: e.target.value } : m))} className="w-36 border border-slate-300 p-1 font-bold text-slate-900 disabled:bg-slate-100" /></td>
+                  <td className="p-3"><input disabled={!canManageInventory || savingInventory} value={item.desc || ''} onChange={(e) => setInventoryDraft((prev) => prev.map((m) => m.id === item.id ? { ...m, desc: e.target.value } : m))} className="w-40 border border-slate-300 p-1 text-slate-700 disabled:bg-slate-100" /></td>
                   <td className="p-3">
-                    <div className="flex items-center border border-slate-300 w-32 px-2 py-1 bg-white">
+                    <div className="flex items-center border border-slate-300 w-28 px-2 py-1 bg-white">
                       <span className="text-xs text-slate-400 mr-1 font-mono">Rp</span>
                       <input
                         type="number" min="0" step="1"
@@ -163,9 +174,10 @@ export default function InventoryTab({
                       onKeyDown={(e) => handleStockKeyDown(e, item.stock, (stock) => handleStockChange(item.id, stock))}
                       onPaste={(e) => handleStockPaste(e, (stock) => handleStockChange(item.id, stock))}
                       onChange={(e) => handleStockChange(item.id, e.target.value)}
-                      className={`border border-slate-300 w-24 p-1 text-sm font-bold text-center focus:outline-none bg-white ${normalizeStockInput(item.stock) === 0 ? 'text-slate-400' : 'text-slate-900'}`}
+                      className={`border border-slate-300 w-20 p-1 text-sm font-bold text-center focus:outline-none bg-white ${normalizeStockInput(item.stock) === 0 ? 'text-slate-400' : 'text-slate-900'}`}
                     />
                   </td>
+                  <td className="p-3"><input disabled={!canManageInventory || savingInventory} value={item.image_url || ''} placeholder="/images/..." onChange={(e) => setInventoryDraft((prev) => prev.map((m) => m.id === item.id ? { ...m, image_url: e.target.value } : m))} className="w-36 border border-slate-300 p-1 text-xs text-slate-700 disabled:bg-slate-100 font-mono" /></td>
                   <td className="p-3 text-center">
                     <span
                     className={`inline-block px-3 py-1 text-xs font-bold border ${

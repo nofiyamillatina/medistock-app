@@ -34,6 +34,7 @@ model medicines {
   price      Int
   stock      Int
   status     String    @default("Tersedia")
+  image_url  String?
   created_at DateTime? @default(now())
 }
 

@@ -44,6 +44,10 @@ const validateMedicineFields = (body, { partial = false } = {}) => {
   if (Object.hasOwn(body, 'desc') && body.desc !== null && typeof body.desc !== 'string') {
     errors.desc = 'Deskripsi harus berupa teks.';
   }
+  const img = body.image_url ?? body.imageUrl;
+  if (img !== undefined && img !== null && typeof img !== 'string') {
+    errors.image_url = 'URL gambar harus berupa teks.';
+  }
   return errors;
 };
 
@@ -72,6 +76,7 @@ export const createMedicine = async (req, res) => {
   }
   try {
     const stock = Number(req.body.stock);
+    const imageUrl = (req.body.image_url ?? req.body.imageUrl ?? '').trim() || null;
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
         const medicine = await prisma.medicines.create({
@@ -81,7 +86,8 @@ export const createMedicine = async (req, res) => {
             desc: typeof req.body.desc === 'string' ? req.body.desc.trim() : null,
             price: Number(req.body.price),
             stock,
-            status: stock === 0 ? 'Habis' : 'Tersedia'
+            status: stock === 0 ? 'Habis' : 'Tersedia',
+            image_url: imageUrl
           }
         });
         return res.status(201).json({ success: true, data: medicine });
@@ -137,6 +143,10 @@ export const updateInventory = async (req, res) => {
         if (Object.hasOwn(item, 'price')) data.price = Number(item.price);
         if (Object.hasOwn(item, 'stock')) data.stock = Number(item.stock);
         if (Object.hasOwn(item, 'stock')) data.status = Number(item.stock) === 0 ? 'Habis' : 'Tersedia';
+        if (Object.hasOwn(item, 'image_url') || Object.hasOwn(item, 'imageUrl')) {
+          const imgVal = item.image_url ?? item.imageUrl;
+          data.image_url = typeof imgVal === 'string' ? imgVal.trim() || null : null;
+        }
         return prisma.medicines.update({ where: { id: item.id }, data });
       }));
     } catch (error) {

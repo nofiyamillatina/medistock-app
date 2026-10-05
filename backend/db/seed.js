@@ -2,11 +2,11 @@ import prisma from '../src/config/database.js';
 import bcrypt from 'bcryptjs';
 
 const INITIAL_MEDICINES = [
-  { id: 'MED-1', name: 'Paracetamol 500mg', desc: 'Pereda demam & nyeri ringan hingga sedang', price: 12500, stock: 45, status: 'Tersedia' },
-  { id: 'MED-2', name: 'Amoxicillin 500mg', desc: 'Antibiotik penanganan infeksi bakteri', price: 28000, stock: 20, status: 'Tersedia' },
-  { id: 'MED-3', name: 'Vitamin C 1000mg', desc: 'Suplemen daya tahan tubuh tablet kunyah', price: 35000, stock: 15, status: 'Tersedia' },
-  { id: 'MED-4', name: 'Antasida Doen Tablet', desc: 'Obat maag & asam lambung berlebih', price: 8500, stock: 30, status: 'Tersedia' },
-  { id: 'MED-5', name: 'Mefenamic Acid 500mg', desc: 'Pereda nyeri sakit gigi & nyeri haid', price: 18000, stock: 0, status: 'Habis' }
+  { id: 'MED-1', name: 'Paracetamol 500mg', desc: 'Pereda demam & nyeri ringan hingga sedang', price: 12500, stock: 45, status: 'Tersedia', image_url: '/images/medicines/paracetamol.svg' },
+  { id: 'MED-2', name: 'Amoxicillin 500mg', desc: 'Antibiotik penanganan infeksi bakteri', price: 28000, stock: 20, status: 'Tersedia', image_url: '/images/medicines/amoxicillin.svg' },
+  { id: 'MED-3', name: 'Vitamin C 1000mg', desc: 'Suplemen daya tahan tubuh tablet kunyah', price: 35000, stock: 15, status: 'Tersedia', image_url: '/images/medicines/vitaminc.svg' },
+  { id: 'MED-4', name: 'Antasida Doen Tablet', desc: 'Obat maag & asam lambung berlebih', price: 8500, stock: 30, status: 'Tersedia', image_url: '/images/medicines/antasida.svg' },
+  { id: 'MED-5', name: 'Mefenamic Acid 500mg', desc: 'Pereda nyeri sakit gigi & nyeri haid', price: 18000, stock: 0, status: 'Habis', image_url: '/images/medicines/mefenamic.svg' }
 ];
 
 const INITIAL_ORDERS = [
@@ -111,7 +111,8 @@ export async function seedDatabase() {
         desc: m.desc,
         price: m.price,
         stock: m.stock,
-        status: m.status
+        status: m.status,
+        image_url: m.image_url
       }))
     });
     console.log('🌱 Seeded Initial Medicines catalog');
