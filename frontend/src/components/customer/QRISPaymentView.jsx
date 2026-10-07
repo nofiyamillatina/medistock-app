@@ -41,24 +41,12 @@ export default function QRISPaymentView({
         </div>
 
         {/* QR Code Box */}
-        <div className="my-6 border-2 border-slate-900 p-6 inline-block bg-white shadow-inner">
-          <div className="w-48 h-48 bg-slate-900 flex flex-col items-center justify-center text-white relative">
-            <div className="absolute inset-2 border-2 border-white grid grid-cols-6 gap-1 p-2 bg-white">
-              <div className="bg-slate-900 col-span-2 row-span-2"></div>
-              <div className="bg-slate-900 col-span-2"></div>
-              <div className="bg-slate-900 col-span-2 row-span-2"></div>
-              <div className="bg-slate-900"></div>
-              <div className="bg-slate-900"></div>
-              <div className="bg-slate-900 col-span-2 row-span-2"></div>
-              <div className="bg-slate-900 col-span-2"></div>
-              <div className="bg-slate-900"></div>
-              <div className="bg-slate-900 col-span-3"></div>
-              <div className="bg-slate-900"></div>
-            </div>
-            <div className="z-10 bg-white text-slate-900 px-2 py-1 font-black text-xs border border-slate-900 tracking-tighter">
-              QRIS MEDISTOCK
-            </div>
-          </div>
+        <div className="my-6 mx-auto max-w-full inline-block border-2 border-slate-200 p-2 bg-white shadow-inner">
+          <img
+            src="/images/qris-merchant.jpeg"
+            alt="QRIS statis merchant untuk pembayaran MEDISTOCK"
+            className="block w-full max-w-[320px] h-auto object-contain"
+          />
         </div>
 
         {/* Instruction */}

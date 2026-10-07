@@ -195,7 +195,15 @@ export default function App() {
       phone: customerInfo.phone,
       address: deliveryMethod === 'Pengantaran' ? customerInfo.address : '-',
       deliveryType: deliveryMethod,
-      items: cart.map((c) => ({ name: c.name, qty: c.qty, price: c.price })),
+      // Keep catalog ID and a numeric quantity in the order payload. The
+      // backend uses the ID for stock validation; name/price remain for the
+      // existing order-item schema and display flow.
+      items: cart.map((c) => ({
+        medicineId: String(c.id),
+        name: c.name,
+        qty: Number(c.qty),
+        price: Number(c.price)
+      })),
       subtotal: cartSubtotal,
       serviceFee,
       totalAmount: cartTotal
