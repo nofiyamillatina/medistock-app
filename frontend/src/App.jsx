@@ -412,7 +412,7 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <Footer />
+      {currentView !== 'qris' && <Footer />}
     </div>
   );
 }

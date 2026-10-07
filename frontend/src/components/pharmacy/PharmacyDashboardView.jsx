@@ -80,7 +80,17 @@ export default function PharmacyDashboardView({
                 : 'border-transparent text-slate-400 hover:text-slate-700'
             }`}
           >
-            Pesanan Masuk ({pendingOrdersCount})
+            <span className="inline-flex items-center gap-2">
+              Pesanan Masuk
+              {pendingOrdersCount > 0 && (
+                <span
+                  aria-label={`${pendingOrdersCount} pesanan menunggu konfirmasi`}
+                  className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[10px] leading-none font-extrabold text-white"
+                >
+                  {pendingOrdersCount > 99 ? '99+' : pendingOrdersCount}
+                </span>
+              )}
+            </span>
           </button>
           <button
             onClick={() => setAdminTab('inventory')}
