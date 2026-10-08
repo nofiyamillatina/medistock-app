@@ -232,7 +232,21 @@ export default function InventoryTab({
                   <td className="p-3">
                     <span className="font-semibold tabular-nums text-slate-900">{normalizeStockInput(item.stock)}</span>
                   </td>
-                  <td className="max-w-48 break-all p-3 text-xs text-slate-500">{item.image_url || '—'}</td>
+                  <td className="p-3 text-xs">
+                    {item.image_url ? (
+                      <a
+                        href={item.image_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={item.image_url}
+                        className="font-semibold text-primary underline underline-offset-2 hover:text-primary-hover"
+                      >
+                        Lihat gambar
+                      </a>
+                    ) : (
+                      <span className="text-slate-400">—</span>
+                    )}
+                  </td>
                   <td className="p-3 text-center">
                     <span
                       className={`inline-block px-3 py-1 text-xs font-bold border ${normalizeStockInput(item.stock) > 0
