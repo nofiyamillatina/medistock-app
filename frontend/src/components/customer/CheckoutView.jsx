@@ -12,7 +12,8 @@ export default function CheckoutView({
   serviceFee,
   cartTotal,
   onPayViaQRIS,
-  onBack
+  onBack,
+  submittingOrder = false
 }) {
   const [phoneError, setPhoneError] = React.useState('');
   return (
@@ -237,9 +238,10 @@ export default function CheckoutView({
         {/* 5. Action Button */}
         <button
           type="submit"
+          disabled={submittingOrder}
           className="w-full py-4 rounded-lg bg-primary hover:bg-primary-hover text-white font-bold text-sm tracking-wider uppercase transition shadow-sm"
         >
-          Bayar via QRIS &rarr;
+          <span className="inline-flex items-center justify-center gap-2">{submittingOrder && <span className="loading-spinner" aria-hidden="true" />}{submittingOrder ? 'Membuat Pesanan...' : 'Bayar via QRIS →'}</span>
         </button>
       </form>
     </div>

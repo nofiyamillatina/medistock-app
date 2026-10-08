@@ -33,7 +33,7 @@ export default function CustomerHomeView({
       <header className="border-b border-slate-200 pb-6 mb-7">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-extrabold tracking-tight text-navy">MEDISTOCK</h1>
+            <img src="/images/medistock-wordmark.png" alt="MEDISTOCK" className="aspect-[5.2/1] w-56 object-cover sm:w-64" />
             <p className="text-xs text-slate-500 font-medium mt-1">
               Apotek Mitra: <span className="text-slate-800 font-semibold">Apotek Sehat</span>
             </p>
@@ -90,8 +90,17 @@ export default function CustomerHomeView({
         </h2>
 
         {loadingMedicines ? (
-          <div className="py-12 text-center border border-slate-200 rounded-xl bg-white text-slate-500 text-sm space-y-2">
-            <p className="font-semibold">Memuat katalog obat...</p>
+          <div aria-label="Memuat katalog obat" aria-busy="true" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6">
+            {Array.from({ length: 8 }, (_, index) => <div key={index} className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+              <div className="skeleton-shimmer h-44 sm:h-48" />
+              <div className="space-y-3 p-4">
+                <div className="skeleton-shimmer h-4 w-3/4 rounded" />
+                <div className="skeleton-shimmer h-3 w-full rounded" />
+                <div className="skeleton-shimmer h-3 w-2/3 rounded" />
+                <div className="skeleton-shimmer mt-5 h-6 w-1/2 rounded" />
+                <div className="skeleton-shimmer h-10 w-full rounded-lg" />
+              </div>
+            </div>)}
           </div>
         ) : errorMedicines ? (
           <div className="py-8 px-6 text-center border border-red-200 bg-red-50 text-red-800 text-sm rounded-xl space-y-3">

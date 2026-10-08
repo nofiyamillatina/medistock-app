@@ -26,7 +26,7 @@ export default function PharmacyLoginView({ onLoginSuccess }) {
     <div className="max-w-sm mx-auto w-full px-4 py-16 flex-1 flex flex-col justify-center">
       <div className="border border-slate-200 rounded-2xl bg-white p-8 shadow-sm">
         <div className="text-center mb-8 border-b border-slate-200 pb-6">
-          <h1 className="text-2xl font-extrabold text-navy">MEDISTOCK</h1>
+          <img src="/images/medistock-logo.png" alt="MEDISTOCK" className="mx-auto h-16 w-auto" />
           <p className="text-xs font-semibold text-slate-500 tracking-wider uppercase mt-1">
             Portal Apotek
           </p>
@@ -72,7 +72,7 @@ export default function PharmacyLoginView({ onLoginSuccess }) {
             disabled={isSubmitting}
             className="w-full py-3.5 bg-primary hover:bg-primary-hover text-white font-bold text-xs tracking-wider uppercase transition mt-2 disabled:opacity-50"
           >
-            {isSubmitting ? 'Memproses...' : 'Masuk ke Dashboard'}
+            {isSubmitting ? <span className="inline-flex items-center gap-2"><span className="loading-spinner" aria-hidden="true" />Memproses...</span> : 'Masuk ke Dashboard'}
           </button>
         </form>
       </div>

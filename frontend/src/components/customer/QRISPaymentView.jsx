@@ -6,7 +6,8 @@ export default function QRISPaymentView({
   cartTotal,
   onConfirmPayment,
   showSuccessModal,
-  onReset
+  onReset,
+  confirmingPayment = false
 }) {
   const [timeLeft, setTimeLeft] = useState(900); // 15 minutes
 
@@ -73,9 +74,10 @@ export default function QRISPaymentView({
         {/* Action Button */}
         <button
           onClick={onConfirmPayment}
+          disabled={confirmingPayment}
           className="w-full py-3 bg-primary hover:bg-primary-hover text-white font-bold text-xs uppercase tracking-wider transition shadow-sm"
         >
-          Saya Sudah Bayar
+          <span className="inline-flex items-center justify-center gap-2">{confirmingPayment && <span className="loading-spinner" aria-hidden="true" />}{confirmingPayment ? 'Memverifikasi...' : 'Saya Sudah Bayar'}</span>
         </button>
       </div>
 

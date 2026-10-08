@@ -11,7 +11,6 @@ export default function PharmacyDashboardView({
   orders = [],
   onUpdateOrderStatus,
   inventoryDraft = [],
-  setInventoryDraft,
   onSaveInventory,
   onLogout,
   loadingOrders = false,
@@ -24,7 +23,8 @@ export default function PharmacyDashboardView({
   onDeleteMedicine,
   canManageInventory = false,
   savingInventory = false,
-  deletingMedicineId = null
+  deletingMedicineId = null,
+  updatingOrderId = null
 }) {
   const pendingOrdersCount = orders.filter((o) => o.orderStatus === 'Menunggu Konfirmasi').length;
 
@@ -120,6 +120,7 @@ export default function PharmacyDashboardView({
         <IncomingOrdersTab
           orders={orders}
           onUpdateOrderStatus={onUpdateOrderStatus}
+          updatingOrderId={updatingOrderId}
           loadingOrders={loadingOrders}
           errorOrders={errorOrders}
           onRetryOrders={onRetryOrders}
@@ -130,7 +131,6 @@ export default function PharmacyDashboardView({
       {adminTab === 'inventory' && (
         <InventoryTab
           inventoryDraft={inventoryDraft}
-          setInventoryDraft={setInventoryDraft}
           onSaveInventory={onSaveInventory}
           loadingMedicines={loadingMedicines}
           errorMedicines={errorMedicines}

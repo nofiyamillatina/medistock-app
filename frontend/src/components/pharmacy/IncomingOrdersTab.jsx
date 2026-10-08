@@ -12,9 +12,19 @@ function timestampValue(value) {
   return new Date(year, +localized[2] - 1, +localized[1], +(localized[4] || 0), +(localized[5] || 0)).getTime();
 }
 
+function formatOrderTimestamp(value) {
+  const timestamp = timestampValue(value);
+  if (!timestamp) return 'Waktu pesanan tidak tersedia';
+  return new Intl.DateTimeFormat('id-ID', {
+    dateStyle: 'long',
+    timeStyle: 'short'
+  }).format(new Date(timestamp));
+}
+
 export default function IncomingOrdersTab({
   orders = [],
   onUpdateOrderStatus,
+  updatingOrderId = null,
   loadingOrders = false,
   errorOrders = null,
   onRetryOrders
@@ -104,12 +114,18 @@ export default function IncomingOrdersTab({
                 <span className="text-xs font-semibold text-slate-600 mr-2">
                   {order.customerName}
                 </span>
+                <p className="mt-1 text-xs text-slate-500">
+                  <span className="font-semibold text-slate-600">Dipesan:</span>{' '}
+                  <time dateTime={timestampValue(order.timestamp) ? new Date(timestampValue(order.timestamp)).toISOString() : undefined}>
+                    {formatOrderTimestamp(order.timestamp)}
+                  </time>
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-end gap-2">
                 <span className="text-xs px-2 py-0.5 bg-slate-100 border border-slate-200 text-slate-700 font-mono">
                   {order.deliveryType}
                 </span>
-              </div>
-
-              <div className="flex items-center space-x-2">
                 <span className="text-xs font-bold px-2 py-0.5 rounded bg-navy text-white">
                   {order.paymentStatus}
                 </span>
@@ -148,13 +164,15 @@ export default function IncomingOrdersTab({
               <div className="flex space-x-3 pt-2">
                 <button
                   onClick={() => onUpdateOrderStatus(order.id, 'Selesai')}
-                  className="flex-1 py-2.5 bg-success hover:bg-emerald-600 text-white font-bold text-xs uppercase tracking-wider transition"
+                  disabled={updatingOrderId === order.id}
+                  className="flex-1 py-2.5 bg-success hover:bg-emerald-600 text-white font-bold text-xs uppercase tracking-wider transition disabled:opacity-60"
                 >
-                  Konfirmasi & Siapkan
+                  {updatingOrderId === order.id ? <span className="inline-flex items-center gap-2"><span className="loading-spinner" aria-hidden="true" />Memproses...</span> : 'Konfirmasi & Siapkan'}
                 </button>
                 <button
                   onClick={() => onUpdateOrderStatus(order.id, 'Dibatalkan')}
-                  className="px-5 py-2.5 border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 font-bold text-xs uppercase tracking-wider transition"
+                  disabled={updatingOrderId === order.id}
+                  className="px-5 py-2.5 border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 font-bold text-xs uppercase tracking-wider transition disabled:opacity-60"
                 >
                   Tolak
                 </button>

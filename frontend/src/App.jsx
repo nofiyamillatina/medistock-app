@@ -9,6 +9,14 @@ import PharmacyDashboardView from './components/pharmacy/PharmacyDashboardView.j
 import { apiService } from './services/api.js';
 import { getDisplayStock, isValidStockInput, STOCK_VALIDATION_MESSAGE } from './utils/stock.js';
 
+function SplashScreen() {
+  return <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white" role="status" aria-label="MEDISTOCK sedang memuat">
+    <img src="/images/medistock-logo.png" alt="MEDISTOCK" className="h-auto w-56 sm:w-72" />
+    <p className="mt-8 text-sm font-semibold tracking-wide text-slate-500">Menyiapkan MEDISTOCK...</p>
+    <div className="mt-4 h-1 w-40 overflow-hidden rounded-full bg-slate-100"><div className="h-full w-2/5 animate-loading-progress rounded-full bg-primary" /></div>
+  </div>;
+}
+
 export default function App() {
   // Router / Navigation state
   const [currentView, setCurrentView] = useState('customer'); // 'customer' | 'checkout' | 'qris' | 'admin-login' | 'admin-dashboard'
@@ -16,6 +24,7 @@ export default function App() {
 
   // Application Data State
   const [isStoreOpen, setIsStoreOpen] = useState(true);
+  const [showSplash, setShowSplash] = useState(true);
   const [medicines, setMedicines] = useState([]);
   const [orders, setOrders] = useState([]);
 
@@ -43,6 +52,9 @@ export default function App() {
   const [inventoryDraft, setInventoryDraft] = useState([]);
   const [savingInventory, setSavingInventory] = useState(false);
   const [deletingMedicineId, setDeletingMedicineId] = useState(null);
+  const [submittingOrder, setSubmittingOrder] = useState(false);
+  const [confirmingPayment, setConfirmingPayment] = useState(false);
+  const [updatingOrderId, setUpdatingOrderId] = useState(null);
   const pharmacyUser = (() => {
     try { return JSON.parse(localStorage.getItem('medistock_user') || 'null'); } catch { return null; }
   })();
@@ -87,9 +99,15 @@ export default function App() {
 
   // Initial mount data load
   useEffect(() => {
-    fetchPharmacyInfo();
-    fetchMedicines();
-    fetchOrders();
+    let isActive = true;
+    const minimumSplashDuration = new Promise((resolve) => window.setTimeout(resolve, 5000));
+    const loadInitialData = async () => {
+      await Promise.all([fetchPharmacyInfo(), fetchMedicines(), fetchOrders()]);
+      await minimumSplashDuration;
+      if (isActive) setShowSplash(false);
+    };
+    loadInitialData();
+    return () => { isActive = false; };
   }, [fetchPharmacyInfo, fetchMedicines, fetchOrders]);
 
   // Refresh the customer catalog when the app returns to the foreground, and periodically while viewing it.
@@ -209,28 +227,34 @@ export default function App() {
       totalAmount: cartTotal
     };
 
-    const res = await apiService.createOrder(orderPayload);
-    if (res && res.success) {
-      setCurrentOrder(res.data);
-      setCurrentView('qris');
-    } else {
-      alert(res?.message || 'Gagal membuat pesanan di server. Silakan coba lagi.');
-      fetchMedicines();
-    }
+    setSubmittingOrder(true);
+    try {
+      const res = await apiService.createOrder(orderPayload);
+      if (res && res.success) {
+        setCurrentOrder(res.data);
+        setCurrentView('qris');
+      } else {
+        alert(res?.message || 'Gagal membuat pesanan di server. Silakan coba lagi.');
+        fetchMedicines();
+      }
+    } finally { setSubmittingOrder(false); }
   };
 
   const handleConfirmPayment = async () => {
-    if (currentOrder) {
-      const result = await apiService.confirmPayment(currentOrder.id);
-      if (!result?.success) {
-        alert(result?.message || 'Pembayaran gagal diproses. Periksa kembali stok obat.');
+    setConfirmingPayment(true);
+    try {
+      if (currentOrder) {
+        const result = await apiService.confirmPayment(currentOrder.id);
+        if (!result?.success) {
+          alert(result?.message || 'Pembayaran gagal diproses. Periksa kembali stok obat.');
+          fetchMedicines();
+          return;
+        }
+        fetchOrders();
         fetchMedicines();
-        return;
       }
-      fetchOrders();
-      fetchMedicines();
-    }
-    setShowSuccessModal(true);
+      setShowSuccessModal(true);
+    } finally { setConfirmingPayment(false); }
   };
 
   const resetCustomerFlow = () => {
@@ -279,19 +303,19 @@ export default function App() {
   };
 
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
-    const res = await apiService.updateOrderStatus(orderId, newStatus, token);
-    if (res && res.success) {
-      fetchOrders();
-    } else {
-      alert(res?.message || 'Gagal memperbarui status pesanan.');
-    }
+    setUpdatingOrderId(orderId);
+    try {
+      const res = await apiService.updateOrderStatus(orderId, newStatus, token);
+      if (res && res.success) fetchOrders();
+      else alert(res?.message || 'Gagal memperbarui status pesanan.');
+    } finally { setUpdatingOrderId(null); }
   };
 
   const handleSaveInventory = async (items = inventoryDraft) => {
     if (!canManageInventory || savingInventory) return;
     if (!items.every((item) => isValidStockInput(item.stock))) {
       alert(STOCK_VALIDATION_MESSAGE);
-      return;
+      return false;
     }
     setSavingInventory(true);
     try {
@@ -299,7 +323,10 @@ export default function App() {
       if (res && res.success) {
         await fetchMedicines();
         alert('Perubahan inventaris berhasil disimpan!');
-      } else alert(res?.message || 'Gagal memperbarui inventaris.');
+        return true;
+      }
+      alert(res?.message || 'Gagal memperbarui inventaris.');
+      return false;
     } finally { setSavingInventory(false); }
   };
 
@@ -317,17 +344,22 @@ export default function App() {
   };
 
   const handleDeleteMedicine = async (medicine) => {
-    if (!canManageInventory || !window.confirm('Apakah Anda yakin ingin menghapus obat ini?')) return;
+    if (!canManageInventory || !window.confirm('Apakah Anda yakin ingin menghapus obat ini?')) return false;
     setDeletingMedicineId(medicine.id);
     try {
       const res = await apiService.deleteMedicine(medicine.id, token);
-      if (res?.success) await fetchMedicines();
-      else alert(res?.message || 'Gagal menghapus obat.');
+      if (res?.success) {
+        await fetchMedicines();
+        return true;
+      }
+      alert(res?.message || 'Gagal menghapus obat.');
+      return false;
     } finally { setDeletingMedicineId(null); }
   };
 
   return (
     <div className="flex-1 flex flex-col min-h-screen selection:bg-primary selection:text-white font-sans bg-slate-50 text-navy">
+      {showSplash && <SplashScreen />}
       {/* Top Demo Route Switcher Bar */}
       <DemoBanner
         currentView={currentView}
@@ -366,6 +398,7 @@ export default function App() {
             serviceFee={serviceFee}
             cartTotal={cartTotal}
             onPayViaQRIS={handlePayViaQRIS}
+            submittingOrder={submittingOrder}
             onBack={() => setCurrentView('customer')}
           />
         )}
@@ -377,6 +410,7 @@ export default function App() {
             onConfirmPayment={handleConfirmPayment}
             showSuccessModal={showSuccessModal}
             onReset={resetCustomerFlow}
+            confirmingPayment={confirmingPayment}
           />
         )}
 
@@ -393,7 +427,6 @@ export default function App() {
             orders={orders}
             onUpdateOrderStatus={handleUpdateOrderStatus}
             inventoryDraft={inventoryDraft}
-            setInventoryDraft={setInventoryDraft}
             onSaveInventory={handleSaveInventory}
             onLogout={handlePharmacyLogout}
             loadingOrders={loadingOrders}
@@ -407,6 +440,7 @@ export default function App() {
             canManageInventory={canManageInventory}
             savingInventory={savingInventory}
             deletingMedicineId={deletingMedicineId}
+            updatingOrderId={updatingOrderId}
           />
         )}
       </main>
