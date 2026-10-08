@@ -50,6 +50,15 @@
   }
 }
 
+input[aria-invalid='true'], textarea[aria-invalid='true'] {
+  border: 2px solid #EF4444;
+}
+
+input[aria-invalid='true']:focus, textarea[aria-invalid='true']:focus {
+  border-color: #EF4444;
+  box-shadow: 0 0 0 3px rgb(239 68 68 / 15%);
+}
+
 .custom-scrollbar::-webkit-scrollbar {
   width: 4px;
 }

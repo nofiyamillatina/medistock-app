@@ -24,6 +24,13 @@ export default function CheckoutView({
       <span>{message}</span>
     </p>
   );
+  const handleDeliveryMethodChange = (event) => {
+    setDeliveryMethod(event.target.value);
+    setFieldErrors({});
+  };
+  const inputBorderClass = (hasError) => hasError
+    ? 'border-2 border-red-500 focus:border-red-500'
+    : 'border border-slate-300 focus:border-primary';
   return (
     <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 py-8 flex-1 flex flex-col">
       {/* Header */}
@@ -117,7 +124,7 @@ export default function CheckoutView({
           </h2>
           <div className="grid grid-cols-2 gap-4">
             <label
-              className={`border p-4 cursor-pointer flex items-center space-x-3 transition ${deliveryMethod === 'Pengantaran' ? 'border-primary bg-primary-soft' : 'border-slate-200 hover:border-primary'
+              className={`border rounded-xl p-4 cursor-pointer flex items-center space-x-3 transition ${deliveryMethod === 'Pengantaran' ? 'border-primary bg-primary-soft' : 'border-slate-200 hover:border-primary'
                 }`}
             >
               <input
@@ -125,7 +132,7 @@ export default function CheckoutView({
                 name="delivery"
                 value="Pengantaran"
                 checked={deliveryMethod === 'Pengantaran'}
-                onChange={(e) => setDeliveryMethod(e.target.value)}
+                onChange={handleDeliveryMethodChange}
                 className="accent-primary"
               />
               <Truck size={20} aria-hidden="true" className="shrink-0 text-primary" />
@@ -136,7 +143,7 @@ export default function CheckoutView({
             </label>
 
             <label
-              className={`border p-4 cursor-pointer flex items-center space-x-3 transition ${deliveryMethod === 'Ambil Sendiri' ? 'border-primary bg-primary-soft' : 'border-slate-200 hover:border-primary'
+              className={`border rounded-xl p-4 cursor-pointer flex items-center space-x-3 transition ${deliveryMethod === 'Ambil Sendiri' ? 'border-primary bg-primary-soft' : 'border-slate-200 hover:border-primary'
                 }`}
             >
               <input
@@ -144,7 +151,7 @@ export default function CheckoutView({
                 name="delivery"
                 value="Ambil Sendiri"
                 checked={deliveryMethod === 'Ambil Sendiri'}
-                onChange={(e) => setDeliveryMethod(e.target.value)}
+                onChange={handleDeliveryMethodChange}
                 className="accent-primary"
               />
               <Store size={20} aria-hidden="true" className="shrink-0 text-primary" />
@@ -168,13 +175,15 @@ export default function CheckoutView({
             </label>
             <input
               type="text"
+              aria-invalid={Boolean(fieldErrors.name)}
               placeholder="Masukkan nama Anda"
               value={customerInfo.name}
+              style={fieldErrors.name ? { border: '2px solid #EF4444' } : undefined}
               onChange={(e) => {
                 setCustomerInfo({ ...customerInfo, name: e.target.value });
                 if (fieldErrors.name) setFieldErrors({ ...fieldErrors, name: '' });
               }}
-              className={`w-full border p-3 text-sm text-slate-900 focus:outline-none ${fieldErrors.name ? 'border-red-500 focus:border-red-500' : 'border-slate-300 focus:border-primary'}`}
+              className={`w-full p-3 text-sm text-slate-900 focus:outline-none ${inputBorderClass(fieldErrors.name)}`}
             />
             {renderFieldError(fieldErrors.name)}
           </div>
@@ -186,9 +195,11 @@ export default function CheckoutView({
 
             <input
               type="tel"
+              aria-invalid={Boolean(fieldErrors.phone)}
               inputMode="numeric"
               placeholder="Contoh: 081234567890"
               value={customerInfo.phone}
+              style={fieldErrors.phone ? { border: '2px solid #EF4444' } : undefined}
               onChange={(e) => {
                 const value = e.target.value.replace(/\D/g, '');
 
@@ -199,11 +210,7 @@ export default function CheckoutView({
 
                 if (fieldErrors.phone) setFieldErrors({ ...fieldErrors, phone: '' });
               }}
-              className={`w-full border p-3 text-sm text-slate-900 focus:outline-none ${fieldErrors.phone
-                ? 'border-red-500 focus:border-red-500'
-                : 'border-slate-300 focus:border-primary'
-                }`
-              }
+              className={`w-full p-3 text-sm text-slate-900 focus:outline-none ${inputBorderClass(fieldErrors.phone)}`}
             />
             {renderFieldError(fieldErrors.phone)}
           </div>
@@ -214,14 +221,16 @@ export default function CheckoutView({
                 Alamat Pengantaran <span className="text-red-600">*</span>
               </label>
               <textarea
+                aria-invalid={Boolean(fieldErrors.address)}
                 rows="2"
                 placeholder="Tuliskan alamat lengkap beserta nomor rumah / patokan"
                 value={customerInfo.address}
+                style={fieldErrors.address ? { border: '2px solid #EF4444' } : undefined}
                 onChange={(e) => {
                   setCustomerInfo({ ...customerInfo, address: e.target.value });
                   if (fieldErrors.address) setFieldErrors({ ...fieldErrors, address: '' });
                 }}
-                className={`w-full border p-3 text-sm text-slate-900 focus:outline-none ${fieldErrors.address ? 'border-red-500 focus:border-red-500' : 'border-slate-300 focus:border-primary'}`}
+                className={`w-full p-3 text-sm text-slate-900 focus:outline-none ${inputBorderClass(fieldErrors.address)}`}
               ></textarea>
               {renderFieldError(fieldErrors.address)}
             </div>
@@ -235,15 +244,15 @@ export default function CheckoutView({
           </h2>
           <div className="flex justify-between text-slate-600">
             <span>Total Obat</span>
-            <span className="font-medium text-slate-900">{formatIDR(cartSubtotal)}</span>
+            <span className="font-bold text-slate-900">{formatIDR(cartSubtotal)}</span>
           </div>
           <div className="flex justify-between text-slate-600">
             <span>Biaya Layanan</span>
-            <span className="font-medium text-slate-900">{formatIDR(serviceFee)}</span>
+            <span className="font-bold text-slate-900">{formatIDR(serviceFee)}</span>
           </div>
           <div className="border-t border-slate-200 pt-3 mt-2 flex justify-between font-bold text-base text-slate-900">
-            <span>Total Bayar</span>
-            <span>{formatIDR(cartTotal)}</span>
+            <span>Total Pembayaran QRIS</span>
+            <span className="font-extrabold text-primary">{formatIDR(cartTotal)}</span>
           </div>
         </section>
 
@@ -253,7 +262,7 @@ export default function CheckoutView({
           disabled={submittingOrder}
           className="w-full py-4 rounded-lg bg-primary hover:bg-primary-hover text-white font-bold text-sm tracking-wider uppercase transition shadow-sm"
         >
-          <span className="inline-flex items-center justify-center gap-2">{submittingOrder && <span className="loading-spinner" aria-hidden="true" />}{submittingOrder ? 'Membuat Pesanan...' : 'Bayar via QRIS →'}</span>
+          <span className="inline-flex items-center justify-center gap-2">{submittingOrder && <span className="loading-spinner" aria-hidden="true" />}{submittingOrder ? 'Membuat Pesanan...' : 'Lanjut Bayar via QRIS'}</span>
         </button>
       </form>
     </div>
