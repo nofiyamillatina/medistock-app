@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import authRoutes from './routes/authRoutes.js';
 import medicineRoutes from './routes/medicineRoutes.js';
 import orderRoutes from './routes/orderRoutes.js';
@@ -52,6 +54,17 @@ app.use('/api/auth', authRoutes);
 app.use('/api/medicines', medicineRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/pharmacy', pharmacyRoutes);
+
+// Serve the built frontend from the same host as the API in production.
+const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const frontendDist = path.join(projectRoot, 'frontend', 'dist');
+app.use(express.static(frontendDist));
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api/')) return next();
+  res.sendFile(path.join(frontendDist, 'index.html'), (err) => {
+    if (err) next(err);
+  });
+});
 
 // --- Health check endpoint ---
 app.get('/api/health', (req, res) => {

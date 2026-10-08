@@ -146,6 +146,19 @@ npm run dev
 
 ## 🌐 Deployment Readiness & Production Setup
 
+### Preview online otomatis dengan Render
+
+Repository ini menyediakan `render.yaml` untuk menjalankan frontend dan API pada satu URL, dengan PostgreSQL terhubung otomatis. Setelah konfigurasi awal, setiap push ke branch yang tersambung akan memicu deploy baru sehingga teman dapat melihat versi terbaru lewat URL Render.
+
+1. Buka Render dan pilih **New → Blueprint**.
+2. Hubungkan repository GitHub `nofiyamillatina/medistock-app` dan pilih branch `main`.
+3. Tinjau resource yang akan dibuat, lalu pilih **Apply**. Blueprint membuat web service dan PostgreSQL; Render mungkin meminta pilihan paket yang tersedia di akunmu.
+4. Setelah deploy selesai, buka URL web service Render dan kirim URL itu ke temanmu.
+
+Untuk perubahan berikutnya, push commit ke `main`; Render akan membangun dan menerbitkan versi terbaru. File frontend yang sudah dibuild dilayani oleh Express dari host yang sama dengan API, jadi tidak perlu mengisi URL API terpisah.
+
+Catatan: paket database gratis Render memiliki batas masa/kapasitas dan bisa berubah. Periksa biaya dan masa aktif yang ditampilkan Render sebelum menerapkan Blueprint. Data lokal yang ada tidak otomatis dipindahkan ke database online.
+
 MEDISTOCK dirancang dengan arsitektur terpisah (Decoupled Architecture) antara **Frontend (React + Vite)** dan **Backend (Express + Prisma)**:
 
 ### 1. Environment Variables

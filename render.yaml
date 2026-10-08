@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: medistock-app
+    runtime: node
+    plan: free
+    buildCommand: npm ci --prefix backend && npm ci --prefix frontend && npm run build --prefix backend && npm run build --prefix frontend
+    startCommand: npm run db:migrate:deploy --prefix backend && npm run start --prefix backend
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ALLOWED_ORIGIN
+        fromService:
+          name: medistock-app
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: DATABASE_URL
+        fromDatabase:
+          name: medistock-db
+          property: connectionString
+
+databases:
+  - name: medistock-db
+    plan: free
+    databaseName: medistock
+    user: medistock
