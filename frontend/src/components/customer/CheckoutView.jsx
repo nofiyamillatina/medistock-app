@@ -1,4 +1,5 @@
 import React from 'react';
+import { AlertCircle, Store, Truck } from 'lucide-react';
 import { formatIDR } from '../../services/formatters.js';
 
 export default function CheckoutView({
@@ -15,7 +16,14 @@ export default function CheckoutView({
   onBack,
   submittingOrder = false
 }) {
-  const [phoneError, setPhoneError] = React.useState('');
+  const [fieldErrors, setFieldErrors] = React.useState({});
+  const selectedItemCount = cart.length;
+  const renderFieldError = (message) => message && (
+    <p className="mt-1 flex items-center gap-1 text-xs text-red-600" role="alert">
+      <AlertCircle size={14} aria-hidden="true" className="shrink-0" />
+      <span>{message}</span>
+    </p>
+  );
   return (
     <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 py-8 flex-1 flex flex-col">
       {/* Header */}
@@ -32,36 +40,40 @@ export default function CheckoutView({
 
       <form
         onSubmit={(e) => {
-          const phone = customerInfo.phone;
+          e.preventDefault();
+          const errors = {};
+          const phone = customerInfo.phone.trim();
 
+          if (!customerInfo.name.trim()) {
+            errors.name = 'Kolom Nama harus diisi. Masukkan nama yang sesuai.';
+          }
           if (!phone) {
-            e.preventDefault();
-            setPhoneError('Nomor telepon wajib diisi.');
-            return;
+            errors.phone = 'Isikan nomor telepon / WhatsApp yang aktif atau terdaftar.';
+          } else if (!/^\d+$/.test(phone)) {
+            errors.phone = 'Nomor telepon hanya boleh berisi angka.';
+          } else if (!/^08\d{8,11}$/.test(phone)) {
+            errors.phone = 'Nomor telepon tidak valid.';
+          }
+          if (deliveryMethod === 'Pengantaran' && !customerInfo.address.trim()) {
+            errors.address = 'Alamat pengantaran harus diisi.';
           }
 
-          if (!/^\d+$/.test(phone)) {
-            e.preventDefault();
-            setPhoneError('Nomor telepon hanya boleh berisi angka.');
-            return;
-          }
-
-          if (!/^08\d{8,11}$/.test(phone)) {
-            e.preventDefault();
-            setPhoneError('Nomor telepon tidak valid.');
-            return;
-          }
-
-          setPhoneError('');
+          setFieldErrors(errors);
+          if (Object.keys(errors).length > 0) return;
           onPayViaQRIS(e);
         }}
         className="space-y-8"
       >
         {/* 1. Order Summary */}
         <section className="border border-slate-200 rounded-xl p-5 sm:p-6 bg-white shadow-sm">
-          <h2 className="text-sm font-bold text-navy tracking-wide mb-4">
-            Ringkasan Pesanan
-          </h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-bold text-navy tracking-wide">
+              Ringkasan Pesanan
+            </h2>
+            <span className="text-xs font-semibold text-slate-500">
+              {selectedItemCount} Item Dipilih
+            </span>
+          </div>
           <div className="divide-y divide-slate-100">
             {cart.map((item) => (
               <div key={item.id} className="py-3 flex items-center justify-between text-sm">
@@ -116,9 +128,10 @@ export default function CheckoutView({
                 onChange={(e) => setDeliveryMethod(e.target.value)}
                 className="accent-primary"
               />
+              <Truck size={20} aria-hidden="true" className="shrink-0 text-primary" />
               <div>
                 <span className="block text-sm font-bold text-slate-900">Pengantaran</span>
-                <span className="block text-xs text-slate-500">Diantar kurir apotek</span>
+                <span className="block text-xs text-slate-500">Diantar kurir resmi apotek ke alamat Anda</span>
               </div>
             </label>
 
@@ -134,9 +147,10 @@ export default function CheckoutView({
                 onChange={(e) => setDeliveryMethod(e.target.value)}
                 className="accent-primary"
               />
+              <Store size={20} aria-hidden="true" className="shrink-0 text-primary" />
               <div>
-                <span className="block text-sm font-bold text-slate-900">Ambil Sendiri</span>
-                <span className="block text-xs text-slate-500">Ambil di Apotek Sehat</span>
+                <span className="block text-sm font-bold text-slate-900">Ambil Sendiri di Apotek</span>
+                <span className="block text-xs text-slate-500">Ambil langsung di kasir Apotek (Bebas Ongkir)</span>
               </div>
             </label>
           </div>
@@ -150,27 +164,29 @@ export default function CheckoutView({
 
           <div>
             <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-              Nama Lengkap *
+              Nama <span className="text-red-600">*</span>
             </label>
             <input
               type="text"
-              required
               placeholder="Masukkan nama Anda"
               value={customerInfo.name}
-              onChange={(e) => setCustomerInfo({ ...customerInfo, name: e.target.value })}
-              className="w-full border border-slate-300 p-3 text-sm text-slate-900 focus:outline-none focus:border-primary"
+              onChange={(e) => {
+                setCustomerInfo({ ...customerInfo, name: e.target.value });
+                if (fieldErrors.name) setFieldErrors({ ...fieldErrors, name: '' });
+              }}
+              className={`w-full border p-3 text-sm text-slate-900 focus:outline-none ${fieldErrors.name ? 'border-red-500 focus:border-red-500' : 'border-slate-300 focus:border-primary'}`}
             />
+            {renderFieldError(fieldErrors.name)}
           </div>
 
           <div>
             <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-              Nomor Telepon / WhatsApp *
+              Nomor Telepon / WhatsApp <span className="text-red-600">*</span>
             </label>
 
             <input
               type="tel"
               inputMode="numeric"
-              required
               placeholder="Contoh: 081234567890"
               value={customerInfo.phone}
               onChange={(e) => {
@@ -181,37 +197,33 @@ export default function CheckoutView({
                   phone: value
                 });
 
-                if (phoneError) {
-                  setPhoneError('');
-                }
+                if (fieldErrors.phone) setFieldErrors({ ...fieldErrors, phone: '' });
               }}
-              className={`w-full border p-3 text-sm text-slate-900 focus:outline-none ${phoneError
+              className={`w-full border p-3 text-sm text-slate-900 focus:outline-none ${fieldErrors.phone
                 ? 'border-red-500 focus:border-red-500'
                 : 'border-slate-300 focus:border-primary'
                 }`
               }
             />
-
-            {phoneError && (
-              <p className="mt-1 text-xs text-red-600">
-                {phoneError}
-              </p>
-            )}
+            {renderFieldError(fieldErrors.phone)}
           </div>
 
           {deliveryMethod === 'Pengantaran' && (
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                Alamat Pengantaran *
+                Alamat Pengantaran <span className="text-red-600">*</span>
               </label>
               <textarea
-                required
                 rows="2"
                 placeholder="Tuliskan alamat lengkap beserta nomor rumah / patokan"
                 value={customerInfo.address}
-                onChange={(e) => setCustomerInfo({ ...customerInfo, address: e.target.value })}
-                className="w-full border border-slate-300 p-3 text-sm text-slate-900 focus:outline-none focus:border-primary"
+                onChange={(e) => {
+                  setCustomerInfo({ ...customerInfo, address: e.target.value });
+                  if (fieldErrors.address) setFieldErrors({ ...fieldErrors, address: '' });
+                }}
+                className={`w-full border p-3 text-sm text-slate-900 focus:outline-none ${fieldErrors.address ? 'border-red-500 focus:border-red-500' : 'border-slate-300 focus:border-primary'}`}
               ></textarea>
+              {renderFieldError(fieldErrors.address)}
             </div>
           )}
         </section>
