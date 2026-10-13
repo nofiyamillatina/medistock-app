@@ -72,23 +72,36 @@ export default function CustomerHistoryView({ onTrackOrder, onCompleteDelivery, 
     <button onClick={onBack} className="mb-5 text-sm font-semibold text-primary">Kembali</button>
     <header className="mb-6"><h1 className="text-2xl font-bold text-navy">Riwayat Pemesanan</h1><p className="mt-1 text-sm text-slate-500">Pilih pesanan untuk melihat progresnya. Status diperbarui otomatis.</p></header>
 
-    {selectedOrder && <section className="mb-7 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6" aria-live="polite">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4"><div><p className="text-xs text-slate-500">ID Pesanan</p><p className="font-mono text-lg font-bold text-slate-900">{selectedOrder.id}</p></div><button type="button" onClick={() => setSelectedOrderId(null)} className="text-xs font-semibold text-slate-500 hover:text-slate-800">Tutup detail</button></div>
-      <p className="mt-3 text-sm text-slate-600">{selectedOrder.deliveryType} - {selectedOrder.timestamp}</p>
-      <OrderTrackingProgress order={selectedOrder} />
-      {selectedOrder.deliveryType === 'Pengantaran' && selectedOrder.orderStatus === 'Dalam Pengantaran' && <div className="mt-5">
-        <p className="mb-3 text-sm text-slate-600">Jika pesanan sudah Anda terima, tandai selesai untuk menutup proses pesanan.</p>
-        <button type="button" onClick={handleCompleteDelivery} disabled={completingDelivery} className="w-full rounded-lg bg-success px-5 py-3 text-xs font-bold uppercase tracking-wide text-white hover:bg-emerald-600 disabled:opacity-60">{completingDelivery ? 'Memproses...' : 'Tandai Selesai'}</button>
-        {completionError && <p role="alert" className="mt-2 text-sm text-red-700">{completionError}</p>}
-      </div>}
-    </section>}
-
-    <div className="mb-5 grid grid-cols-2 rounded-xl border border-slate-200 bg-slate-100 p-1" role="tablist" aria-label="Kategori riwayat pemesanan">
-      <button type="button" role="tab" aria-selected={activeTab === 'ongoing'} onClick={() => { setActiveTab('ongoing'); setSelectedOrderId(null); }} className={`rounded-lg px-3 py-3 text-xs font-bold transition sm:text-sm ${activeTab === 'ongoing' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>Sedang Berjalan <span className="ml-1 text-[10px]">({activeOrders.length})</span></button>
-      <button type="button" role="tab" aria-selected={activeTab === 'finished'} onClick={() => { setActiveTab('finished'); setSelectedOrderId(null); }} className={`rounded-lg px-3 py-3 text-xs font-bold transition sm:text-sm ${activeTab === 'finished' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>Selesai <span className="ml-1 text-[10px]">({finishedOrders.length})</span></button>
-    </div>
-    {loading ? <p className="py-8 text-center text-sm text-slate-500">Memuat riwayat pesanan...</p>
-      : orders.length === 0 ? <p className="rounded-xl border border-dashed border-slate-200 px-4 py-10 text-center text-sm text-slate-500">Belum ada pesanan di riwayat ini. Pesanan yang Anda buat akan muncul di sini.</p>
+    {loading ? <div className="space-y-5" aria-busy="true" aria-label="Memuat riwayat pemesanan">
+      <div className="skeleton-shimmer h-12 rounded-xl" />
+      <div className="space-y-3">
+        {Array.from({ length: 3 }, (_, index) => <div key={index} className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
+          <div className="flex items-start justify-between gap-4"><div className="w-2/3 space-y-2"><div className="skeleton-shimmer h-4 w-32 rounded" /><div className="skeleton-shimmer h-3 w-48 max-w-full rounded" /></div><div className="skeleton-shimmer h-6 w-28 rounded-full" /></div>
+          <div className="skeleton-shimmer mt-4 h-3 w-3/4 rounded" />
+          <div className="mt-4 flex items-center justify-between"><div className="skeleton-shimmer h-4 w-24 rounded" /><div className="skeleton-shimmer h-8 w-28 rounded-lg" /></div>
+        </div>)}
+      </div>
+    </div> : <>
+      <div className="mb-5 grid grid-cols-2 rounded-xl border border-slate-200 bg-slate-100 p-1" role="tablist" aria-label="Kategori riwayat pemesanan">
+        <button type="button" role="tab" aria-selected={activeTab === 'ongoing'} onClick={() => { setActiveTab('ongoing'); setSelectedOrderId(null); }} className={`rounded-lg px-3 py-3 text-xs font-bold transition sm:text-sm ${activeTab === 'ongoing' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>Sedang Berjalan <span className="ml-1 text-[10px]">({activeOrders.length})</span></button>
+        <button type="button" role="tab" aria-selected={activeTab === 'finished'} onClick={() => { setActiveTab('finished'); setSelectedOrderId(null); }} className={`rounded-lg px-3 py-3 text-xs font-bold transition sm:text-sm ${activeTab === 'finished' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>Selesai <span className="ml-1 text-[10px]">({finishedOrders.length})</span></button>
+      </div>
+      {orders.length === 0
+        ? <p className="rounded-xl border border-dashed border-slate-200 px-4 py-10 text-center text-sm text-slate-500">Belum ada pesanan di riwayat ini. Pesanan yang Anda buat akan muncul di sini.</p>
         : renderOrderList(visibleOrders, activeTab === 'ongoing' ? 'Tidak ada pesanan yang sedang berjalan.' : 'Belum ada pesanan yang selesai.')}
+    </>}
+
+    {selectedOrder && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-3 sm:p-6" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedOrderId(null); }}>
+      <section role="dialog" aria-modal="true" aria-labelledby="customer-order-progress-title" className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-7" aria-live="polite">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4"><div><p className="text-xs text-slate-500">ID Pesanan</p><h2 id="customer-order-progress-title" className="font-mono text-lg font-bold text-slate-900">{selectedOrder.id}</h2></div><button type="button" onClick={() => setSelectedOrderId(null)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50">Tutup</button></div>
+        <p className="mt-3 text-sm text-slate-600">{selectedOrder.deliveryType} - {selectedOrder.timestamp}</p>
+        <OrderTrackingProgress order={selectedOrder} />
+        {selectedOrder.deliveryType === 'Pengantaran' && selectedOrder.orderStatus === 'Dalam Pengantaran' && <div className="mt-5">
+          <p className="mb-3 text-sm text-slate-600">Jika pesanan sudah Anda terima, tandai selesai untuk menutup proses pesanan.</p>
+          <button type="button" onClick={handleCompleteDelivery} disabled={completingDelivery} className="w-full rounded-lg bg-success px-5 py-3 text-xs font-bold uppercase tracking-wide text-white hover:bg-emerald-600 disabled:opacity-60">{completingDelivery ? 'Memproses...' : 'Tandai Selesai'}</button>
+          {completionError && <p role="alert" className="mt-2 text-sm text-red-700">{completionError}</p>}
+        </div>}
+      </section>
+    </div>}
   </div>;
 }

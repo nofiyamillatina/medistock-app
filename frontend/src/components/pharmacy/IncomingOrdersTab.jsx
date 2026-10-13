@@ -21,6 +21,25 @@ function formatOrderTimestamp(value) {
   }).format(new Date(timestamp));
 }
 
+function statusTagStyle(status, type) {
+  if (type === 'payment') return status === 'Selesai'
+    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+    : 'border-amber-200 bg-amber-50 text-amber-800';
+  if (status === 'Dibatalkan') return 'border-red-200 bg-red-50 text-red-700';
+  if (status === 'Selesai') return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+  if (status === 'Menunggu Konfirmasi') return 'border-amber-200 bg-amber-50 text-amber-800';
+  return 'border-sky-200 bg-sky-50 text-sky-700';
+}
+
+function StatusTag({ status, type = 'order' }) {
+  const dotStyle = type === 'payment'
+    ? status === 'Selesai' ? 'bg-emerald-500' : 'bg-amber-500'
+    : status === 'Dibatalkan' ? 'bg-red-500'
+      : status === 'Selesai' ? 'bg-emerald-500'
+        : status === 'Menunggu Konfirmasi' ? 'bg-amber-500' : 'bg-sky-500';
+  return <span className={`inline-flex items-center gap-1.5 rounded border px-2 py-0.5 text-[10px] font-bold ${statusTagStyle(status, type)}`}><span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${dotStyle}`} />{status}</span>;
+}
+
 function OrderActions({ order, onUpdateOrderStatus, updatingOrderId }) {
   if (['Selesai', 'Dibatalkan'].includes(order.orderStatus)) return null;
   return <div className="flex flex-wrap gap-3 border-t border-slate-100 pt-4">
@@ -37,9 +56,6 @@ function OrderActions({ order, onUpdateOrderStatus, updatingOrderId }) {
 
 function OrderDetailsModal({ order, onClose, onUpdateOrderStatus, updatingOrderId }) {
   if (!order) return null;
-  const statusClass = ['Menunggu Konfirmasi', 'Diproses', 'Dalam Pengantaran', 'Siap Diambil'].includes(order.orderStatus)
-    ? 'bg-primary-soft text-primary border-sky-200'
-    : order.orderStatus === 'Selesai' ? 'bg-success-soft text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200';
 
   return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-3 sm:p-6" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
     <section role="dialog" aria-modal="true" aria-labelledby="order-detail-title" className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-7">
@@ -56,8 +72,8 @@ function OrderDetailsModal({ order, onClose, onUpdateOrderStatus, updatingOrderI
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <span className="border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700">{order.deliveryType}</span>
-        <span className="rounded bg-navy px-2.5 py-1 text-xs font-bold text-white">{order.paymentStatus}</span>
-        <span className={`border px-2.5 py-1 text-xs font-bold ${statusClass}`}>{order.orderStatus}</span>
+        <StatusTag status={order.paymentStatus} type="payment" />
+        <StatusTag status={order.orderStatus} />
       </div>
       <p className="mt-3 text-xs text-slate-500">Dipesan: {formatOrderTimestamp(order.timestamp)}</p>
 
@@ -169,8 +185,8 @@ export default function IncomingOrdersTab({
               <p className="mt-1 text-xs text-slate-500">Dipesan: {formatOrderTimestamp(order.timestamp)}</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 <span className="border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">{order.deliveryType}</span>
-                <span className="rounded bg-navy px-2 py-0.5 text-[10px] font-bold text-white">{order.paymentStatus}</span>
-                <span className="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-bold text-slate-700">{order.orderStatus}</span>
+                <StatusTag status={order.paymentStatus} type="payment" />
+                <StatusTag status={order.orderStatus} />
               </div>
             </div>
             <button type="button" onClick={() => setSelectedOrderId(order.id)} className="shrink-0 rounded-lg border border-primary px-4 py-2.5 text-xs font-bold text-primary transition hover:bg-primary-soft">Detail Pesanan</button>
