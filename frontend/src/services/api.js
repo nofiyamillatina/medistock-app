@@ -103,6 +103,30 @@ export const apiService = {
     }
   },
 
+  async trackOrder(orderId, phone) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/orders/${encodeURIComponent(orderId)}/tracking?phone=${encodeURIComponent(phone)}`);
+      return await res.json();
+    } catch (err) {
+      console.error('API Error trackOrder:', err);
+      return { success: false, message: 'Server backend tidak dapat dihubungi.' };
+    }
+  },
+
+  async completeDeliveryOrder(orderId, phone) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/orders/${encodeURIComponent(orderId)}/customer-complete`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ phone })
+      });
+      return await res.json();
+    } catch (err) {
+      console.error('API Error completeDeliveryOrder:', err);
+      return { success: false, message: 'Server backend tidak dapat dihubungi.' };
+    }
+  },
+
   async createOrder(orderData) {
     try {
       const res = await fetch(`${API_BASE_URL}/orders`, {
@@ -155,6 +179,17 @@ export const apiService = {
       return await res.json();
     } catch (err) {
       console.error('API Error loginPharmacy:', err);
+      return { success: false, message: 'Server backend tidak dapat dihubungi.' };
+    }
+  },
+
+  async verifyPharmacyToken(token = null) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/verify`, { headers: getHeaders(token) });
+      const result = await res.json();
+      return { ...result, httpStatus: res.status };
+    } catch (err) {
+      console.error('API Error verifyPharmacyToken:', err);
       return { success: false, message: 'Server backend tidak dapat dihubungi.' };
     }
   }

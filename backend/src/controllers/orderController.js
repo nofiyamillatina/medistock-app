@@ -33,6 +33,51 @@ export const getOrders = async (req, res) => {
   }
 };
 
+// Public customer tracking, scoped to the order ID and phone number.
+export const trackOrder = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const phone = String(req.query.phone || '').trim();
+    if (!phone) return res.status(400).json({ success: false, message: 'Nomor telepon wajib diisi.' });
+
+    const order = await prisma.orders.findFirst({ where: { id, phone }, include: { items: true } });
+    if (!order) return res.status(404).json({ success: false, message: 'Pesanan tidak ditemukan. Periksa kembali ID pesanan dan nomor telepon.' });
+
+    res.json({ success: true, data: {
+      id: order.id,
+      customerName: order.customer_name,
+      deliveryType: order.delivery_type,
+      orderStatus: order.order_status,
+      timestamp: order.timestamp,
+      totalAmount: order.total_amount,
+      items: order.items.map((item) => ({ name: item.name, qty: item.qty, price: item.price }))
+    } });
+  } catch (error) {
+    console.error('Error tracking order:', error);
+    res.status(500).json({ success: false, message: 'Gagal memuat status pesanan.' });
+  }
+};
+
+// Customer confirms receipt of a delivery order using the order's phone number.
+export const completeDeliveryOrder = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const phone = String(req.body.phone || '').trim();
+    if (!phone) return res.status(400).json({ success: false, message: 'Nomor telepon wajib diisi.' });
+
+    const order = await prisma.orders.findFirst({ where: { id, phone } });
+    if (!order) return res.status(404).json({ success: false, message: 'Pesanan tidak ditemukan.' });
+    if (order.delivery_type !== 'Pengantaran') return res.status(400).json({ success: false, message: 'Konfirmasi selesai untuk pesanan ini dilakukan oleh apotek.' });
+    if (order.order_status !== 'Dalam Pengantaran') return res.status(409).json({ success: false, message: 'Pesanan hanya dapat ditandai selesai saat dalam pengantaran.' });
+
+    const updatedOrder = await prisma.orders.update({ where: { id }, data: { order_status: 'Selesai' } });
+    res.json({ success: true, message: 'Pesanan berhasil ditandai selesai.', data: { id: updatedOrder.id, orderStatus: updatedOrder.order_status } });
+  } catch (error) {
+    console.error('Error completing delivery order:', error);
+    res.status(500).json({ success: false, message: 'Gagal menyelesaikan pesanan.' });
+  }
+};
+
 // Create new Order (Customer Checkout)
 export const createOrder = async (req, res) => {
   try {
@@ -167,9 +212,21 @@ export const updateOrderStatus = async (req, res) => {
     const { id } = req.params;
     const { orderStatus } = req.body;
 
-    if (!orderStatus) {
-      return res.status(400).json({ success: false, message: 'Status baru wajib diisi.' });
+    const allowedStatuses = ['Diproses', 'Dalam Pengantaran', 'Siap Diambil', 'Selesai', 'Dibatalkan'];
+    if (!allowedStatuses.includes(orderStatus)) {
+      return res.status(400).json({ success: false, message: 'Status pesanan tidak valid.' });
     }
+
+    const order = await prisma.orders.findUnique({ where: { id } });
+    if (!order) return res.status(404).json({ success: false, message: 'Pesanan tidak ditemukan.' });
+    if (order.order_status === 'Selesai' || order.order_status === 'Dibatalkan') {
+      return res.status(409).json({ success: false, message: 'Pesanan ini sudah berakhir.' });
+    }
+    const validNext = orderStatus === 'Dibatalkan'
+      || (order.order_status === 'Menunggu Konfirmasi' && orderStatus === 'Diproses')
+      || (order.order_status === 'Diproses' && orderStatus === (order.delivery_type === 'Pengantaran' ? 'Dalam Pengantaran' : 'Siap Diambil'))
+      || (order.delivery_type === 'Ambil Sendiri' && order.order_status === 'Siap Diambil' && orderStatus === 'Selesai');
+    if (!validNext) return res.status(400).json({ success: false, message: 'Perubahan status pesanan tidak sesuai urutan.' });
 
     await prisma.orders.update({
       where: { id },

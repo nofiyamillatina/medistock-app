@@ -15,7 +15,8 @@ export default function CustomerHomeView({
   onProceedToCheckout,
   loadingMedicines = false,
   errorMedicines = null,
-  onRetryMedicines
+  onRetryMedicines,
+  onOpenHistory
 }) {
   const filteredMedicines = useMemo(() => {
     return medicines.filter(
@@ -58,11 +59,11 @@ export default function CustomerHomeView({
       )}
 
       {/* Search Input */}
-      <div className="mb-8">
+      <div className="mb-8 flex items-center gap-3">
         <label htmlFor="medicine-search" className="sr-only">
           Cari nama obat
         </label>
-        <div className="relative">
+        <div className="relative min-w-0 flex-1">
           <Search aria-hidden="true" size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             id="medicine-search"
@@ -81,6 +82,7 @@ export default function CustomerHomeView({
             </button>
           )}
         </div>
+        <button onClick={onOpenHistory} className="shrink-0 whitespace-nowrap rounded-lg bg-primary px-3 py-3.5 text-[10px] font-bold uppercase tracking-wide text-white hover:bg-primary-hover sm:px-5 sm:text-xs">Riwayat Pemesanan</button>
       </div>
 
       {/* Medicine Grid Catalog */}
@@ -154,7 +156,7 @@ export default function CustomerHomeView({
             onClick={onProceedToCheckout}
             className="px-6 py-2.5 bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs tracking-wider uppercase transition"
           >
-            Lanjut Checkout &rarr;
+            Lanjut Checkout
           </button>
         </div>
       )}

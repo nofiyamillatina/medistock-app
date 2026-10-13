@@ -21,6 +21,56 @@ function formatOrderTimestamp(value) {
   }).format(new Date(timestamp));
 }
 
+function OrderActions({ order, onUpdateOrderStatus, updatingOrderId }) {
+  if (['Selesai', 'Dibatalkan'].includes(order.orderStatus)) return null;
+  return <div className="flex flex-wrap gap-3 border-t border-slate-100 pt-4">
+    {order.orderStatus === 'Menunggu Konfirmasi' && <>
+      <button onClick={() => onUpdateOrderStatus(order.id, 'Diproses')} disabled={updatingOrderId === order.id} className="flex-1 py-2.5 bg-success hover:bg-emerald-600 text-white font-bold text-xs uppercase tracking-wider transition disabled:opacity-60">
+        {updatingOrderId === order.id ? <span className="inline-flex items-center gap-2"><span className="loading-spinner" aria-hidden="true" />Memproses...</span> : 'Konfirmasi & Siapkan'}
+      </button>
+      <button onClick={() => onUpdateOrderStatus(order.id, 'Dibatalkan')} disabled={updatingOrderId === order.id} className="px-5 py-2.5 border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 font-bold text-xs uppercase tracking-wider transition disabled:opacity-60">Tolak</button>
+    </>}
+    {order.orderStatus === 'Diproses' && <button onClick={() => onUpdateOrderStatus(order.id, order.deliveryType === 'Pengantaran' ? 'Dalam Pengantaran' : 'Siap Diambil')} disabled={updatingOrderId === order.id} className="flex-1 py-2.5 bg-primary hover:bg-primary-hover text-white font-bold text-xs uppercase tracking-wider transition disabled:opacity-60">{order.deliveryType === 'Pengantaran' ? 'Mulai Pengantaran' : 'Pesanan Siap Diambil'}</button>}
+    {order.deliveryType === 'Ambil Sendiri' && order.orderStatus === 'Siap Diambil' && <button onClick={() => onUpdateOrderStatus(order.id, 'Selesai')} disabled={updatingOrderId === order.id} className="flex-1 py-2.5 bg-success hover:bg-emerald-600 text-white font-bold text-xs uppercase tracking-wider transition disabled:opacity-60">Tandai Selesai</button>}
+  </div>;
+}
+
+function OrderDetailsModal({ order, onClose, onUpdateOrderStatus, updatingOrderId }) {
+  if (!order) return null;
+  const statusClass = ['Menunggu Konfirmasi', 'Diproses', 'Dalam Pengantaran', 'Siap Diambil'].includes(order.orderStatus)
+    ? 'bg-primary-soft text-primary border-sky-200'
+    : order.orderStatus === 'Selesai' ? 'bg-success-soft text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200';
+
+  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-3 sm:p-6" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <section role="dialog" aria-modal="true" aria-labelledby="order-detail-title" className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-7">
+      <header className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
+        <div><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Detail Pesanan</p><h2 id="order-detail-title" className="mt-1 font-mono text-xl font-bold text-navy">{order.id}</h2></div>
+        <button type="button" onClick={onClose} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50">Tutup</button>
+      </header>
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        <div className="rounded-xl bg-slate-50 p-4"><p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Nama Pemesan</p><p className="mt-1 text-sm font-semibold text-slate-900">{order.customerName || '-'}</p></div>
+        <div className="rounded-xl bg-slate-50 p-4"><p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Nomor Telepon</p><a href={`tel:${order.phone}`} className="mt-1 inline-block text-sm font-semibold text-primary">{order.phone || '-'}</a></div>
+        <div className="rounded-xl bg-slate-50 p-4 sm:col-span-2"><p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Alamat Pengantaran</p><p className="mt-1 whitespace-pre-wrap text-sm text-slate-800">{order.address && order.address !== '-' ? order.address : 'Ambil sendiri di apotek'}</p></div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <span className="border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700">{order.deliveryType}</span>
+        <span className="rounded bg-navy px-2.5 py-1 text-xs font-bold text-white">{order.paymentStatus}</span>
+        <span className={`border px-2.5 py-1 text-xs font-bold ${statusClass}`}>{order.orderStatus}</span>
+      </div>
+      <p className="mt-3 text-xs text-slate-500">Dipesan: {formatOrderTimestamp(order.timestamp)}</p>
+
+      <div className="mt-5 rounded-xl border border-slate-200 p-4">
+        <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-navy">Rincian Obat</h3>
+        <div className="space-y-2 text-sm">{order.items.map((item, index) => <div key={`${item.name}-${index}`} className="flex justify-between gap-3"><span className="text-slate-700">{item.name} x {item.qty}</span><span className="font-mono text-slate-900">{formatIDR(item.price * item.qty)}</span></div>)}</div>
+        <div className="mt-3 flex justify-between border-t border-slate-100 pt-3 text-sm font-bold text-slate-900"><span>Total Transaksi</span><span>{formatIDR(order.totalAmount)}</span></div>
+      </div>
+      <div className="mt-5"><OrderActions order={order} onUpdateOrderStatus={onUpdateOrderStatus} updatingOrderId={updatingOrderId} /></div>
+    </section>
+  </div>;
+}
+
 export default function IncomingOrdersTab({
   orders = [],
   onUpdateOrderStatus,
@@ -34,10 +84,11 @@ export default function IncomingOrdersTab({
   const [deliveryFilter, setDeliveryFilter] = useState('all');
   const [paymentFilter, setPaymentFilter] = useState('all');
   const [orderFilter, setOrderFilter] = useState('all');
+  const [selectedOrderId, setSelectedOrderId] = useState(null);
 
   const deliveryTypes = useMemo(() => [...new Set(['Pengantaran', 'Ambil Sendiri', ...orders.map((order) => order.deliveryType)].filter(Boolean))], [orders]);
   const paymentStatuses = useMemo(() => [...new Set(['Menunggu Pembayaran', 'Pending', 'Lunas', 'Lunas (QRIS)', ...orders.map((order) => order.paymentStatus)].filter(Boolean))], [orders]);
-  const orderStatuses = useMemo(() => [...new Set(['Menunggu Konfirmasi', 'Selesai', 'Dibatalkan', ...orders.map((order) => order.orderStatus)].filter(Boolean))], [orders]);
+  const orderStatuses = useMemo(() => [...new Set(['Menunggu Konfirmasi', 'Diproses', 'Dalam Pengantaran', 'Siap Diambil', 'Selesai', 'Dibatalkan', ...orders.map((order) => order.orderStatus)].filter(Boolean))], [orders]);
 
   const visibleOrders = useMemo(() => {
     const query = searchQuery.trim().toLocaleLowerCase('id');
@@ -55,6 +106,8 @@ export default function IncomingOrdersTab({
       return timestampValue(b.timestamp) - timestampValue(a.timestamp);
     });
   }, [orders, searchQuery, sortBy, deliveryFilter, paymentFilter, orderFilter]);
+
+  const selectedOrder = orders.find((order) => order.id === selectedOrderId);
 
   return (
     <section className="space-y-4">
@@ -107,79 +160,23 @@ export default function IncomingOrdersTab({
         {visibleOrders.length === 0 ? (
           <div className="py-10 text-center border border-dashed border-slate-200 text-slate-500 text-sm">Tidak ada pesanan yang cocok dengan pencarian atau filter.</div>
         ) : visibleOrders.map((order) => (
-          <div key={order.id} className="border border-slate-200 rounded-xl p-5 sm:p-6 bg-white space-y-4 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between border-b border-slate-100 pb-3 gap-2">
-              <div>
-                <span className="text-sm font-bold text-slate-900 mr-3">{order.id}</span>
-                <span className="text-xs font-semibold text-slate-600 mr-2">
-                  {order.customerName}
-                </span>
-                <p className="mt-1 text-xs text-slate-500">
-                  <span className="font-semibold text-slate-600">Dipesan:</span>{' '}
-                  <time dateTime={timestampValue(order.timestamp) ? new Date(timestampValue(order.timestamp)).toISOString() : undefined}>
-                    {formatOrderTimestamp(order.timestamp)}
-                  </time>
-                </p>
+          <article key={order.id} className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <span className="font-mono text-sm font-bold text-slate-900">{order.id}</span>
+                <span className="text-sm font-semibold text-slate-700">{order.customerName}</span>
               </div>
-
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                <span className="text-xs px-2 py-0.5 bg-slate-100 border border-slate-200 text-slate-700 font-mono">
-                  {order.deliveryType}
-                </span>
-                <span className="text-xs font-bold px-2 py-0.5 rounded bg-navy text-white">
-                  {order.paymentStatus}
-                </span>
-                <span
-                  className={`text-xs font-bold px-2 py-0.5 border ${
-                    order.orderStatus === 'Menunggu Konfirmasi'
-                      ? 'bg-primary-soft text-primary border-sky-200'
-                      : order.orderStatus === 'Selesai'
-                      ? 'bg-success-soft text-emerald-700 border-emerald-200'
-                      : 'bg-red-50 text-red-700 border-red-200'
-                  }`}
-                >
-                  {order.orderStatus}
-                </span>
+              <p className="mt-1 text-xs text-slate-500">Dipesan: {formatOrderTimestamp(order.timestamp)}</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <span className="border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">{order.deliveryType}</span>
+                <span className="rounded bg-navy px-2 py-0.5 text-[10px] font-bold text-white">{order.paymentStatus}</span>
+                <span className="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-bold text-slate-700">{order.orderStatus}</span>
               </div>
             </div>
-
-            {/* Items */}
-            <div className="space-y-1 text-xs text-slate-700">
-              {order.items.map((item, idx) => (
-                <div key={idx} className="flex justify-between">
-                  <span>
-                    • {item.name} &times; {item.qty}
-                  </span>
-                  <span className="font-mono text-slate-900">{formatIDR(item.price * item.qty)}</span>
-                </div>
-              ))}
-              <div className="border-t border-slate-100 pt-2 mt-2 flex justify-between font-bold text-sm text-slate-900">
-                <span>Total Transaksi</span>
-                <span>{formatIDR(order.totalAmount)}</span>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            {order.orderStatus === 'Menunggu Konfirmasi' && (
-              <div className="flex space-x-3 pt-2">
-                <button
-                  onClick={() => onUpdateOrderStatus(order.id, 'Selesai')}
-                  disabled={updatingOrderId === order.id}
-                  className="flex-1 py-2.5 bg-success hover:bg-emerald-600 text-white font-bold text-xs uppercase tracking-wider transition disabled:opacity-60"
-                >
-                  {updatingOrderId === order.id ? <span className="inline-flex items-center gap-2"><span className="loading-spinner" aria-hidden="true" />Memproses...</span> : 'Konfirmasi & Siapkan'}
-                </button>
-                <button
-                  onClick={() => onUpdateOrderStatus(order.id, 'Dibatalkan')}
-                  disabled={updatingOrderId === order.id}
-                  className="px-5 py-2.5 border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 font-bold text-xs uppercase tracking-wider transition disabled:opacity-60"
-                >
-                  Tolak
-                </button>
-              </div>
-            )}
-          </div>
+            <button type="button" onClick={() => setSelectedOrderId(order.id)} className="shrink-0 rounded-lg border border-primary px-4 py-2.5 text-xs font-bold text-primary transition hover:bg-primary-soft">Detail Pesanan</button>
+          </article>
         ))}
+        <OrderDetailsModal order={selectedOrder} onClose={() => setSelectedOrderId(null)} onUpdateOrderStatus={onUpdateOrderStatus} updatingOrderId={updatingOrderId} />
         </>
       )}
     </section>

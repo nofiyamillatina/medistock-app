@@ -7,6 +7,7 @@ export default function QRISPaymentView({
   onConfirmPayment,
   showSuccessModal,
   onReset,
+  onOpenHistory,
   confirmingPayment = false
 }) {
   const [timeLeft, setTimeLeft] = useState(900); // 15 minutes
@@ -26,9 +27,9 @@ export default function QRISPaymentView({
           <div className="w-14 h-14 bg-success text-white rounded-full flex items-center justify-center mx-auto text-2xl font-bold" aria-hidden="true">✓</div>
           <h1 className="mt-4 text-xl font-bold text-slate-900">Pembayaran Berhasil Dikonfirmasi</h1>
           <p className="mt-2 text-sm text-slate-600 leading-relaxed">Pesanan Anda sedang disiapkan oleh Apotek Sehat.</p>
-          <button onClick={onReset} className="w-full mt-6 py-3 bg-primary hover:bg-primary-hover text-white text-xs font-bold tracking-wider uppercase">
-            Kembali ke Beranda
-          </button>
+          {currentOrder?.id && <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">ID pesanan Anda: <strong className="font-mono">{currentOrder.id}</strong>. Simpan ID ini untuk melihat progres pesanan.</p>}
+          <button onClick={onOpenHistory} className="w-full mt-6 py-3 bg-primary hover:bg-primary-hover text-white text-xs font-bold tracking-wider uppercase">Lihat Riwayat Pemesanan</button>
+          <button onClick={onReset} className="w-full mt-2 py-3 border border-slate-200 bg-white text-slate-700 text-xs font-bold tracking-wider uppercase">Kembali ke Beranda</button>
         </div>
       </div>
     );

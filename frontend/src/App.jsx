@@ -4,6 +4,7 @@ import Footer from './components/common/Footer.jsx';
 import CustomerHomeView from './components/customer/CustomerHomeView.jsx';
 import CheckoutView from './components/customer/CheckoutView.jsx';
 import QRISPaymentView from './components/customer/QRISPaymentView.jsx';
+import CustomerHistoryView from './components/customer/CustomerHistoryView.jsx';
 import PharmacyLoginView from './components/pharmacy/PharmacyLoginView.jsx';
 import PharmacyDashboardView from './components/pharmacy/PharmacyDashboardView.jsx';
 import { apiService } from './services/api.js';
@@ -232,6 +233,10 @@ export default function App() {
       const res = await apiService.createOrder(orderPayload);
       if (res && res.success) {
         setCurrentOrder(res.data);
+        const knownOrders = (() => { try { return JSON.parse(localStorage.getItem('medistock_customer_orders') || '[]'); } catch { return []; } })();
+        const nextKnownOrders = [...knownOrders.filter((order) => order.id !== res.data.id), { id: res.data.id, phone: customerInfo.phone }];
+        localStorage.setItem('medistock_customer_orders', JSON.stringify(nextKnownOrders));
+        setCustomerInfo({ name: '', phone: '', address: '' });
         setCurrentView('qris');
       } else {
         alert(res?.message || 'Gagal membuat pesanan di server. Silakan coba lagi.');
@@ -307,8 +312,37 @@ export default function App() {
     try {
       const res = await apiService.updateOrderStatus(orderId, newStatus, token);
       if (res && res.success) fetchOrders();
-      else alert(res?.message || 'Gagal memperbarui status pesanan.');
+      else if (res?.message?.includes('Token tidak valid') || res?.message?.includes('Token autentikasi tidak ditemukan')) {
+        localStorage.removeItem('medistock_token');
+        localStorage.removeItem('medistock_user');
+        setIsLoggedIn(false);
+        setToken(null);
+        setCurrentView('admin-login');
+        alert('Sesi apotek sudah berakhir. Silakan login kembali sebelum memperbarui pesanan.');
+      } else alert(res?.message || 'Gagal memperbarui status pesanan.');
     } finally { setUpdatingOrderId(null); }
+  };
+
+  const handleCustomerCompleteDelivery = async (orderId, phone) => {
+    const result = await apiService.completeDeliveryOrder(orderId, phone);
+    if (result?.success) fetchOrders();
+    return result;
+  };
+
+  const handleOpenPharmacy = async () => {
+    if (!token) {
+      setCurrentView('admin-login');
+      return;
+    }
+    const result = await apiService.verifyPharmacyToken(token);
+    if (result?.success) setCurrentView('admin-dashboard');
+    else if (result?.httpStatus === 401) {
+      localStorage.removeItem('medistock_token');
+      localStorage.removeItem('medistock_user');
+      setIsLoggedIn(false);
+      setToken(null);
+      setCurrentView('admin-login');
+    } else alert(result?.message || 'Sesi apotek belum dapat diverifikasi. Coba lagi.');
   };
 
   const handleSaveInventory = async (items = inventoryDraft) => {
@@ -365,6 +399,7 @@ export default function App() {
         currentView={currentView}
         setCurrentView={setCurrentView}
         isLoggedIn={isLoggedIn}
+        onOpenPharmacy={handleOpenPharmacy}
       />
 
       {/* Main Container */}
@@ -383,8 +418,11 @@ export default function App() {
             loadingMedicines={loadingMedicines}
             errorMedicines={errorMedicines}
             onRetryMedicines={() => fetchMedicines(searchQuery)}
+            onOpenHistory={() => setCurrentView('customer-history')}
           />
         )}
+
+        {currentView === 'customer-history' && <CustomerHistoryView onTrackOrder={apiService.trackOrder} onCompleteDelivery={handleCustomerCompleteDelivery} onBack={() => setCurrentView('customer')} />}
 
         {currentView === 'checkout' && (
           <CheckoutView
@@ -410,6 +448,7 @@ export default function App() {
             onConfirmPayment={handleConfirmPayment}
             showSuccessModal={showSuccessModal}
             onReset={resetCustomerFlow}
+            onOpenHistory={() => setCurrentView('customer-history')}
             confirmingPayment={confirmingPayment}
           />
         )}

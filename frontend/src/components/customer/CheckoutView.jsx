@@ -39,7 +39,7 @@ export default function CheckoutView({
           onClick={onBack}
           className="text-sm font-semibold text-primary hover:text-primary-hover flex items-center gap-1"
         >
-          &larr; Kembali
+          Kembali
         </button>
         <h1 className="text-lg font-bold text-slate-900">Checkout Pesanan</h1>
         <div className="w-12"></div>
