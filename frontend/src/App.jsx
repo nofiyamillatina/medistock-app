@@ -140,29 +140,34 @@ export default function App() {
     }
     const availableStock = getDisplayStock(med.stock);
     if (availableStock === 0) return;
+    const existingCartItem = cart.find((item) => item.id === med.id);
+    if (existingCartItem && existingCartItem.qty >= availableStock) {
+      alert(`Stok tersedia hanya ${availableStock}.`);
+      return;
+    }
 
+    setCurrentOrder(null);
+    setShowSuccessModal(false);
     setCart((prev) => {
       const existing = prev.find((item) => item.id === med.id);
-      if (existing) {
-        if (existing.qty >= availableStock) {
-          alert(`Stok tersedia hanya ${availableStock}.`);
-          return prev;
-        }
-        return prev.map((item) => (item.id === med.id ? { ...item, qty: item.qty + 1 } : item));
-      }
+      if (existing) return prev.map((item) => (item.id === med.id ? { ...item, qty: item.qty + 1 } : item));
       return [...prev, { ...med, stock: availableStock, qty: 1 }];
     });
   };
 
   const updateCartQty = (medId, delta) => {
+    const medicine = medicines.find((item) => item.id === medId);
+    const currentItem = cart.find((item) => item.id === medId);
+    const availableStock = medicine ? getDisplayStock(medicine.stock) : 0;
+    if (!currentItem || delta === 0) return;
+    if (delta > 0 && medicine && currentItem.qty + delta > availableStock) {
+      alert(`Stok tersedia hanya ${availableStock}.`);
+      return;
+    }
+
+    setCurrentOrder(null);
+    setShowSuccessModal(false);
     setCart((prev) => {
-      const medicine = medicines.find((item) => item.id === medId);
-      const currentItem = prev.find((item) => item.id === medId);
-      const availableStock = medicine ? getDisplayStock(medicine.stock) : 0;
-      if (delta > 0 && medicine && currentItem && currentItem.qty + delta > availableStock) {
-        alert(`Stok tersedia hanya ${availableStock}.`);
-        return prev;
-      }
       return prev
         .map((item) => {
           if (item.id === medId) {
@@ -257,6 +262,7 @@ export default function App() {
         }
         fetchOrders();
         fetchMedicines();
+        setCart([]);
       }
       setShowSuccessModal(true);
     } finally { setConfirmingPayment(false); }
@@ -311,7 +317,10 @@ export default function App() {
     setUpdatingOrderId(orderId);
     try {
       const res = await apiService.updateOrderStatus(orderId, newStatus, token);
-      if (res && res.success) fetchOrders();
+      if (res && res.success) {
+        fetchOrders();
+        if (newStatus === 'Dibatalkan') fetchMedicines();
+      }
       else if (res?.message?.includes('Token tidak valid') || res?.message?.includes('Token autentikasi tidak ditemukan')) {
         localStorage.removeItem('medistock_token');
         localStorage.removeItem('medistock_user');
@@ -413,6 +422,7 @@ export default function App() {
             addToCart={addToCart}
             updateCartQty={updateCartQty}
             cartTotal={cartTotal}
+            hasPlacedOrder={Boolean(currentOrder)}
             isStoreOpen={isStoreOpen}
             onProceedToCheckout={handleProceedToCheckout}
             loadingMedicines={loadingMedicines}

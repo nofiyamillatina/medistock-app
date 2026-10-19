@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { formatIDR } from '../../services/formatters.js';
+import StyledDropdown from '../common/StyledDropdown.jsx';
 
 const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 
@@ -100,17 +101,17 @@ export default function SalesReportTab({ orders }) {
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
             />
             <label className="sr-only" htmlFor="sales-sort">Urutkan transaksi</label>
-            <select id="sales-sort" value={sortBy} onChange={(event) => setSortBy(event.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs bg-white">
-              <option value="latest">Data terbaru</option>
-              <option value="id">ID transaksi</option>
-              <option value="name">Nama pemesan</option>
-              <option value="status">Status</option>
-            </select>
+            <StyledDropdown id="sales-sort" ariaLabel="Urutkan transaksi" value={sortBy} onChange={setSortBy} options={[
+              { value: 'latest', label: 'Data terbaru' },
+              { value: 'id', label: 'ID transaksi' },
+              { value: 'name', label: 'Nama pemesan' },
+              { value: 'status', label: 'Status' }
+            ]} />
             <label className="sr-only" htmlFor="sales-status">Filter status</label>
-            <select id="sales-status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs bg-white">
-              <option value="all">Semua status</option>
-              {statuses.map((status) => <option key={status} value={status}>{status}</option>)}
-            </select>
+            <StyledDropdown id="sales-status" ariaLabel="Filter status" value={statusFilter} onChange={setStatusFilter} options={[
+              { value: 'all', label: 'Semua status' },
+              ...statuses.map((status) => ({ value: status, label: status }))
+            ]} />
           </div>
         </div>
         <div className="border border-slate-200 rounded-xl overflow-x-auto bg-white shadow-sm">

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Check, ChevronDown, Pencil, Trash2 } from 'lucide-react';
 import { normalizeStockInput } from '../../utils/stock.js';
 import { isRestrictedMedicine, RESTRICTED_MEDICINE_WARNING } from '../../config/restrictedMedicines.js';
 import { formatIDR } from '../../services/formatters.js';
@@ -21,6 +21,15 @@ export default function InventoryTab({
   const [editForm, setEditForm] = React.useState(null);
   const [form, setForm] = React.useState({ name: '', desc: '', price: '', stock: 0, image_url: '' });
   const [formError, setFormError] = React.useState('');
+  const [sortBy, setSortBy] = React.useState('id');
+  const [sortDirection, setSortDirection] = React.useState('asc');
+  const [showSortOptions, setShowSortOptions] = React.useState(false);
+  const sortedInventory = React.useMemo(() => [...inventoryDraft].sort((a, b) => {
+    const left = sortBy === 'name' ? a.name : a.id;
+    const right = sortBy === 'name' ? b.name : b.id;
+    const comparison = String(left ?? '').localeCompare(String(right ?? ''), 'id', { numeric: true, sensitivity: 'base' });
+    return sortDirection === 'asc' ? comparison : -comparison;
+  }), [inventoryDraft, sortBy, sortDirection]);
   React.useEffect(() => {
     if (!showAddForm && !editingMedicine) return undefined;
     const closeOnEscape = (event) => {
@@ -119,11 +128,49 @@ export default function InventoryTab({
 
   return (
     <section className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-sm font-bold text-navy tracking-wide">
           Daftar Obat & Pengaturan
         </h2>
-        {canManageInventory && <button type="button" disabled={savingInventory} onClick={() => setShowAddForm(true)} className="px-4 py-2 bg-primary hover:bg-primary-hover text-white font-bold text-xs uppercase tracking-wider disabled:opacity-50">+ Tambah Obat</button>}
+        <div className="flex items-center gap-2">
+          {canManageInventory && <button type="button" disabled={savingInventory} onClick={() => setShowAddForm(true)} className="inline-flex h-8 items-center justify-center px-4 bg-primary hover:bg-primary-hover text-white font-bold text-xs uppercase tracking-wider disabled:opacity-50">+ Tambah Obat</button>}
+          <div className="relative inline-flex h-8 items-center overflow-visible rounded-lg border border-slate-300 bg-white shadow-sm">
+            <button
+              type="button"
+              aria-label={`Ubah urutan menjadi ${sortDirection === 'asc' ? 'menurun' : 'menaik'}`}
+              title={`Urutan ${sortDirection === 'asc' ? 'menaik' : 'menurun'}`}
+              onClick={() => setSortDirection((direction) => direction === 'asc' ? 'desc' : 'asc')}
+              className="inline-flex h-full w-9 items-center justify-center rounded-l-lg text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary/30"
+            >
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                {sortDirection === 'asc' ? <><path d="M8 6h8" /><path d="M5 12h14" /><path d="M2 18h20" /></> : <><path d="M2 6h20" /><path d="M5 12h14" /><path d="M8 18h8" /></>}
+              </svg>
+            </button>
+            <span className="h-5 border-l border-slate-300" aria-hidden="true" />
+            <button
+              type="button"
+              aria-label="Pilih dasar pengurutan"
+              aria-expanded={showSortOptions}
+              aria-haspopup="true"
+              title={`Urutkan berdasarkan ${sortBy === 'id' ? 'ID obat' : 'nama obat'}`}
+              onClick={() => setShowSortOptions((visible) => !visible)}
+              className="inline-flex h-full w-8 items-center justify-center rounded-r-lg text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary/30"
+            >
+              <ChevronDown size={16} aria-hidden="true" />
+            </button>
+            {showSortOptions && (
+              <div className="absolute right-0 z-20 mt-2 w-52 rounded-xl border border-slate-200 bg-white p-3 shadow-lg">
+                <p className="mb-2 text-xs font-semibold text-slate-500">Urutkan berdasarkan</p>
+                <button type="button" aria-pressed={sortBy === 'id'} onClick={() => { setSortBy('id'); setShowSortOptions(false); }} className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition ${sortBy === 'id' ? 'bg-blue-50 font-semibold text-blue-700' : 'text-slate-700 hover:bg-slate-50'}`}>
+                  ID Obat {sortBy === 'id' && <Check size={15} aria-hidden="true" />}
+                </button>
+                <button type="button" aria-pressed={sortBy === 'name'} onClick={() => { setSortBy('name'); setShowSortOptions(false); }} className={`mt-1 flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition ${sortBy === 'name' ? 'bg-blue-50 font-semibold text-blue-700' : 'text-slate-700 hover:bg-slate-50'}`}>
+                  Nama Obat {sortBy === 'name' && <Check size={15} aria-hidden="true" />}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {showAddForm && canManageInventory && (
@@ -205,6 +252,7 @@ export default function InventoryTab({
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-neutral uppercase tracking-wider">
                 <th className="p-3 w-14 text-center">Gambar</th>
+                <th className="p-3">ID Obat</th>
                 <th className="p-3">Nama Obat</th>
                 <th className="p-3">Deskripsi</th>
                 <th className="p-3">Harga (IDR)</th>
@@ -215,7 +263,7 @@ export default function InventoryTab({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 text-sm">
-              {inventoryDraft.map((item) => (
+              {sortedInventory.map((item) => (
                 <tr key={item.id} className="hover:bg-slate-50/50">
                   <td className="p-3 text-center">
                     {item.image_url ? (
@@ -224,6 +272,7 @@ export default function InventoryTab({
                       <div className="w-10 h-10 rounded border border-slate-200 bg-slate-100 flex items-center justify-center text-[9px] text-slate-400 font-semibold mx-auto">No Img</div>
                     )}
                   </td>
+                  <td className="p-3 font-mono text-xs text-slate-500">{item.id}</td>
                   <td className="p-3 font-semibold text-slate-900">{item.name}</td>
                   <td className="p-3 text-slate-600">{item.desc || '—'}</td>
                   <td className="p-3">

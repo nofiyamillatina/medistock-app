@@ -1,7 +1,32 @@
 import React from 'react';
+import { BarChart3, ClipboardList, Package } from 'lucide-react';
 import IncomingOrdersTab from './IncomingOrdersTab.jsx';
 import InventoryTab from './InventoryTab.jsx';
 import SalesReportTab from './SalesReportTab.jsx';
+
+function PharmacyTabIcon({ type, active }) {
+  if (!active) {
+    const OutlineIcon = { orders: ClipboardList, inventory: Package, reports: BarChart3 }[type];
+    return <OutlineIcon size={15} aria-hidden="true" />;
+  }
+
+  if (type === 'orders') {
+    return <svg viewBox="0 0 20 20" className="h-[15px] w-[15px]" aria-hidden="true">
+      <path fill="currentColor" d="M7 2h6a2 2 0 0 1 2 2h1a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1a2 2 0 0 1 2-2Zm0 2v1h6V4H7Z" />
+      <path d="M6 9h1m2 0h5M6 12h1m2 0h5M6 15h1m2 0h5" fill="none" stroke="#0284C7" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>;
+  }
+  if (type === 'inventory') {
+    return <svg viewBox="0 0 20 20" className="h-[15px] w-[15px]" aria-hidden="true">
+      <path fill="currentColor" d="m10 1.5 8 4v9l-8 4-8-4v-9l8-4Z" />
+      <path d="m2.5 5.8 7.5 3.8 7.5-3.8M10 9.6v8" fill="none" stroke="#0284C7" strokeWidth="1.4" strokeLinejoin="round" />
+    </svg>;
+  }
+  return <svg viewBox="0 0 20 20" className="h-[15px] w-[15px]" aria-hidden="true">
+    <path fill="currentColor" d="M3 10h3v7H3zm5-5h3v12H8zm5-3h3v15h-3z" />
+    <path d="M2 18h16" fill="none" stroke="#0284C7" strokeWidth="1.4" strokeLinecap="round" />
+  </svg>;
+}
 
 export default function PharmacyDashboardView({
   isStoreOpen,
@@ -71,16 +96,20 @@ export default function PharmacyDashboardView({
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex space-x-2 mt-6 border-t border-slate-100 pt-4 overflow-x-auto">
+        <div role="tablist" aria-label="Menu pharmacy flow" className="mt-6 flex gap-2 overflow-x-auto border-t border-slate-100 pt-4">
           <button
+            type="button"
+            role="tab"
+            aria-selected={adminTab === 'orders'}
             onClick={() => setAdminTab('orders')}
-            className={`px-4 py-2 text-xs font-bold transition uppercase tracking-wider border-b-2 ${
+            className={`shrink-0 rounded-lg border px-4 py-2.5 text-xs font-bold transition uppercase tracking-wider ${
               adminTab === 'orders'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-slate-400 hover:text-slate-700'
+                ? 'border-primary bg-primary text-white shadow-sm'
+                : 'border-transparent bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-800'
             }`}
           >
             <span className="inline-flex items-center gap-2">
+              <PharmacyTabIcon type="orders" active={adminTab === 'orders'} />
               Pesanan Masuk
               {pendingOrdersCount > 0 && (
                 <span
@@ -93,24 +122,30 @@ export default function PharmacyDashboardView({
             </span>
           </button>
           <button
+            type="button"
+            role="tab"
+            aria-selected={adminTab === 'inventory'}
             onClick={() => setAdminTab('inventory')}
-            className={`px-4 py-2 text-xs font-bold transition uppercase tracking-wider border-b-2 ${
+            className={`shrink-0 rounded-lg border px-4 py-2.5 text-xs font-bold transition uppercase tracking-wider ${
               adminTab === 'inventory'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-slate-400 hover:text-slate-700'
+                ? 'border-primary bg-primary text-white shadow-sm'
+                : 'border-transparent bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-800'
             }`}
           >
-            Kelola Stok & Harga
+            <span className="inline-flex items-center gap-2"><PharmacyTabIcon type="inventory" active={adminTab === 'inventory'} />Kelola Stok & Harga</span>
           </button>
           <button
+            type="button"
+            role="tab"
+            aria-selected={adminTab === 'reports'}
             onClick={() => setAdminTab('reports')}
-            className={`px-4 py-2 text-xs font-bold transition uppercase tracking-wider border-b-2 ${
+            className={`shrink-0 rounded-lg border px-4 py-2.5 text-xs font-bold transition uppercase tracking-wider ${
               adminTab === 'reports'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-slate-400 hover:text-slate-700'
+                ? 'border-primary bg-primary text-white shadow-sm'
+                : 'border-transparent bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-800'
             }`}
           >
-            Laporan Penjualan
+            <span className="inline-flex items-center gap-2"><PharmacyTabIcon type="reports" active={adminTab === 'reports'} />Laporan Penjualan</span>
           </button>
         </div>
       </header>

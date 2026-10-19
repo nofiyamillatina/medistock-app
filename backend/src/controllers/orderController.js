@@ -1,5 +1,23 @@
 import prisma from '../config/database.js';
 
+function matchMedicineForOrderItem(itemName, medicines, medicineId = null) {
+  if (medicineId) {
+    const idMatch = medicines.find((medicine) => medicine.id === medicineId);
+    if (idMatch) return idMatch;
+  }
+  const normalizedItemName = String(itemName || '').trim().toLocaleLowerCase('id');
+  const exactMatches = medicines.filter((medicine) => medicine.name.trim().toLocaleLowerCase('id') === normalizedItemName);
+  if (exactMatches.length === 1) return exactMatches[0];
+  if (exactMatches.length > 1) return null;
+
+  // Legacy order items may not exactly match catalog names. Only use the old
+  // first-word fallback when it identifies one medicine unambiguously.
+  const fallbackMatches = medicines.filter((medicine) =>
+    normalizedItemName.startsWith(medicine.name.trim().split(/\s+/)[0].toLocaleLowerCase('id'))
+  );
+  return fallbackMatches.length === 1 ? fallbackMatches[0] : null;
+}
+
 // Get all orders (Pharmacy Dashboard & Reports)
 export const getOrders = async (req, res) => {
   try {
@@ -20,6 +38,7 @@ export const getOrders = async (req, res) => {
       paymentStatus: order.payment_status,
       orderStatus: order.order_status,
       items: order.items.map(item => ({
+        medicineId: item.medicine_id,
         name: item.name,
         qty: item.qty,
         price: item.price
@@ -50,7 +69,7 @@ export const trackOrder = async (req, res) => {
       orderStatus: order.order_status,
       timestamp: order.timestamp,
       totalAmount: order.total_amount,
-      items: order.items.map((item) => ({ name: item.name, qty: item.qty, price: item.price }))
+      items: order.items.map((item) => ({ medicineId: item.medicine_id, name: item.name, qty: item.qty, price: item.price }))
     } });
   } catch (error) {
     console.error('Error tracking order:', error);
@@ -104,6 +123,14 @@ export const createOrder = async (req, res) => {
 
     const orderId = `MDS-${Math.floor(1000 + Math.random() * 9000)}`;
     const timestamp = new Date().toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' });
+    const medicines = await prisma.medicines.findMany();
+    const orderItems = items.map((item) => {
+      const medicine = matchMedicineForOrderItem(item.name, medicines, item.medicineId || item.id);
+      return medicine ? { ...item, medicineId: medicine.id, name: medicine.name } : null;
+    });
+    if (orderItems.some((item) => !item)) {
+      return res.status(400).json({ success: false, message: 'Salah satu obat tidak ditemukan di katalog. Muat ulang katalog lalu coba lagi.' });
+    }
 
     await prisma.orders.create({
       data: {
@@ -119,7 +146,8 @@ export const createOrder = async (req, res) => {
         order_status: 'Menunggu Konfirmasi',
         timestamp,
         items: {
-          create: items.map(item => ({
+          create: orderItems.map(item => ({
+            medicine_id: item.medicineId,
             name: item.name,
             qty: item.qty,
             price: item.price
@@ -134,7 +162,7 @@ export const createOrder = async (req, res) => {
       phone,
       address: deliveryType === 'Pengantaran' ? address : '-',
       deliveryType,
-      items,
+      items: orderItems,
       subtotal,
       serviceFee: serviceFee || 3000,
       totalAmount,
@@ -168,7 +196,10 @@ export const confirmPayment = async (req, res) => {
     const medicines = await prisma.medicines.findMany();
     const deductions = [];
     for (const item of order.items) {
-      const matchedMed = medicines.find(m => item.name.toLowerCase().startsWith(m.name.split(' ')[0].toLowerCase()));
+      const matchedMed = matchMedicineForOrderItem(item.name, medicines, item.medicine_id);
+      if (!matchedMed) {
+        return res.status(409).json({ success: false, message: `Obat ${item.name} tidak lagi tersedia di katalog; stok tidak diubah.` });
+      }
       if (matchedMed) {
         const pendingQty = deductions
           .filter(deduction => deduction.medicineId === matchedMed.id)
@@ -217,23 +248,61 @@ export const updateOrderStatus = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Status pesanan tidak valid.' });
     }
 
-    const order = await prisma.orders.findUnique({ where: { id } });
-    if (!order) return res.status(404).json({ success: false, message: 'Pesanan tidak ditemukan.' });
-    if (order.order_status === 'Selesai' || order.order_status === 'Dibatalkan') {
-      return res.status(409).json({ success: false, message: 'Pesanan ini sudah berakhir.' });
-    }
-    const validNext = orderStatus === 'Dibatalkan'
-      || (order.order_status === 'Menunggu Konfirmasi' && orderStatus === 'Diproses')
-      || (order.order_status === 'Diproses' && orderStatus === (order.delivery_type === 'Pengantaran' ? 'Dalam Pengantaran' : 'Siap Diambil'))
-      || (order.delivery_type === 'Ambil Sendiri' && order.order_status === 'Siap Diambil' && orderStatus === 'Selesai');
-    if (!validNext) return res.status(400).json({ success: false, message: 'Perubahan status pesanan tidak sesuai urutan.' });
+    const result = await prisma.$transaction(async (tx) => {
+      const order = await tx.orders.findUnique({ where: { id }, include: { items: true } });
+      if (!order) return { status: 404, message: 'Pesanan tidak ditemukan.' };
+      if (order.order_status === 'Selesai' || order.order_status === 'Dibatalkan') {
+        return { status: 409, message: 'Pesanan ini sudah berakhir.' };
+      }
+      const previousStatus = order.order_status;
+      const validNext = orderStatus === 'Dibatalkan'
+        || (previousStatus === 'Menunggu Konfirmasi' && orderStatus === 'Diproses')
+        || (previousStatus === 'Diproses' && orderStatus === (order.delivery_type === 'Pengantaran' ? 'Dalam Pengantaran' : 'Siap Diambil'))
+        || (order.delivery_type === 'Ambil Sendiri' && previousStatus === 'Siap Diambil' && orderStatus === 'Selesai');
+      if (!validNext) return { status: 400, message: 'Perubahan status pesanan tidak sesuai urutan.' };
 
-    await prisma.orders.update({
-      where: { id },
-      data: { order_status: orderStatus }
+      let restoredQuantities = new Map();
+      if (orderStatus === 'Dibatalkan') {
+        const medicines = await tx.medicines.findMany();
+        for (const item of order.items) {
+          const matchedMed = matchMedicineForOrderItem(item.name, medicines, item.medicine_id);
+          if (!matchedMed) {
+            return { status: 409, message: `Obat ${item.name} tidak dapat dicocokkan ke katalog; pembatalan belum dilakukan.` };
+          }
+          if (!Number.isInteger(item.qty) || item.qty <= 0) {
+            return { status: 409, message: `Jumlah obat ${item.name} tidak valid; pembatalan belum dilakukan.` };
+          }
+          restoredQuantities.set(matchedMed.id, (restoredQuantities.get(matchedMed.id) || 0) + item.qty);
+        }
+      }
+
+      // Claim the status transition before restoring inventory so concurrent
+      // duplicate requests cannot return the same items to stock twice.
+      const transition = await tx.orders.updateMany({
+        where: { id, order_status: previousStatus },
+        data: { order_status: orderStatus }
+      });
+      if (transition.count !== 1) return { status: 409, message: 'Status pesanan berubah. Muat ulang daftar pesanan.' };
+
+      if (orderStatus === 'Dibatalkan') {
+        const medicines = await tx.medicines.findMany();
+        for (const [medicineId, quantity] of restoredQuantities) {
+          const medicine = medicines.find((entry) => entry.id === medicineId);
+          const stock = medicine.stock + quantity;
+          await tx.medicines.update({
+            where: { id: medicineId },
+            data: { stock, status: stock > 0 ? 'Tersedia' : medicine.status }
+          });
+        }
+      }
+      return { status: 200 };
     });
 
-    res.json({ success: true, message: `Status pesanan ${id} berhasil diperbarui menjadi '${orderStatus}'.` });
+    if (result.status !== 200) return res.status(result.status).json({ success: false, message: result.message });
+
+    res.json({ success: true, message: orderStatus === 'Dibatalkan'
+      ? `Pesanan ${id} berhasil dibatalkan dan stok obat dikembalikan.`
+      : `Status pesanan ${id} berhasil diperbarui menjadi '${orderStatus}'.` });
   } catch (error) {
     console.error('Error updating order status:', error);
     res.status(500).json({ success: false, message: 'Gagal memperbarui status pesanan.' });

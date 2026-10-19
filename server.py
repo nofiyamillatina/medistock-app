@@ -9,6 +9,21 @@ from datetime import datetime
 PORT = 5000
 DB_FILE = os.path.join(os.path.dirname(__file__), 'backend', 'db', 'medistock.db')
 
+def match_medicine_for_order_item(item_name, medicines, medicine_id=None):
+    if medicine_id:
+        by_id = next((medicine for medicine in medicines if medicine[0] == medicine_id), None)
+        if by_id:
+            return by_id
+    normalized_item_name = str(item_name or '').strip().casefold()
+    exact = [medicine for medicine in medicines if medicine[1].strip().casefold() == normalized_item_name]
+    if len(exact) == 1:
+        return exact[0]
+    if len(exact) > 1:
+        return None
+    fallback = [medicine for medicine in medicines
+                if normalized_item_name.startswith(medicine[1].strip().split()[0].casefold())]
+    return fallback[0] if len(fallback) == 1 else None
+
 def init_db():
     os.makedirs(os.path.dirname(DB_FILE), exist_ok=True)
     conn = sqlite3.connect(DB_FILE)
@@ -55,13 +70,18 @@ def init_db():
         CREATE TABLE IF NOT EXISTS order_items (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             order_id TEXT NOT NULL,
+            medicine_id TEXT,
             name TEXT NOT NULL,
             qty INTEGER NOT NULL,
             price INTEGER NOT NULL,
             FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
         )
     ''')
-    
+
+    # Upgrade databases created before order items stored a stable medicine ID.
+    item_columns = {row[1] for row in cursor.execute("PRAGMA table_info(order_items)").fetchall()}
+    if 'medicine_id' not in item_columns:
+        cursor.execute("ALTER TABLE order_items ADD COLUMN medicine_id TEXT")
     # Seed default data if empty
     cursor.execute("SELECT COUNT(*) FROM pharmacy_info")
     if cursor.fetchone()[0] == 0:
@@ -95,6 +115,21 @@ def init_db():
             ('MDS-9822', 'Antasida Doen Tablet', 2, 8500)
         ]
         cursor.executemany("INSERT INTO order_items (order_id, name, qty, price) VALUES (?, ?, ?, ?)", items)
+
+    # Backfill legacy and seeded items only when the catalog name is unique.
+    cursor.execute('''
+        UPDATE order_items
+        SET medicine_id = (
+            SELECT medicines.id FROM medicines
+            WHERE lower(trim(medicines.name)) = lower(trim(order_items.name))
+            LIMIT 1
+        )
+        WHERE medicine_id IS NULL
+          AND (
+            SELECT COUNT(*) FROM medicines AS exact_medicine
+            WHERE lower(trim(exact_medicine.name)) = lower(trim(order_items.name))
+          ) = 1
+    ''')
 
     conn.commit()
     conn.close()
@@ -152,9 +187,9 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
             rows = cursor.fetchall()
             orders = []
             for r in rows:
-                cursor.execute("SELECT name, qty, price FROM order_items WHERE order_id = ?", (r[0],))
+                cursor.execute("SELECT medicine_id, name, qty, price FROM order_items WHERE order_id = ?", (r[0],))
                 item_rows = cursor.fetchall()
-                items = [{'name': ir[0], 'qty': ir[1], 'price': ir[2]} for ir in item_rows]
+                items = [{'medicineId': ir[0], 'name': ir[1], 'qty': ir[2], 'price': ir[3]} for ir in item_rows]
                 orders.append({
                     'id': r[0],
                     'customerName': r[1],
@@ -203,25 +238,41 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
                 (order_id, body['customerName'], body['phone'], body.get('address', '-'), body['deliveryType'], body['subtotal'], body.get('serviceFee', 3000), body['totalAmount'], 'Lunas (QRIS)', 'Menunggu Konfirmasi', timestamp)
             )
             for item in body.get('items', []):
-                cursor.execute("INSERT INTO order_items (order_id, name, qty, price) VALUES (?, ?, ?, ?)", (order_id, item['name'], item['qty'], item['price']))
+                cursor.execute("INSERT INTO order_items (order_id, medicine_id, name, qty, price) VALUES (?, ?, ?, ?, ?)", (order_id, item.get('medicineId', item.get('id')), item['name'], item['qty'], item['price']))
             conn.commit()
             new_order = {**body, 'id': order_id, 'timestamp': timestamp, 'paymentStatus': 'Lunas (QRIS)', 'orderStatus': 'Menunggu Konfirmasi'}
             self._json_response({'success': True, 'data': new_order}, 201)
             
         elif re.match(r'^/api/orders/[^/]+/confirm-payment$', self.path):
             order_id = self.path.split('/')[3]
-            cursor.execute("SELECT name, qty FROM order_items WHERE order_id = ?", (order_id,))
+            conn.execute('BEGIN IMMEDIATE')
+            cursor.execute("SELECT medicine_id, name, qty FROM order_items WHERE order_id = ?", (order_id,))
             items = cursor.fetchall()
-            for item_name, qty in items:
-                cursor.execute("SELECT id, stock, status FROM medicines")
-                meds = cursor.fetchall()
-                for m_id, m_stock, m_status in meds:
-                    cursor.execute("SELECT name FROM medicines WHERE id = ?", (m_id,))
-                    m_name = cursor.fetchone()[0]
-                    if item_name.lower().startswith(m_name.split()[0].lower()):
-                        new_stock = max(0, m_stock - qty)
-                        new_status = 'Habis' if new_stock == 0 else m_status
-                        cursor.execute("UPDATE medicines SET stock = ?, status = ? WHERE id = ?", (new_stock, new_status, m_id))
+            cursor.execute("SELECT id, name, stock, status FROM medicines")
+            medicines = cursor.fetchall()
+            deductions = {}
+            for medicine_id, item_name, qty in items:
+                matched = match_medicine_for_order_item(item_name, medicines, medicine_id)
+                if not matched or not isinstance(qty, int) or qty <= 0:
+                    conn.rollback()
+                    self._json_response({'success': False, 'message': f'Obat {item_name} tidak dapat dicocokkan ke katalog; stok tidak diubah.'}, 409)
+                    conn.close()
+                    return
+                deductions[matched[0]] = deductions.get(matched[0], 0) + qty
+
+            for medicine_id, quantity in deductions.items():
+                medicine = next(med for med in medicines if med[0] == medicine_id)
+                if medicine[2] < quantity:
+                    conn.rollback()
+                    self._json_response({'success': False, 'message': f'Stok {medicine[1]} tidak mencukupi. Stok tersedia hanya {medicine[2]}.'}, 409)
+                    conn.close()
+                    return
+
+            for medicine_id, quantity in deductions.items():
+                medicine = next(med for med in medicines if med[0] == medicine_id)
+                new_stock = medicine[2] - quantity
+                new_status = 'Habis' if new_stock == 0 else medicine[3]
+                cursor.execute("UPDATE medicines SET stock = ?, status = ? WHERE id = ?", (new_stock, new_status, medicine_id))
             conn.commit()
             self._json_response({'success': True, 'message': 'Pembayaran berhasil dikonfirmasi.'})
         else:
@@ -268,9 +319,56 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
         if re.match(r'^/api/orders/[^/]+/status$', self.path):
             order_id = self.path.split('/')[3]
             new_status = body.get('orderStatus')
-            cursor.execute("UPDATE orders SET order_status = ? WHERE id = ?", (new_status, order_id))
-            conn.commit()
-            self._json_response({'success': True, 'message': 'Status berhasil diperbarui'})
+            cursor.execute("SELECT order_status FROM orders WHERE id = ?", (order_id,))
+            order = cursor.fetchone()
+            if not order:
+                self._json_response({'success': False, 'message': 'Pesanan tidak ditemukan.'}, 404)
+            elif order[0] in ('Selesai', 'Dibatalkan'):
+                self._json_response({'success': False, 'message': 'Pesanan ini sudah berakhir.'}, 409)
+            elif new_status != 'Dibatalkan':
+                cursor.execute("UPDATE orders SET order_status = ? WHERE id = ?", (new_status, order_id))
+                conn.commit()
+                self._json_response({'success': True, 'message': 'Status berhasil diperbarui'})
+            else:
+                # The status change and stock restoration must commit together.
+                # Checking the current status above also prevents duplicate restores.
+                conn.execute('BEGIN IMMEDIATE')
+                cursor.execute("SELECT order_status FROM orders WHERE id = ?", (order_id,))
+                current_order = cursor.fetchone()
+                if not current_order or current_order[0] in ('Selesai', 'Dibatalkan'):
+                    conn.rollback()
+                    self._json_response({'success': False, 'message': 'Pesanan ini sudah berakhir.'}, 409)
+                else:
+                    cursor.execute("SELECT medicine_id, name, qty FROM order_items WHERE order_id = ?", (order_id,))
+                    items = cursor.fetchall()
+                    cursor.execute("SELECT id, name, stock, status FROM medicines")
+                    medicines = cursor.fetchall()
+                    restored = {}
+                    unmatched_items = []
+                    for medicine_id, item_name, qty in items:
+                        matched = match_medicine_for_order_item(item_name, medicines, medicine_id)
+                        if not matched or not isinstance(qty, int) or qty <= 0:
+                            unmatched_items.append(item_name)
+                        else:
+                            restored[matched[0]] = restored.get(matched[0], 0) + qty
+
+                    if unmatched_items:
+                        conn.rollback()
+                        self._json_response({
+                            'success': False,
+                            'message': f"Obat {', '.join(unmatched_items)} tidak dapat dicocokkan ke katalog; pembatalan belum dilakukan."
+                        }, 409)
+                    else:
+                        for medicine_id, quantity in restored.items():
+                            medicine = next(med for med in medicines if med[0] == medicine_id)
+                            new_stock = medicine[2] + quantity
+                            new_status = 'Tersedia' if new_stock > 0 else medicine[3]
+                            cursor.execute("UPDATE medicines SET stock = ?, status = ? WHERE id = ?",
+                                           (new_stock, new_status, medicine_id))
+
+                        cursor.execute("UPDATE orders SET order_status = 'Dibatalkan' WHERE id = ?", (order_id,))
+                        conn.commit()
+                        self._json_response({'success': True, 'message': 'Pesanan dibatalkan dan stok obat dikembalikan.'})
         else:
             self._json_response({'error': 'Not found'}, 404)
 

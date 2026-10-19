@@ -11,6 +11,7 @@ export default function CustomerHomeView({
   addToCart,
   updateCartQty,
   cartTotal,
+  hasPlacedOrder = false,
   isStoreOpen,
   onProceedToCheckout,
   loadingMedicines = false,
@@ -71,7 +72,7 @@ export default function CustomerHomeView({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Cari nama obat..."
-            className="w-full bg-white border border-slate-200 rounded-xl pl-11 pr-4 py-3.5 text-slate-900 text-sm focus:outline-none focus:border-primary placeholder-slate-400 font-normal transition shadow-sm"
+            className="h-11 w-full bg-white border border-slate-200 rounded-xl pl-11 pr-4 text-slate-900 text-sm focus:outline-none focus:border-primary placeholder-slate-400 font-normal transition shadow-sm"
           />
           {searchQuery && (
             <button
@@ -82,7 +83,7 @@ export default function CustomerHomeView({
             </button>
           )}
         </div>
-        <button onClick={onOpenHistory} className="shrink-0 whitespace-nowrap rounded-lg bg-primary px-3 py-3.5 text-[10px] font-bold uppercase tracking-wide text-white hover:bg-primary-hover sm:px-5 sm:text-xs">Riwayat Pemesanan</button>
+        <button onClick={onOpenHistory} className="inline-flex h-11 shrink-0 items-center whitespace-nowrap rounded-lg bg-primary px-3 text-[10px] font-bold uppercase tracking-wide text-white hover:bg-primary-hover sm:px-5 sm:text-xs">Riwayat Pemesanan</button>
       </div>
 
       {/* Medicine Grid Catalog */}
@@ -143,7 +144,7 @@ export default function CustomerHomeView({
       </section>
 
       {/* Sticky Bottom Cart Bar */}
-      {cartCount > 0 && (
+      {cartCount > 0 && !hasPlacedOrder && (
         <div className="sticky bottom-4 border border-navy bg-navy text-white p-4 sm:p-5 rounded-xl shadow-xl flex items-center justify-between gap-4">
           <div>
             <p className="text-xs text-slate-300 font-medium">{cartCount} Item dalam keranjang</p>

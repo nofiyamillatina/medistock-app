@@ -1,5 +1,7 @@
 import React, { useMemo, useState } from 'react';
+import { Search } from 'lucide-react';
 import { formatIDR } from '../../services/formatters.js';
+import StyledDropdown from '../common/StyledDropdown.jsx';
 
 function timestampValue(value) {
   const raw = String(value || '').trim();
@@ -21,8 +23,12 @@ function formatOrderTimestamp(value) {
   }).format(new Date(timestamp));
 }
 
+function isPaymentPaid(status) {
+  return ['Lunas', 'Lunas (QRIS)', 'Selesai'].includes(status);
+}
+
 function statusTagStyle(status, type) {
-  if (type === 'payment') return status === 'Selesai'
+  if (type === 'payment') return isPaymentPaid(status)
     ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
     : 'border-amber-200 bg-amber-50 text-amber-800';
   if (status === 'Dibatalkan') return 'border-red-200 bg-red-50 text-red-700';
@@ -33,11 +39,17 @@ function statusTagStyle(status, type) {
 
 function StatusTag({ status, type = 'order' }) {
   const dotStyle = type === 'payment'
-    ? status === 'Selesai' ? 'bg-emerald-500' : 'bg-amber-500'
+    ? isPaymentPaid(status) ? 'bg-emerald-500' : 'bg-amber-500'
     : status === 'Dibatalkan' ? 'bg-red-500'
       : status === 'Selesai' ? 'bg-emerald-500'
         : status === 'Menunggu Konfirmasi' ? 'bg-amber-500' : 'bg-sky-500';
   return <span className={`inline-flex items-center gap-1.5 rounded border px-2 py-0.5 text-[10px] font-bold ${statusTagStyle(status, type)}`}><span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${dotStyle}`} />{status}</span>;
+}
+
+function needsStaffAction(order) {
+  return order.orderStatus === 'Menunggu Konfirmasi'
+    || order.orderStatus === 'Diproses'
+    || (order.deliveryType === 'Ambil Sendiri' && order.orderStatus === 'Siap Diambil');
 }
 
 function OrderActions({ order, onUpdateOrderStatus, updatingOrderId }) {
@@ -153,30 +165,34 @@ export default function IncomingOrdersTab({
         </div>
       ) : (
         <>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-2">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <label className="sr-only" htmlFor="incoming-search">Cari pesanan</label>
-          <input id="incoming-search" type="search" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Cari ID atau nama pemesan..." className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-primary focus:ring-2 focus:ring-primary/10" />
+          <div className="relative col-span-2 w-full md:col-span-4">
+            <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+            <input id="incoming-search" type="search" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Cari ID atau nama pemesan..." className="w-full border border-slate-200 rounded-lg py-2 pl-9 pr-3 text-xs outline-none focus:border-primary focus:ring-2 focus:ring-primary/10" />
+          </div>
           <label className="sr-only" htmlFor="incoming-sort">Urutkan pesanan</label>
-          <select id="incoming-sort" value={sortBy} onChange={(event) => setSortBy(event.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs bg-white">
-            <option value="latest">Data terbaru</option><option value="id">ID transaksi</option><option value="name">Nama pemesan</option>
-          </select>
+          <StyledDropdown id="incoming-sort" ariaLabel="Urutkan pesanan" value={sortBy} onChange={setSortBy} options={[
+            { value: 'latest', label: 'Data terbaru' }, { value: 'id', label: 'ID transaksi' }, { value: 'name', label: 'Nama pemesan' }
+          ]} />
           <label className="sr-only" htmlFor="incoming-delivery">Filter jenis pesanan</label>
-          <select id="incoming-delivery" value={deliveryFilter} onChange={(event) => setDeliveryFilter(event.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs bg-white">
-            <option value="all">Semua jenis pesanan</option>{deliveryTypes.map((value) => <option key={value} value={value}>{value}</option>)}
-          </select>
+          <StyledDropdown id="incoming-delivery" ariaLabel="Filter jenis pesanan" value={deliveryFilter} onChange={setDeliveryFilter} options={[
+            { value: 'all', label: 'Semua jenis pesanan' }, ...deliveryTypes.map((value) => ({ value, label: value }))
+          ]} />
           <label className="sr-only" htmlFor="incoming-payment">Filter status pembayaran</label>
-          <select id="incoming-payment" value={paymentFilter} onChange={(event) => setPaymentFilter(event.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs bg-white">
-            <option value="all">Semua status pembayaran</option>{paymentStatuses.map((value) => <option key={value} value={value}>{value}</option>)}
-          </select>
+          <StyledDropdown id="incoming-payment" ariaLabel="Filter status pembayaran" value={paymentFilter} onChange={setPaymentFilter} options={[
+            { value: 'all', label: 'Semua status pembayaran' }, ...paymentStatuses.map((value) => ({ value, label: value }))
+          ]} />
           <label className="sr-only" htmlFor="incoming-status">Filter status pesanan</label>
-          <select id="incoming-status" value={orderFilter} onChange={(event) => setOrderFilter(event.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs bg-white">
-            <option value="all">Semua status pesanan</option>{orderStatuses.map((value) => <option key={value} value={value}>{value}</option>)}
-          </select>
+          <StyledDropdown id="incoming-status" ariaLabel="Filter status pesanan" value={orderFilter} onChange={setOrderFilter} options={[
+            { value: 'all', label: 'Semua status pesanan' }, ...orderStatuses.map((value) => ({ value, label: value }))
+          ]} />
         </div>
         {visibleOrders.length === 0 ? (
           <div className="py-10 text-center border border-dashed border-slate-200 text-slate-500 text-sm">Tidak ada pesanan yang cocok dengan pencarian atau filter.</div>
         ) : visibleOrders.map((order) => (
-          <article key={order.id} className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+          <article key={order.id} className="relative flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+            {needsStaffAction(order) && <span role="img" aria-label="Memerlukan tindakan staf" title="Memerlukan tindakan staf" className="absolute right-3 top-3 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white" />}
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <span className="font-mono text-sm font-bold text-slate-900">{order.id}</span>
