@@ -124,7 +124,7 @@ async function runTests() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       email: `customer-${Date.now()}@example.com`,
-      password: 'password123'
+      password: 'Password123!'
     })
   });
   const registerCustomerData = await registerCustomerRes.json();
@@ -134,6 +134,21 @@ async function runTests() {
     `Status: ${registerCustomerRes.status}`
   );
   const customerAccountToken = registerCustomerData.token;
+
+  const weakPasswordRes = await fetch(`${BASE_URL}/auth/customer/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: `customer-weak-${Date.now()}@example.com`,
+      password: 'password123'
+    })
+  });
+  const weakPasswordData = await weakPasswordRes.json();
+  assert(
+    weakPasswordRes.status === 400 && weakPasswordData.message.includes('huruf besar'),
+    'Pendaftaran menolak password tanpa huruf besar dan simbol',
+    `Status: ${weakPasswordRes.status}`
+  );
 
   const createOrderRes = await fetch(`${BASE_URL}/orders`, {
     method: 'POST',
@@ -174,7 +189,7 @@ async function runTests() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       email: `customer-other-${Date.now()}@example.com`,
-      password: 'password123'
+      password: 'Password123!'
     })
   });
   const otherCustomerData = await otherCustomerRes.json();

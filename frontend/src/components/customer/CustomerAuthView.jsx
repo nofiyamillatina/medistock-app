@@ -7,10 +7,22 @@ export default function CustomerAuthView({ onLogin, onRegister }) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const passwordRequirements = [
+    { label: 'Minimal 8 karakter', valid: password.length >= 8 },
+    { label: 'Huruf besar (A-Z)', valid: /[A-Z]/.test(password) },
+    { label: 'Huruf kecil (a-z)', valid: /[a-z]/.test(password) },
+    { label: 'Angka (0-9)', valid: /\d/.test(password) },
+    { label: 'Tanda baca/simbol (contoh: _, !, #)', valid: /[^A-Za-z0-9\s]/.test(password) }
+  ];
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     setErrorMessage('');
+
+    if (isRegistering && passwordRequirements.some((requirement) => !requirement.valid)) {
+      setErrorMessage('Password harus memenuhi semua persyaratan yang tercantum.');
+      return;
+    }
 
     if (isRegistering && password !== confirmPassword) {
       setErrorMessage('Konfirmasi password tidak cocok.');
@@ -81,13 +93,24 @@ export default function CustomerAuthView({ onLogin, onRegister }) {
               id="customer-password"
               type="password"
               required
-              minLength={8}
+              minLength={isRegistering ? 8 : undefined}
+              aria-describedby={isRegistering ? 'customer-password-requirements' : undefined}
+              aria-invalid={isRegistering && password.length > 0 && passwordRequirements.some((requirement) => !requirement.valid)}
               autoComplete={isRegistering ? 'new-password' : 'current-password'}
-              placeholder={isRegistering ? 'Minimal 8 karakter' : 'Masukkan password'}
+              placeholder={isRegistering ? 'Buat password yang kuat' : 'Masukkan password'}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               className="w-full border border-slate-300 p-3 text-sm text-slate-900 focus:outline-none focus:border-primary"
             />
+            {isRegistering && (
+              <ul id="customer-password-requirements" className="mt-2 space-y-1 text-xs" aria-live="polite">
+                {passwordRequirements.map(({ label, valid }) => (
+                  <li key={label} className={valid ? 'text-emerald-700' : 'text-slate-500'}>
+                    <span aria-hidden="true">{valid ? '✓' : '•'}</span> {label}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
           {isRegistering && (

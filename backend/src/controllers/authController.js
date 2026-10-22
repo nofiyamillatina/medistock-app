@@ -95,8 +95,18 @@ export const registerCustomer = async (req, res) => {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return res.status(400).json({ success: false, message: 'Format email tidak valid.' });
     }
-    if (typeof password !== 'string' || password.length < 8) {
-      return res.status(400).json({ success: false, message: 'Password minimal 8 karakter.' });
+    if (
+      typeof password !== 'string'
+      || password.length < 8
+      || !/[A-Z]/.test(password)
+      || !/[a-z]/.test(password)
+      || !/\d/.test(password)
+      || !/[^A-Za-z0-9\s]/.test(password)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password harus minimal 8 karakter dan mengandung huruf besar, huruf kecil, angka, serta tanda baca atau simbol (contoh: _ atau !).'
+      });
     }
 
     const JWT_SECRET = getJwtSecret(res);
