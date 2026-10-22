@@ -63,7 +63,6 @@ export default function App() {
   const [savingInventory, setSavingInventory] = useState(false);
   const [deletingMedicineId, setDeletingMedicineId] = useState(null);
   const [submittingOrder, setSubmittingOrder] = useState(false);
-  const [confirmingPayment, setConfirmingPayment] = useState(false);
   const [updatingOrderId, setUpdatingOrderId] = useState(null);
   const pharmacyUser = (() => {
     try { return JSON.parse(localStorage.getItem('medistock_user') || 'null'); } catch { return null; }
@@ -126,6 +125,24 @@ export default function App() {
   useEffect(() => {
     if (currentView === 'admin-dashboard' && canManageInventory) fetchOrders();
   }, [currentView, canManageInventory, fetchOrders]);
+
+  useEffect(() => {
+    if (currentView !== 'admin-dashboard' || !canManageInventory) return undefined;
+    let active = true;
+    const refreshOrders = async () => {
+      const result = await apiService.getOrders();
+      if (!active) return;
+      if (result?.success) setOrders(result.data);
+      else setErrorOrders(result?.message || 'Gagal memuat data pesanan dari server.');
+    };
+    const intervalId = window.setInterval(refreshOrders, 10000);
+    window.addEventListener('focus', refreshOrders);
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', refreshOrders);
+    };
+  }, [currentView, canManageInventory]);
 
   // Initial mount data load
   useEffect(() => {
@@ -239,6 +256,10 @@ export default function App() {
 
   const handlePayViaQRIS = async (e) => {
     e.preventDefault();
+    if (currentOrder?.paymentStatus === 'Menunggu Pembayaran') {
+      setCurrentView('qris');
+      return;
+    }
     if (!customerInfo.name || !customerInfo.phone) {
       alert('Mohon lengkapi Nama dan Nomor Telepon.');
       return;
@@ -281,22 +302,29 @@ export default function App() {
     } finally { setSubmittingOrder(false); }
   };
 
-  const handleConfirmPayment = async () => {
-    setConfirmingPayment(true);
-    try {
-      if (currentOrder) {
-        const result = await apiService.confirmPayment(currentOrder.id);
-        if (!result?.success) {
-          alert(result?.message || 'Pembayaran gagal diproses. Periksa kembali stok obat.');
-          fetchMedicines();
-          return;
-        }
-        fetchOrders();
-        fetchMedicines();
-        setCart([]);
-      }
-      setShowSuccessModal(true);
-    } finally { setConfirmingPayment(false); }
+  const handlePaymentVerified = () => {
+    setCurrentOrder((order) => order ? { ...order, paymentStatus: 'Lunas (QRIS)', orderStatus: 'Menunggu Konfirmasi' } : order);
+    setShowSuccessModal(true);
+    setCart([]);
+    fetchOrders();
+    fetchMedicines();
+  };
+
+  const handleBackToCheckout = () => {
+    if (currentOrder?.paymentStatus === 'Menunggu Pembayaran') {
+      setCustomerInfo({
+        name: currentOrder.customerName || '',
+        phone: currentOrder.phone || '',
+        address: currentOrder.address === '-' ? '' : currentOrder.address || ''
+      });
+    }
+    setCurrentView('checkout');
+  };
+
+  const handleCustomerReview = async (orderId, rating, comment) => {
+    const result = await apiService.submitOrderReview(orderId, rating, comment);
+    if (result?.success) fetchOrders();
+    return result;
   };
 
   const resetCustomerFlow = () => {
@@ -368,6 +396,12 @@ export default function App() {
     setCurrentView('customer-login');
   };
 
+  const handleResumePayment = (order) => {
+    setCurrentOrder(order);
+    setShowSuccessModal(false);
+    setCurrentView('qris');
+  };
+
   const handleOpenCustomerLogin = () => {
     setCustomerAuthReturnView('customer');
     setCurrentView('customer-login');
@@ -384,10 +418,10 @@ export default function App() {
     }
   };
 
-  const handleUpdateOrderStatus = async (orderId, newStatus) => {
+  const handleUpdateOrderStatus = async (orderId, newStatus, options = {}) => {
     setUpdatingOrderId(orderId);
     try {
-      const res = await apiService.updateOrderStatus(orderId, newStatus, token);
+      const res = await apiService.updateOrderStatus(orderId, newStatus, options, token);
       if (res && res.success) {
         fetchOrders();
         if (newStatus === 'Dibatalkan') fetchMedicines();
@@ -401,6 +435,21 @@ export default function App() {
         alert('Sesi apotek sudah berakhir. Silakan login kembali sebelum memperbarui pesanan.');
       } else alert(res?.message || 'Gagal memperbarui status pesanan.');
     } finally { setUpdatingOrderId(null); }
+  };
+
+  const handleVerifyCustomerPayment = async (orderId) => {
+    if (!window.confirm('Pastikan pembayaran QRIS benar-benar sudah diterima. Tandai pembayaran sebagai terverifikasi?')) return;
+    setUpdatingOrderId(orderId);
+    try {
+      const result = await apiService.verifyCustomerPayment(orderId, token);
+      if (result?.success) {
+        await Promise.all([fetchOrders(), fetchMedicines()]);
+      } else {
+        alert(result?.message || 'Gagal memverifikasi pembayaran.');
+      }
+    } finally {
+      setUpdatingOrderId(null);
+    }
   };
 
   const handleCustomerCompleteDelivery = async (orderId) => {
@@ -534,7 +583,7 @@ export default function App() {
           <CustomerAuthView onLogin={handleCustomerLogin} onRegister={handleCustomerRegister} />
         )}
 
-        {currentView === 'customer-history' && customerUser && <CustomerHistoryView onLoadOrders={apiService.getCustomerOrders} onCompleteDelivery={handleCustomerCompleteDelivery} onBack={() => setCurrentView('customer')} />}
+        {currentView === 'customer-history' && customerUser && <CustomerHistoryView onLoadOrders={apiService.getCustomerOrders} onCompleteDelivery={handleCustomerCompleteDelivery} onSubmitReview={handleCustomerReview} onResumePayment={handleResumePayment} onBack={() => setCurrentView('customer')} />}
 
         {currentView === 'checkout' && (
           <CheckoutView
@@ -557,11 +606,13 @@ export default function App() {
           <QRISPaymentView
             currentOrder={currentOrder}
             cartTotal={cartTotal}
-            onConfirmPayment={handleConfirmPayment}
+            onCheckPaymentStatus={apiService.getCustomerPaymentStatus}
+            onConfirmPayment={apiService.confirmPayment}
+            onPaymentVerified={handlePaymentVerified}
+            onBackToCheckout={handleBackToCheckout}
             showSuccessModal={showSuccessModal}
             onReset={resetCustomerFlow}
             onOpenHistory={handleOpenCustomerHistory}
-            confirmingPayment={confirmingPayment}
           />
         )}
 
@@ -577,6 +628,7 @@ export default function App() {
             setAdminTab={setAdminTab}
             orders={orders}
             onUpdateOrderStatus={handleUpdateOrderStatus}
+            onVerifyCustomerPayment={handleVerifyCustomerPayment}
             inventoryDraft={inventoryDraft}
             onSaveInventory={handleSaveInventory}
             onLogout={handlePharmacyLogout}

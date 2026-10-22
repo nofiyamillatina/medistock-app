@@ -1,4 +1,5 @@
 import prisma from '../config/database.js';
+import { randomUUID } from 'node:crypto';
 
 function matchMedicineForOrderItem(itemName, medicines, medicineId = null) {
   if (medicineId) {
@@ -22,28 +23,47 @@ function matchMedicineForOrderItem(itemName, medicines, medicineId = null) {
 export const getOrders = async (req, res) => {
   try {
     const rawOrders = await prisma.orders.findMany({
-      include: {
+      select: {
+        id: true,
+        customer_name: true,
+        phone: true,
+        address: true,
+        delivery_type: true,
+        subtotal: true,
+        service_fee: true,
+        total_amount: true,
+        payment_status: true,
+        order_status: true,
+        timestamp: true,
+        estimated_arrival: true,
+        review_rating: true,
+        review_comment: true,
         items: true
       },
       orderBy: { id: 'desc' }
     });
 
     // Attach items to each order and format to match frontend expectation
-    const orders = rawOrders.map(order => ({
-      ...order,
-      customerName: order.customer_name,
-      deliveryType: order.delivery_type,
-      serviceFee: order.service_fee,
-      totalAmount: order.total_amount,
-      paymentStatus: order.payment_status,
-      orderStatus: order.order_status,
-      items: order.items.map(item => ({
-        medicineId: item.medicine_id,
-        name: item.name,
-        qty: item.qty,
-        price: item.price
-      }))
-    }));
+    const orders = rawOrders.map(order => {
+      return {
+        ...order,
+        customerName: order.customer_name,
+        deliveryType: order.delivery_type,
+        serviceFee: order.service_fee,
+        totalAmount: order.total_amount,
+        paymentStatus: order.payment_status,
+        orderStatus: order.order_status,
+        estimatedArrival: order.estimated_arrival,
+        reviewRating: order.review_rating,
+        reviewComment: order.review_comment,
+        items: order.items.map(item => ({
+          medicineId: item.medicine_id,
+          name: item.name,
+          qty: item.qty,
+          price: item.price
+        }))
+      };
+    });
 
     res.json({ success: true, data: orders });
   } catch (error) {
@@ -70,6 +90,9 @@ export const getCustomerOrders = async (req, res) => {
       paymentStatus: order.payment_status,
       orderStatus: order.order_status,
       timestamp: order.timestamp,
+      estimatedArrival: order.estimated_arrival,
+      reviewRating: order.review_rating,
+      reviewComment: order.review_comment,
       items: order.items.map((item) => ({
         medicineId: item.medicine_id,
         name: item.name,
@@ -100,6 +123,8 @@ export const trackOrder = async (req, res) => {
       customerName: order.customer_name,
       deliveryType: order.delivery_type,
       orderStatus: order.order_status,
+      paymentStatus: order.payment_status,
+      estimatedArrival: order.estimated_arrival,
       timestamp: order.timestamp,
       totalAmount: order.total_amount,
       items: order.items.map((item) => ({ medicineId: item.medicine_id, name: item.name, qty: item.qty, price: item.price }))
@@ -119,7 +144,12 @@ export const completeDeliveryOrder = async (req, res) => {
     if (order.delivery_type !== 'Pengantaran') return res.status(400).json({ success: false, message: 'Konfirmasi selesai untuk pesanan ini dilakukan oleh apotek.' });
     if (order.order_status !== 'Dalam Pengantaran') return res.status(409).json({ success: false, message: 'Pesanan hanya dapat ditandai selesai saat dalam pengantaran.' });
 
-    const updatedOrder = await prisma.orders.update({ where: { id }, data: { order_status: 'Selesai' } });
+    const transition = await prisma.orders.updateMany({
+      where: { id, customer_id: req.user.id, order_status: 'Dalam Pengantaran' },
+      data: { order_status: 'Selesai' }
+    });
+    if (transition.count !== 1) return res.status(409).json({ success: false, message: 'Status pesanan berubah. Muat ulang riwayat pesanan.' });
+    const updatedOrder = await prisma.orders.findUnique({ where: { id } });
     res.json({ success: true, message: 'Pesanan berhasil ditandai selesai.', data: { id: updatedOrder.id, orderStatus: updatedOrder.order_status } });
   } catch (error) {
     console.error('Error completing delivery order:', error);
@@ -127,13 +157,45 @@ export const completeDeliveryOrder = async (req, res) => {
   }
 };
 
+export const submitOrderReview = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const rating = Number(req.body.rating);
+    const comment = typeof req.body.comment === 'string' ? req.body.comment.trim() : '';
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+      return res.status(400).json({ success: false, message: 'Pilih rating bintang 1 sampai 5.' });
+    }
+    if (!comment || comment.length > 1000) {
+      return res.status(400).json({ success: false, message: 'Komentar wajib diisi dan maksimal 1000 karakter.' });
+    }
+
+    const order = await prisma.orders.findFirst({ where: { id, customer_id: req.user.id } });
+    if (!order) return res.status(404).json({ success: false, message: 'Pesanan tidak ditemukan.' });
+    if (order.order_status !== 'Selesai') return res.status(409).json({ success: false, message: 'Ulasan hanya dapat diberikan setelah pesanan diterima.' });
+    if (order.review_rating !== null) return res.status(409).json({ success: false, message: 'Ulasan untuk pesanan ini sudah dikirim.' });
+
+    const result = await prisma.orders.updateMany({
+      where: { id, customer_id: req.user.id, order_status: 'Selesai', review_rating: null },
+      data: { review_rating: rating, review_comment: comment }
+    });
+    if (result.count !== 1) return res.status(409).json({ success: false, message: 'Ulasan untuk pesanan ini sudah dikirim.' });
+    res.json({ success: true, message: 'Terima kasih, ulasan Anda berhasil dikirim.', data: { reviewRating: rating, reviewComment: comment } });
+  } catch (error) {
+    console.error('Error submitting order review:', error);
+    res.status(500).json({ success: false, message: 'Gagal menyimpan ulasan.' });
+  }
+};
+
 // Create new Order (Customer Checkout)
 export const createOrder = async (req, res) => {
   try {
-    const { customerName, phone, address, deliveryType, items, subtotal, serviceFee, totalAmount } = req.body;
+    const { customerName, phone, address, deliveryType, items } = req.body;
 
-    if (!customerName || !phone || !items || items.length === 0) {
+    if (!customerName?.trim() || !phone || !Array.isArray(items) || items.length === 0 || items.length > 50) {
       return res.status(400).json({ success: false, message: 'Data pesanan tidak lengkap.' });
+    }
+    if (!['Pengantaran', 'Ambil Sendiri'].includes(deliveryType)) {
+      return res.status(400).json({ success: false, message: 'Metode pengambilan pesanan tidak valid.' });
     }
 
     // Validasi nomor telepon
@@ -151,15 +213,23 @@ export const createOrder = async (req, res) => {
       });
     }
 
-    const orderId = `MDS-${Math.floor(1000 + Math.random() * 9000)}`;
+    const orderId = `MDS-${Date.now()}-${randomUUID().slice(0, 8)}`;
     const timestamp = new Date().toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' });
     const medicines = await prisma.medicines.findMany();
     const orderItems = items.map((item) => {
       const medicine = matchMedicineForOrderItem(item.name, medicines, item.medicineId || item.id);
-      return medicine ? { ...item, medicineId: medicine.id, name: medicine.name } : null;
+      if (!medicine || !Number.isInteger(item.qty) || item.qty < 1) return null;
+      if (item.qty > medicine.stock) return null;
+      return { medicineId: medicine.id, name: medicine.name, qty: item.qty, price: medicine.price };
     });
     if (orderItems.some((item) => !item)) {
-      return res.status(400).json({ success: false, message: 'Salah satu obat tidak ditemukan di katalog. Muat ulang katalog lalu coba lagi.' });
+      return res.status(400).json({ success: false, message: 'Obat tidak tersedia, jumlahnya melebihi stok, atau data tidak valid. Muat ulang katalog lalu coba lagi.' });
+    }
+    const subtotal = orderItems.reduce((sum, item) => sum + item.price * item.qty, 0);
+    const serviceFee = 3000;
+    const totalAmount = subtotal + serviceFee;
+    if (!Number.isSafeInteger(totalAmount) || totalAmount <= 0) {
+      return res.status(400).json({ success: false, message: 'Total pembayaran tidak valid.' });
     }
 
     await prisma.orders.create({
@@ -173,8 +243,8 @@ export const createOrder = async (req, res) => {
         subtotal,
         service_fee: serviceFee || 3000,
         total_amount: totalAmount,
-        payment_status: 'Lunas (QRIS)',
-        order_status: 'Menunggu Konfirmasi',
+        payment_status: 'Menunggu Pembayaran',
+        order_status: 'Menunggu Pembayaran',
         timestamp,
         items: {
           create: orderItems.map(item => ({
@@ -189,7 +259,7 @@ export const createOrder = async (req, res) => {
 
     const createdOrder = {
       id: orderId,
-      customerName,
+      customerName: customerName.trim(),
       phone,
       address: deliveryType === 'Pengantaran' ? address : '-',
       deliveryType,
@@ -197,8 +267,8 @@ export const createOrder = async (req, res) => {
       subtotal,
       serviceFee: serviceFee || 3000,
       totalAmount,
-      paymentStatus: 'Lunas (QRIS)',
-      orderStatus: 'Menunggu Konfirmasi',
+      paymentStatus: 'Menunggu Pembayaran',
+      orderStatus: 'Menunggu Pembayaran',
       timestamp
     };
 
@@ -208,66 +278,113 @@ export const createOrder = async (req, res) => {
       data: createdOrder
     });
   } catch (error) {
+    if (error.statusCode) return res.status(error.statusCode).json({ success: false, message: error.message });
     console.error('Error creating order:', error);
     res.status(500).json({ success: false, message: 'Gagal membuat pesanan.' });
   }
 };
 
-// Confirm Payment & Automatically Deduct Stock (Customer QRIS Screen)
+export const getCustomerPaymentStatus = async (req, res) => {
+  try {
+    const order = await prisma.orders.findFirst({
+      where: { id: req.params.id, customer_id: req.user.id },
+      select: { id: true, payment_status: true, order_status: true }
+    });
+    if (!order) return res.status(404).json({ success: false, message: 'Pesanan tidak ditemukan.' });
+    res.json({ success: true, data: {
+      id: order.id,
+      paymentStatus: order.payment_status,
+      orderStatus: order.order_status
+    } });
+  } catch (error) {
+    console.error('Error checking customer payment status:', error);
+    res.status(500).json({ success: false, message: 'Gagal memeriksa status pembayaran.' });
+  }
+};
+
 export const confirmPayment = async (req, res) => {
   try {
-    const { id } = req.params;
-    const order = await prisma.orders.findUnique({ where: { id }, include: { items: true } });
-
-    if (!order) {
-      return res.status(404).json({ success: false, message: 'Pesanan tidak ditemukan.' });
+    const order = await prisma.orders.findFirst({
+      where: { id: req.params.id, customer_id: req.user.id },
+      select: { id: true, payment_status: true }
+    });
+    if (!order) return res.status(404).json({ success: false, message: 'Pesanan tidak ditemukan.' });
+    if (order.payment_status !== 'Lunas (QRIS)') {
+      return res.status(409).json({ success: false, message: 'Pembayaran belum diverifikasi oleh apotek.' });
     }
-    if (order.customer_id !== req.user.id) {
-      return res.status(404).json({ success: false, message: 'Pesanan tidak ditemukan.' });
-    }
+    return res.json({ success: true, message: 'Pembayaran telah diverifikasi oleh apotek.' });
+  } catch (error) {
+    console.error('Error confirming customer payment:', error);
+    res.status(500).json({ success: false, message: 'Gagal memeriksa konfirmasi pembayaran.' });
+  }
+};
 
-    // Validate the full order before deducting any stock.
-    const medicines = await prisma.medicines.findMany();
-    const deductions = [];
-    for (const item of order.items) {
-      const matchedMed = matchMedicineForOrderItem(item.name, medicines, item.medicine_id);
-      if (!matchedMed) {
-        return res.status(409).json({ success: false, message: `Obat ${item.name} tidak lagi tersedia di katalog; stok tidak diubah.` });
+export const verifyCustomerPayment = async (req, res) => {
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const order = await tx.orders.findUnique({
+        where: { id: req.params.id },
+        include: { items: true }
+      });
+      if (!order) return { status: 404, message: 'Pesanan tidak ditemukan.' };
+      if (order.payment_status === 'Lunas (QRIS)') {
+        return { status: 200, message: 'Pembayaran pesanan ini sudah diverifikasi.' };
       }
-      if (matchedMed) {
-        const pendingQty = deductions
-          .filter(deduction => deduction.medicineId === matchedMed.id)
-          .reduce((sum, deduction) => sum + deduction.qty, 0);
-        if (!Number.isInteger(item.qty) || item.qty <= 0 || matchedMed.stock - pendingQty < item.qty) {
-          return res.status(409).json({
-            success: false,
-            message: `Stok ${matchedMed.name} tidak mencukupi. Stok tersedia hanya ${Math.max(0, matchedMed.stock - pendingQty)}.`
+      if (order.payment_status !== 'Menunggu Pembayaran' || order.order_status !== 'Menunggu Pembayaran') {
+        return { status: 409, message: 'Pesanan ini tidak lagi menunggu verifikasi pembayaran.' };
+      }
+
+      const medicines = await tx.medicines.findMany();
+      const deductions = new Map();
+      for (const item of order.items) {
+        const medicine = matchMedicineForOrderItem(item.name, medicines, item.medicine_id);
+        if (!medicine || !Number.isInteger(item.qty) || item.qty <= 0) {
+          return { status: 409, message: `Item ${item.name} tidak valid; stok tidak diubah.` };
+        }
+        const current = deductions.get(medicine.id) || { medicine, qty: 0 };
+        current.qty += item.qty;
+        deductions.set(medicine.id, current);
+      }
+
+      const transition = await tx.orders.updateMany({
+        where: {
+          id: order.id,
+          payment_status: 'Menunggu Pembayaran',
+          order_status: 'Menunggu Pembayaran'
+        },
+        data: { payment_status: 'Lunas (QRIS)', order_status: 'Menunggu Konfirmasi' }
+      });
+      if (transition.count !== 1) {
+        const latest = await tx.orders.findUnique({ where: { id: order.id }, select: { payment_status: true } });
+        return latest?.payment_status === 'Lunas (QRIS)'
+          ? { status: 200, message: 'Pembayaran pesanan ini sudah diverifikasi.' }
+          : { status: 409, message: 'Status pesanan berubah. Muat ulang daftar pesanan.' };
+      }
+
+      for (const { medicine, qty } of deductions.values()) {
+        let updated = await tx.medicines.updateMany({
+          where: { id: medicine.id, stock: qty },
+          data: { stock: { decrement: qty }, status: 'Habis' }
+        });
+        if (updated.count === 0) {
+          updated = await tx.medicines.updateMany({
+            where: { id: medicine.id, stock: { gt: qty } },
+            data: { stock: { decrement: qty } }
           });
         }
-        deductions.push({ medicineId: matchedMed.id, qty: item.qty });
+        if (updated.count !== 1) {
+          throw Object.assign(new Error(`Stok ${medicine.name} tidak mencukupi. Verifikasi belum disimpan.`), { statusCode: 409 });
+        }
       }
-    }
+      return { status: 200, message: 'Pembayaran diverifikasi. Pelanggan sekarang dapat mengonfirmasi pembayaran.' };
+    });
 
-    for (const deduction of deductions) {
-      const matchedMed = medicines.find(m => m.id === deduction.medicineId);
-      if (matchedMed) {
-        const totalQty = deductions
-          .filter(item => item.medicineId === matchedMed.id)
-          .reduce((sum, item) => sum + item.qty, 0);
-        const newStock = matchedMed.stock - totalQty;
-        const newStatus = newStock === 0 ? 'Habis' : matchedMed.status;
-        await prisma.medicines.update({
-          where: { id: matchedMed.id },
-          data: { stock: newStock, status: newStatus }
-        });
-        matchedMed.stock = newStock;
-      }
-    }
-
-    res.json({ success: true, message: 'Pembayaran berhasil dikonfirmasi & stok telah diperbarui.' });
+    if (result.status !== 200) return res.status(result.status).json({ success: false, message: result.message });
+    return res.json({ success: true, message: result.message });
   } catch (error) {
-    console.error('Error confirming payment:', error);
-    res.status(500).json({ success: false, message: 'Gagal memproses konfirmasi pembayaran.' });
+    if (error.statusCode) return res.status(error.statusCode).json({ success: false, message: error.message });
+    console.error('Error verifying customer payment:', error);
+    res.status(500).json({ success: false, message: 'Gagal memverifikasi pembayaran.' });
   }
 };
 
@@ -275,11 +392,15 @@ export const confirmPayment = async (req, res) => {
 export const updateOrderStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { orderStatus } = req.body;
+    const { orderStatus, estimatedArrivalMinutes } = req.body;
 
     const allowedStatuses = ['Diproses', 'Dalam Pengantaran', 'Siap Diambil', 'Selesai', 'Dibatalkan'];
     if (!allowedStatuses.includes(orderStatus)) {
       return res.status(400).json({ success: false, message: 'Status pesanan tidak valid.' });
+    }
+    const isHandoff = orderStatus === 'Dalam Pengantaran';
+    if (isHandoff && (!Number.isInteger(estimatedArrivalMinutes) || estimatedArrivalMinutes < 1 || estimatedArrivalMinutes > 1440)) {
+      return res.status(400).json({ success: false, message: 'Masukkan estimasi tiba antara 1 sampai 1440 menit.' });
     }
 
     const result = await prisma.$transaction(async (tx) => {
@@ -288,6 +409,7 @@ export const updateOrderStatus = async (req, res) => {
       if (order.order_status === 'Selesai' || order.order_status === 'Dibatalkan') {
         return { status: 409, message: 'Pesanan ini sudah berakhir.' };
       }
+      if (order.payment_status !== 'Lunas (QRIS)') return { status: 409, message: 'Pembayaran harus diverifikasi sebelum pesanan diproses.' };
       const previousStatus = order.order_status;
       const validNext = orderStatus === 'Dibatalkan'
         || (previousStatus === 'Menunggu Konfirmasi' && orderStatus === 'Diproses')
@@ -296,7 +418,7 @@ export const updateOrderStatus = async (req, res) => {
       if (!validNext) return { status: 400, message: 'Perubahan status pesanan tidak sesuai urutan.' };
 
       let restoredQuantities = new Map();
-      if (orderStatus === 'Dibatalkan') {
+      if (orderStatus === 'Dibatalkan' && order.payment_status === 'Lunas (QRIS)') {
         const medicines = await tx.medicines.findMany();
         for (const item of order.items) {
           const matchedMed = matchMedicineForOrderItem(item.name, medicines, item.medicine_id);
@@ -314,7 +436,10 @@ export const updateOrderStatus = async (req, res) => {
       // duplicate requests cannot return the same items to stock twice.
       const transition = await tx.orders.updateMany({
         where: { id, order_status: previousStatus },
-        data: { order_status: orderStatus }
+        data: {
+          order_status: orderStatus,
+          ...(isHandoff ? { estimated_arrival: new Date(Date.now() + estimatedArrivalMinutes * 60_000) } : {})
+        }
       });
       if (transition.count !== 1) return { status: 409, message: 'Status pesanan berubah. Muat ulang daftar pesanan.' };
 

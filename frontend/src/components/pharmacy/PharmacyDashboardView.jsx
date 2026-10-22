@@ -35,6 +35,7 @@ export default function PharmacyDashboardView({
   setAdminTab,
   orders = [],
   onUpdateOrderStatus,
+  onVerifyCustomerPayment,
   inventoryDraft = [],
   onSaveInventory,
   onLogout,
@@ -155,6 +156,7 @@ export default function PharmacyDashboardView({
         <IncomingOrdersTab
           orders={orders}
           onUpdateOrderStatus={onUpdateOrderStatus}
+          onVerifyCustomerPayment={onVerifyCustomerPayment}
           updatingOrderId={updatingOrderId}
           loadingOrders={loadingOrders}
           errorOrders={errorOrders}
@@ -183,4 +185,3 @@ export default function PharmacyDashboardView({
     </div>
   );
 }
-

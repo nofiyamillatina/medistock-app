@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertCircle, Store, Truck } from 'lucide-react';
+import { AlertCircle, ArrowRight, Store, Truck } from 'lucide-react';
 import { formatIDR } from '../../services/formatters.js';
 
 export default function CheckoutView({
@@ -262,7 +262,7 @@ export default function CheckoutView({
           disabled={submittingOrder}
           className="w-full py-4 rounded-lg bg-primary hover:bg-primary-hover text-white font-bold text-sm tracking-wider uppercase transition shadow-sm"
         >
-          <span className="inline-flex items-center justify-center gap-2">{submittingOrder && <span className="loading-spinner" aria-hidden="true" />}{submittingOrder ? 'Membuat Pesanan...' : 'Lanjut Bayar via QRIS'}</span>
+          <span className="inline-flex items-center justify-center gap-2">{submittingOrder ? <span className="loading-spinner" aria-hidden="true" /> : null}{submittingOrder ? 'Membuat Pesanan...' : <>Lanjut Bayar via QRIS <ArrowRight size={18} aria-hidden="true" /></>}</span>
         </button>
       </form>
     </div>

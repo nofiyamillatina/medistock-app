@@ -96,7 +96,10 @@ medistock-app/
 - **`GET /api/pharmacy/info`**: Ambil informasi apotek & status buka/tutup toko
 - **`GET /api/medicines?search=`**: Ambil katalog obat (support pencarian nama/deskripsi)
 - **`POST /api/orders`**: Buat pesanan baru dari checkout customer
-- **`POST /api/orders/:id/confirm-payment`**: Konfirmasi pembayaran QRIS & otomatis kurangi stok obat di database
+- **`GET /api/orders/:id/payment-status`**: Periksa status pembayaran milik customer yang login
+- **`POST /api/orders/:id/confirm-payment`**: Customer mengonfirmasi setelah apotek memverifikasi pembayaran
+- **`POST /api/orders/:id/verify-payment`**: Staf apotek mencatat pembayaran QRIS yang sudah diperiksa
+- **`GET /api/orders/customer/history`**: Ambil riwayat pesanan milik customer yang sedang login
 
 ### Protected / Pharmacy Endpoints
 - **`POST /api/auth/login`**: Autentikasi login staf apotek (kredensial default: `apotek@medistock.com` / `password123`)
@@ -171,6 +174,7 @@ MEDISTOCK dirancang dengan arsitektur terpisah (Decoupled Architecture) antara *
   - `JWT_SECRET`: Secret key acak untuk enkripsi JWT token (wajib diisi di production).
   - `NODE_ENV`: Set `production`.
   - `ALLOWED_ORIGIN`: URL Frontend production untuk kebijakan CORS (misal: `https://medistock.vercel.app`).
+Pembayaran menggunakan QR merchant statis di `frontend/public/images/qris-merchant.jpeg`. Pelanggan memasukkan nominal sesuai tagihan. Karena QR statis tidak memberi notifikasi otomatis ke website, staf apotek harus memeriksa transaksi melalui akun merchant lalu memilih **Verifikasi Pembayaran Diterima**. Setelah status diperbarui, tombol **Saya Sudah Bayar** pelanggan aktif. Pastikan penggunaan QR merchant telah disetujui pemiliknya.
 
 - **Frontend (`frontend/.env`)**:
   - `VITE_API_BASE_URL`: Base URL Backend API production (misal: `https://medistock-api.onrender.com/api`). Jika dikosongkan pada development, otomatis menggunakan Vite proxy (`/api`).

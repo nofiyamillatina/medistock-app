@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 
 export default function CustomerAuthView({ onLogin, onRegister }) {
   const [isRegistering, setIsRegistering] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const passwordRequirements = [
@@ -89,19 +92,30 @@ export default function CustomerAuthView({ onLogin, onRegister }) {
             <label htmlFor="customer-password" className="block text-xs font-bold text-slate-700 uppercase mb-1">
               Password
             </label>
-            <input
-              id="customer-password"
-              type="password"
-              required
-              minLength={isRegistering ? 8 : undefined}
-              aria-describedby={isRegistering ? 'customer-password-requirements' : undefined}
-              aria-invalid={isRegistering && password.length > 0 && passwordRequirements.some((requirement) => !requirement.valid)}
-              autoComplete={isRegistering ? 'new-password' : 'current-password'}
-              placeholder={isRegistering ? 'Buat password yang kuat' : 'Masukkan password'}
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              className="w-full border border-slate-300 p-3 text-sm text-slate-900 focus:outline-none focus:border-primary"
-            />
+            <div className="relative">
+              <input
+                id="customer-password"
+                type={showPassword ? 'text' : 'password'}
+                required
+                minLength={isRegistering ? 8 : undefined}
+                aria-describedby={isRegistering ? 'customer-password-requirements' : undefined}
+                aria-invalid={isRegistering && password.length > 0 && passwordRequirements.some((requirement) => !requirement.valid)}
+                autoComplete={isRegistering ? 'new-password' : 'current-password'}
+                placeholder={isRegistering ? 'Buat password yang kuat' : 'Masukkan password'}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                className="w-full border border-slate-300 p-3 pr-12 text-sm text-slate-900 focus:outline-none focus:border-primary"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((visible) => !visible)}
+                aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
+                aria-pressed={showPassword}
+                className="absolute inset-y-0 right-0 inline-flex w-11 items-center justify-center text-slate-500 hover:text-primary"
+              >
+                {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+              </button>
+            </div>
             {isRegistering && (
               <ul id="customer-password-requirements" className="mt-2 space-y-1 text-xs" aria-live="polite">
                 {passwordRequirements.map(({ label, valid }) => (
@@ -118,17 +132,28 @@ export default function CustomerAuthView({ onLogin, onRegister }) {
               <label htmlFor="customer-confirm-password" className="block text-xs font-bold text-slate-700 uppercase mb-1">
                 Konfirmasi Password
               </label>
-              <input
-                id="customer-confirm-password"
-                type="password"
-                required
-                minLength={8}
-                autoComplete="new-password"
-                placeholder="Ulangi password"
-                value={confirmPassword}
-                onChange={(event) => setConfirmPassword(event.target.value)}
-                className="w-full border border-slate-300 p-3 text-sm text-slate-900 focus:outline-none focus:border-primary"
-              />
+              <div className="relative">
+                <input
+                  id="customer-confirm-password"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                  placeholder="Ulangi password"
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  className="w-full border border-slate-300 p-3 pr-12 text-sm text-slate-900 focus:outline-none focus:border-primary"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword((visible) => !visible)}
+                  aria-label={showConfirmPassword ? 'Sembunyikan konfirmasi password' : 'Tampilkan konfirmasi password'}
+                  aria-pressed={showConfirmPassword}
+                  className="absolute inset-y-0 right-0 inline-flex w-11 items-center justify-center text-slate-500 hover:text-primary"
+                >
+                  {showConfirmPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+                </button>
+              </div>
             </div>
           )}
 

@@ -47,26 +47,39 @@ function StatusTag({ status, type = 'order' }) {
 }
 
 function needsStaffAction(order) {
-  return order.orderStatus === 'Menunggu Konfirmasi'
+  return order.paymentStatus === 'Menunggu Pembayaran'
+    || order.orderStatus === 'Menunggu Konfirmasi'
     || order.orderStatus === 'Diproses'
     || (order.deliveryType === 'Ambil Sendiri' && order.orderStatus === 'Siap Diambil');
 }
 
-function OrderActions({ order, onUpdateOrderStatus, updatingOrderId }) {
+function OrderActions({ order, onUpdateOrderStatus, onVerifyCustomerPayment, updatingOrderId }) {
+  const [estimatedMinutes, setEstimatedMinutes] = useState('45');
   if (['Selesai', 'Dibatalkan'].includes(order.orderStatus)) return null;
   return <div className="flex flex-wrap gap-3 border-t border-slate-100 pt-4">
+    {order.paymentStatus === 'Menunggu Pembayaran' && <button type="button" onClick={() => onVerifyCustomerPayment(order.id)} disabled={updatingOrderId === order.id || !onVerifyCustomerPayment} className="w-full rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-emerald-800 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60">
+      {updatingOrderId === order.id ? 'Memverifikasi...' : 'Verifikasi Pembayaran Diterima'}
+    </button>}
     {order.orderStatus === 'Menunggu Konfirmasi' && <>
       <button onClick={() => onUpdateOrderStatus(order.id, 'Diproses')} disabled={updatingOrderId === order.id} className="flex-1 py-2.5 bg-success hover:bg-emerald-600 text-white font-bold text-xs uppercase tracking-wider transition disabled:opacity-60">
         {updatingOrderId === order.id ? <span className="inline-flex items-center gap-2"><span className="loading-spinner" aria-hidden="true" />Memproses...</span> : 'Konfirmasi & Siapkan'}
       </button>
       <button onClick={() => onUpdateOrderStatus(order.id, 'Dibatalkan')} disabled={updatingOrderId === order.id} className="px-5 py-2.5 border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 font-bold text-xs uppercase tracking-wider transition disabled:opacity-60">Tolak</button>
     </>}
-    {order.orderStatus === 'Diproses' && <button onClick={() => onUpdateOrderStatus(order.id, order.deliveryType === 'Pengantaran' ? 'Dalam Pengantaran' : 'Siap Diambil')} disabled={updatingOrderId === order.id} className="flex-1 py-2.5 bg-primary hover:bg-primary-hover text-white font-bold text-xs uppercase tracking-wider transition disabled:opacity-60">{order.deliveryType === 'Pengantaran' ? 'Mulai Pengantaran' : 'Pesanan Siap Diambil'}</button>}
+    {order.orderStatus === 'Diproses' && (order.deliveryType === 'Pengantaran'
+      ? <div className="flex w-full flex-col gap-2 sm:flex-row">
+        <label className="flex flex-1 items-center gap-2 text-xs font-semibold text-slate-700">Estimasi tiba
+          <input type="number" min="1" max="1440" value={estimatedMinutes} onChange={(event) => setEstimatedMinutes(event.target.value)} className="w-24 rounded-lg border border-slate-200 px-2 py-2 text-sm" aria-label="Estimasi tiba dalam menit" />
+          menit
+        </label>
+        <button type="button" onClick={() => onUpdateOrderStatus(order.id, 'Dalam Pengantaran', { estimatedArrivalMinutes: Number(estimatedMinutes) })} disabled={updatingOrderId === order.id || !Number.isInteger(Number(estimatedMinutes)) || Number(estimatedMinutes) < 1 || Number(estimatedMinutes) > 1440} className="flex-1 py-2.5 bg-primary hover:bg-primary-hover text-white font-bold text-xs uppercase tracking-wider transition disabled:opacity-60">{updatingOrderId === order.id ? 'Memproses...' : 'Serahkan ke Kurir'}</button>
+      </div>
+      : <button onClick={() => onUpdateOrderStatus(order.id, 'Siap Diambil')} disabled={updatingOrderId === order.id} className="flex-1 py-2.5 bg-primary hover:bg-primary-hover text-white font-bold text-xs uppercase tracking-wider transition disabled:opacity-60">Pesanan Siap Diambil</button>)}
     {order.deliveryType === 'Ambil Sendiri' && order.orderStatus === 'Siap Diambil' && <button onClick={() => onUpdateOrderStatus(order.id, 'Selesai')} disabled={updatingOrderId === order.id} className="flex-1 py-2.5 bg-success hover:bg-emerald-600 text-white font-bold text-xs uppercase tracking-wider transition disabled:opacity-60">Tandai Selesai</button>}
   </div>;
 }
 
-function OrderDetailsModal({ order, onClose, onUpdateOrderStatus, updatingOrderId }) {
+function OrderDetailsModal({ order, onClose, onUpdateOrderStatus, onVerifyCustomerPayment, updatingOrderId }) {
   if (!order) return null;
 
   return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-3 sm:p-6" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
@@ -88,13 +101,17 @@ function OrderDetailsModal({ order, onClose, onUpdateOrderStatus, updatingOrderI
         <StatusTag status={order.orderStatus} />
       </div>
       <p className="mt-3 text-xs text-slate-500">Dipesan: {formatOrderTimestamp(order.timestamp)}</p>
+      {order.paymentStatus === 'Menunggu Pembayaran' && <p role="status" className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">QRIS statis tidak memberi notifikasi otomatis. Periksa transaksi pada aplikasi/akun merchant terlebih dahulu, lalu tandai pembayaran diterima di sini. Jangan verifikasi berdasarkan pernyataan pelanggan saja.</p>}
+      {order.paymentStatus === 'Lunas (QRIS)' && <p role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">Pembayaran sudah diperiksa dan diverifikasi oleh apotek. Tombol konfirmasi pelanggan kini aktif.</p>}
 
       <div className="mt-5 rounded-xl border border-slate-200 p-4">
         <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-navy">Rincian Obat</h3>
         <div className="space-y-2 text-sm">{order.items.map((item, index) => <div key={`${item.name}-${index}`} className="flex justify-between gap-3"><span className="text-slate-700">{item.name} x {item.qty}</span><span className="font-mono text-slate-900">{formatIDR(item.price * item.qty)}</span></div>)}</div>
         <div className="mt-3 flex justify-between border-t border-slate-100 pt-3 text-sm font-bold text-slate-900"><span>Total Transaksi</span><span>{formatIDR(order.totalAmount)}</span></div>
       </div>
-      <div className="mt-5"><OrderActions order={order} onUpdateOrderStatus={onUpdateOrderStatus} updatingOrderId={updatingOrderId} /></div>
+      {order.estimatedArrival && <p className="mt-4 text-sm text-slate-600">Estimasi tiba: <strong>{new Intl.DateTimeFormat('id-ID', { dateStyle: 'long', timeStyle: 'short' }).format(new Date(order.estimatedArrival))}</strong></p>}
+      {order.reviewRating && <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4"><p className="font-bold text-amber-900">Ulasan pelanggan: {'★'.repeat(order.reviewRating)}{'☆'.repeat(5 - order.reviewRating)}</p><p className="mt-1 text-sm text-slate-700">{order.reviewComment}</p></div>}
+      <div className="mt-5"><OrderActions order={order} onUpdateOrderStatus={onUpdateOrderStatus} onVerifyCustomerPayment={onVerifyCustomerPayment} updatingOrderId={updatingOrderId} /></div>
     </section>
   </div>;
 }
@@ -102,6 +119,7 @@ function OrderDetailsModal({ order, onClose, onUpdateOrderStatus, updatingOrderI
 export default function IncomingOrdersTab({
   orders = [],
   onUpdateOrderStatus,
+  onVerifyCustomerPayment,
   updatingOrderId = null,
   loadingOrders = false,
   errorOrders = null,
@@ -115,7 +133,7 @@ export default function IncomingOrdersTab({
   const [selectedOrderId, setSelectedOrderId] = useState(null);
 
   const deliveryTypes = useMemo(() => [...new Set(['Pengantaran', 'Ambil Sendiri', ...orders.map((order) => order.deliveryType)].filter(Boolean))], [orders]);
-  const paymentStatuses = useMemo(() => [...new Set(['Menunggu Pembayaran', 'Pending', 'Lunas', 'Lunas (QRIS)', ...orders.map((order) => order.paymentStatus)].filter(Boolean))], [orders]);
+  const paymentStatuses = useMemo(() => [...new Set(['Menunggu Pembayaran', 'Kedaluwarsa', 'Lunas (QRIS)', ...orders.map((order) => order.paymentStatus)].filter(Boolean))], [orders]);
   const orderStatuses = useMemo(() => [...new Set(['Menunggu Konfirmasi', 'Diproses', 'Dalam Pengantaran', 'Siap Diambil', 'Selesai', 'Dibatalkan', ...orders.map((order) => order.orderStatus)].filter(Boolean))], [orders]);
 
   const visibleOrders = useMemo(() => {
@@ -208,10 +226,9 @@ export default function IncomingOrdersTab({
             <button type="button" onClick={() => setSelectedOrderId(order.id)} className="shrink-0 rounded-lg border border-primary px-4 py-2.5 text-xs font-bold text-primary transition hover:bg-primary-soft">Detail Pesanan</button>
           </article>
         ))}
-        <OrderDetailsModal order={selectedOrder} onClose={() => setSelectedOrderId(null)} onUpdateOrderStatus={onUpdateOrderStatus} updatingOrderId={updatingOrderId} />
+        <OrderDetailsModal order={selectedOrder} onClose={() => setSelectedOrderId(null)} onUpdateOrderStatus={onUpdateOrderStatus} onVerifyCustomerPayment={onVerifyCustomerPayment} updatingOrderId={updatingOrderId} />
         </>
       )}
     </section>
   );
 }
-

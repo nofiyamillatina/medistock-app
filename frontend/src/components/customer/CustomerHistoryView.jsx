@@ -14,7 +14,45 @@ function OrderRow({ order, selected, onSelect }) {
   </button>;
 }
 
-export default function CustomerHistoryView({ onLoadOrders, onCompleteDelivery, onBack }) {
+function OrderReviewForm({ order, onSubmitReview, onReviewSaved }) {
+  const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const submitReview = async (event) => {
+    event.preventDefault();
+    if (!rating || !comment.trim()) {
+      setError('Pilih rating bintang dan tuliskan komentar.');
+      return;
+    }
+    setSaving(true);
+    setError('');
+    const result = await onSubmitReview(order.id, rating, comment.trim());
+    if (result?.success) onReviewSaved();
+    else setError(result?.message || 'Ulasan gagal dikirim.');
+    setSaving(false);
+  };
+
+  if (order.reviewRating) return <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
+    <p className="font-bold text-amber-900">Ulasan Anda: {'★'.repeat(order.reviewRating)}{'☆'.repeat(5 - order.reviewRating)}</p>
+    <p className="mt-1 text-sm text-slate-700">{order.reviewComment}</p>
+  </div>;
+
+  return <form onSubmit={submitReview} className="mt-5 rounded-xl border border-slate-200 p-4">
+    <h3 className="font-bold text-slate-900">Bagaimana pengalaman Anda?</h3>
+    <p className="mt-1 text-xs text-slate-500">Ulasan hanya dapat dikirim satu kali setelah pesanan diterima.</p>
+    <div className="mt-3 flex gap-1" role="group" aria-label="Pilih rating bintang">
+      {[1, 2, 3, 4, 5].map((value) => <button key={value} type="button" onClick={() => setRating(value)} aria-label={`${value} bintang`} aria-pressed={rating === value} className={`text-3xl leading-none ${value <= rating ? 'text-amber-400' : 'text-slate-300'}`}>★</button>)}
+    </div>
+    <label htmlFor="order-review-comment" className="mt-3 block text-xs font-semibold text-slate-700">Komentar</label>
+    <textarea id="order-review-comment" value={comment} onChange={(event) => setComment(event.target.value)} maxLength={1000} rows={3} required className="mt-1 w-full rounded-lg border border-slate-200 p-3 text-sm outline-none focus:border-primary" placeholder="Ceritakan pengalaman Anda..." />
+    {error && <p role="alert" className="mt-2 text-sm text-red-700">{error}</p>}
+    <button type="submit" disabled={saving || !rating || !comment.trim()} className="mt-3 w-full rounded-lg bg-primary px-4 py-3 text-xs font-bold uppercase text-white disabled:cursor-not-allowed disabled:opacity-50">{saving ? 'Mengirim ulasan...' : 'Kirim Ulasan'}</button>
+  </form>;
+}
+
+export default function CustomerHistoryView({ onLoadOrders, onCompleteDelivery, onSubmitReview, onResumePayment, onBack }) {
   const [orders, setOrders] = useState([]);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
   const [activeTab, setActiveTab] = useState('ongoing');
@@ -100,11 +138,16 @@ export default function CustomerHistoryView({ onLoadOrders, onCompleteDelivery, 
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4"><div><p className="text-xs text-slate-500">ID Pesanan</p><h2 id="customer-order-progress-title" className="font-mono text-lg font-bold text-slate-900">{selectedOrder.id}</h2></div><button type="button" onClick={() => setSelectedOrderId(null)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50">Tutup</button></div>
         <p className="mt-3 text-sm text-slate-600">{selectedOrder.deliveryType} - {selectedOrder.timestamp}</p>
         <OrderTrackingProgress order={selectedOrder} />
+        {selectedOrder.paymentStatus === 'Menunggu Pembayaran' && <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <p className="text-sm text-amber-900">Pesanan ini belum dibayar. Lanjutkan ke QRIS dinamis untuk membayar tagihan otomatis.</p>
+          <button type="button" onClick={() => onResumePayment(selectedOrder)} className="mt-3 w-full rounded-lg bg-primary px-4 py-3 text-xs font-bold uppercase text-white">Lanjutkan Pembayaran QRIS</button>
+        </div>}
         {selectedOrder.deliveryType === 'Pengantaran' && selectedOrder.orderStatus === 'Dalam Pengantaran' && <div className="mt-5">
           <p className="mb-3 text-sm text-slate-600">Jika pesanan sudah Anda terima, tandai selesai untuk menutup proses pesanan.</p>
           <button type="button" onClick={handleCompleteDelivery} disabled={completingDelivery} className="w-full rounded-lg bg-success px-5 py-3 text-xs font-bold uppercase tracking-wide text-white hover:bg-emerald-600 disabled:opacity-60">{completingDelivery ? 'Memproses...' : 'Tandai Selesai'}</button>
           {completionError && <p role="alert" className="mt-2 text-sm text-red-700">{completionError}</p>}
         </div>}
+        {selectedOrder.orderStatus === 'Selesai' && <OrderReviewForm order={selectedOrder} onSubmitReview={onSubmitReview} onReviewSaved={loadOrders} />}
       </section>
     </div>}
   </div>;

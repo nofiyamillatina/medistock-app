@@ -48,11 +48,15 @@ model orders {
   subtotal       Int
   service_fee    Int           @default(3000)
   total_amount   Int
-  payment_status String        @default("Lunas (QRIS)")
-  order_status   String        @default("Menunggu Konfirmasi")
+  payment_status String        @default("Menunggu Pembayaran")
+  order_status   String        @default("Menunggu Pembayaran")
   timestamp      String
   customer_id    String?
   created_at     DateTime      @default(now())
+  payment_proof  String?
+  estimated_arrival DateTime?
+  review_rating  Int?
+  review_comment String?
   customer       users?        @relation(fields: [customer_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
   items          order_items[]
 

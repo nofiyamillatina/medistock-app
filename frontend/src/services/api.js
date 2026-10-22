@@ -124,6 +124,44 @@ export const apiService = {
     }
   },
 
+  async getCustomerPaymentStatus(orderId) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/orders/${encodeURIComponent(orderId)}/payment-status`, {
+        headers: getCustomerHeaders()
+      });
+      return await res.json();
+    } catch (err) {
+      console.error('API Error getCustomerPaymentStatus:', err);
+      return { success: false, message: 'Server backend tidak dapat dihubungi.' };
+    }
+  },
+
+  async confirmPayment(orderId) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/orders/${encodeURIComponent(orderId)}/confirm-payment`, {
+        method: 'POST',
+        headers: getCustomerHeaders()
+      });
+      return await res.json();
+    } catch (err) {
+      console.error('API Error confirmPayment:', err);
+      return { success: false, message: 'Server backend tidak dapat dihubungi.' };
+    }
+  },
+
+  async verifyCustomerPayment(orderId, token = null) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/orders/${encodeURIComponent(orderId)}/verify-payment`, {
+        method: 'POST',
+        headers: getHeaders(token)
+      });
+      return await res.json();
+    } catch (err) {
+      console.error('API Error verifyCustomerPayment:', err);
+      return { success: false, message: 'Server backend tidak dapat dihubungi.' };
+    }
+  },
+
   async trackOrder(orderId, phone) {
     try {
       const res = await fetch(`${API_BASE_URL}/orders/${encodeURIComponent(orderId)}/tracking?phone=${encodeURIComponent(phone)}`);
@@ -161,25 +199,26 @@ export const apiService = {
     }
   },
 
-  async confirmPayment(orderId) {
+  async submitOrderReview(orderId, rating, comment) {
     try {
-      const res = await fetch(`${API_BASE_URL}/orders/${orderId}/confirm-payment`, {
+      const res = await fetch(`${API_BASE_URL}/orders/${encodeURIComponent(orderId)}/review`, {
         method: 'POST',
-        headers: getCustomerHeaders()
+        headers: getCustomerHeaders(),
+        body: JSON.stringify({ rating, comment })
       });
       return await res.json();
     } catch (err) {
-      console.error('API Error confirmPayment:', err);
+      console.error('API Error submitOrderReview:', err);
       return { success: false, message: 'Server backend tidak dapat dihubungi.' };
     }
   },
 
-  async updateOrderStatus(orderId, orderStatus, token = null) {
+  async updateOrderStatus(orderId, orderStatus, options = {}, token = null) {
     try {
-      const res = await fetch(`${API_BASE_URL}/orders/${orderId}/status`, {
+      const res = await fetch(`${API_BASE_URL}/orders/${encodeURIComponent(orderId)}/status`, {
         method: 'PATCH',
         headers: getHeaders(token),
-        body: JSON.stringify({ orderStatus })
+        body: JSON.stringify({ orderStatus, ...options })
       });
       return await res.json();
     } catch (err) {
