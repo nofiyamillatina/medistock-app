@@ -22,6 +22,10 @@ function SplashScreen() {
 export default function App() {
   // Router / Navigation state
   const [currentView, setCurrentView] = useState('customer'); // customer | customer-login | checkout | qris | admin-login | admin-dashboard
+  const [theme, setTheme] = useState(() => {
+    const savedTheme = localStorage.getItem('medistock_theme');
+    return ['light', 'dark', 'system'].includes(savedTheme) ? savedTheme : 'system';
+  });
   const [customerAuthReturnView, setCustomerAuthReturnView] = useState('customer');
   const [adminTab, setAdminTab] = useState('orders'); // 'orders' | 'inventory' | 'reports'
 
@@ -65,6 +69,22 @@ export default function App() {
     try { return JSON.parse(localStorage.getItem('medistock_user') || 'null'); } catch { return null; }
   })();
   const canManageInventory = isLoggedIn && pharmacyUser?.role === 'pharmacy_staff';
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const systemTheme = window.matchMedia('(prefers-color-scheme: dark)');
+    const applyTheme = () => {
+      const resolvedTheme = theme === 'system'
+        ? systemTheme.matches ? 'dark' : 'light'
+        : theme;
+      root.dataset.theme = resolvedTheme;
+      root.style.colorScheme = resolvedTheme;
+    };
+    applyTheme();
+    localStorage.setItem('medistock_theme', theme);
+    systemTheme.addEventListener('change', applyTheme);
+    return () => systemTheme.removeEventListener('change', applyTheme);
+  }, [theme]);
 
   // Data Fetching Handlers
   const fetchPharmacyInfo = useCallback(async () => {
@@ -482,6 +502,8 @@ export default function App() {
         isLoggedIn={isLoggedIn}
         onOpenPharmacy={handleOpenPharmacy}
         onCustomerLogin={handleOpenCustomerLogin}
+        theme={theme}
+        onThemeChange={setTheme}
       />
 
       {/* Main Container */}
