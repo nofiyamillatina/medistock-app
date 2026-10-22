@@ -4,6 +4,8 @@ import json
 import sqlite3
 import os
 import re
+import hashlib
+import secrets
 from datetime import datetime
 
 PORT = 5000
@@ -35,6 +37,15 @@ def init_db():
             name TEXT NOT NULL,
             is_open INTEGER NOT NULL DEFAULT 1,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id TEXT PRIMARY KEY,
+            email TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL,
+            role TEXT NOT NULL
         )
     ''')
     
@@ -218,17 +229,65 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
         cursor = conn.cursor()
         
         if self.path == '/api/auth/login':
-            username = body.get('username')
+            username = body.get('username') or body.get('email')
             password = body.get('password')
-            if (username in ['apotek@medistock.id', 'admin']) and password == 'password123':
+            if username == 'apotek@medistock.com' and password == 'password123':
                 self._json_response({
                     'success': True,
                     'message': 'Login berhasil',
                     'token': 'demo_jwt_token_medistock_2026',
-                    'user': {'id': 'APOTEK-1', 'name': 'Apotek Sehat', 'email': 'apotek@medistock.id'}
+                    'user': {'id': 'APOTEK-1', 'name': 'Apotek Sehat', 'email': 'apotek@medistock.com', 'role': 'pharmacy_staff'}
                 })
             else:
-                self._json_response({'success': False, 'message': 'Username atau password tidak valid.'}, 401)
+                self._json_response({'success': False, 'message': 'Email atau password tidak valid.'}, 401)
+
+        elif self.path == '/api/auth/customer/register':
+            email = str(body.get('email') or '').strip().lower()
+            password = body.get('password')
+            if not email or not password:
+                self._json_response({'success': False, 'message': 'Email dan password wajib diisi.'}, 400)
+            elif not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', email):
+                self._json_response({'success': False, 'message': 'Format email tidak valid.'}, 400)
+            elif not isinstance(password, str) or len(password) < 8:
+                self._json_response({'success': False, 'message': 'Password minimal 8 karakter.'}, 400)
+            else:
+                salt = secrets.token_hex(16)
+                password_hash = salt + '$' + hashlib.pbkdf2_hmac('sha256', password.encode(), salt.encode(), 120000).hex()
+                try:
+                    user_id = secrets.token_hex(16)
+                    cursor.execute(
+                        'INSERT INTO users (id, email, password_hash, role) VALUES (?, ?, ?, ?)',
+                        (user_id, email, password_hash, 'customer')
+                    )
+                    conn.commit()
+                    self._json_response({
+                        'success': True,
+                        'message': 'Pendaftaran berhasil.',
+                        'token': secrets.token_urlsafe(32),
+                        'user': {'id': user_id, 'email': email, 'role': 'customer'}
+                    }, 201)
+                except sqlite3.IntegrityError:
+                    self._json_response({'success': False, 'message': 'Email sudah terdaftar. Silakan masuk.'}, 409)
+
+        elif self.path == '/api/auth/customer/login':
+            email = str(body.get('email') or '').strip().lower()
+            password = body.get('password')
+            cursor.execute('SELECT id, password_hash, role FROM users WHERE email = ?', (email,))
+            user = cursor.fetchone()
+            valid_password = False
+            if user and user[2] == 'customer' and isinstance(password, str):
+                salt, stored_hash = user[1].split('$', 1)
+                candidate_hash = hashlib.pbkdf2_hmac('sha256', password.encode(), salt.encode(), 120000).hex()
+                valid_password = secrets.compare_digest(candidate_hash, stored_hash)
+            if valid_password:
+                self._json_response({
+                    'success': True,
+                    'message': 'Login berhasil.',
+                    'token': secrets.token_urlsafe(32),
+                    'user': {'id': user[0], 'email': email, 'role': 'customer'}
+                })
+            else:
+                self._json_response({'success': False, 'message': 'Email atau password tidak valid.'}, 401)
                 
         elif self.path == '/api/orders':
             order_id = f"MDS-{import_random_id()}"

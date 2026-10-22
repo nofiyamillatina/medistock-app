@@ -17,7 +17,10 @@ export default function CustomerHomeView({
   loadingMedicines = false,
   errorMedicines = null,
   onRetryMedicines,
-  onOpenHistory
+  onOpenHistory,
+  onCustomerLogin,
+  customerUser,
+  onCustomerLogout
 }) {
   const filteredMedicines = useMemo(() => {
     return medicines.filter(
@@ -40,7 +43,7 @@ export default function CustomerHomeView({
               Apotek Mitra: <span className="text-slate-800 font-semibold">Apotek Sehat</span>
             </p>
           </div>
-          <div className="text-right">
+          <div className="flex flex-col items-end gap-2 text-right">
             <span
               className={`inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded border ${isStoreOpen
                   ? 'bg-success-soft text-emerald-700 border-emerald-200'
@@ -49,6 +52,19 @@ export default function CustomerHomeView({
             >
               {isStoreOpen ? '● Apotek Buka' : '○ Apotek Tutup'}
             </span>
+            {customerUser && (
+              <div className="flex items-center gap-2">
+                <span className="max-w-40 truncate text-xs text-slate-500">{customerUser.email}</span>
+                <button onClick={onCustomerLogout} className="text-xs font-bold text-primary hover:text-primary-hover">
+                  Keluar
+                </button>
+              </div>
+            )}
+            {!customerUser && (
+              <button onClick={onCustomerLogin} className="text-xs font-bold text-primary hover:text-primary-hover">
+                Masuk / Daftar
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -164,4 +180,3 @@ export default function CustomerHomeView({
     </div>
   );
 }
-

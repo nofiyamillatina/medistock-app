@@ -1,13 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { formatIDR } from '../../services/formatters.js';
 import { OrderTrackingProgress } from './OrderTrackingProgress.jsx';
-
-function readKnownOrders() {
-  try {
-    const references = JSON.parse(localStorage.getItem('medistock_customer_orders') || '[]');
-    return Array.isArray(references) ? references.filter((order) => order?.id && order?.phone) : [];
-  } catch { return []; }
-}
 
 function OrderRow({ order, selected, onSelect }) {
   const isFinished = ['Selesai', 'Dibatalkan'].includes(order.orderStatus);
@@ -21,33 +14,42 @@ function OrderRow({ order, selected, onSelect }) {
   </button>;
 }
 
-export default function CustomerHistoryView({ onTrackOrder, onCompleteDelivery, onBack }) {
+export default function CustomerHistoryView({ onLoadOrders, onCompleteDelivery, onBack }) {
   const [orders, setOrders] = useState([]);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
   const [activeTab, setActiveTab] = useState('ongoing');
   const [loading, setLoading] = useState(true);
   const [completingDelivery, setCompletingDelivery] = useState(false);
   const [completionError, setCompletionError] = useState('');
+  const [loadError, setLoadError] = useState('');
+
+  const loadOrders = useCallback(async () => {
+    setLoadError('');
+    const result = await onLoadOrders();
+    if (result?.success) setOrders(result.data);
+    else setLoadError(result?.message || 'Gagal memuat riwayat pemesanan.');
+    setLoading(false);
+  }, [onLoadOrders]);
 
   useEffect(() => {
     let active = true;
-    const loadOrders = async () => {
-      const references = readKnownOrders();
-      const results = await Promise.all(references.map(({ id, phone }) => onTrackOrder(id, phone)));
-      if (active) {
-        setOrders(results.filter((result) => result?.success).map((result) => ({ ...result.data, phone: references.find((reference) => reference.id === result.data.id)?.phone || '' })));
-        setLoading(false);
-      }
+    const refreshOrders = async () => {
+      setLoadError('');
+      const result = await onLoadOrders();
+      if (!active) return;
+      if (result?.success) setOrders(result.data);
+      else setLoadError(result?.message || 'Gagal memuat riwayat pemesanan.');
+      setLoading(false);
     };
-    loadOrders();
-    const refreshInterval = window.setInterval(loadOrders, 15000);
-    window.addEventListener('focus', loadOrders);
+    refreshOrders();
+    const refreshInterval = window.setInterval(refreshOrders, 15000);
+    window.addEventListener('focus', refreshOrders);
     return () => {
       active = false;
       window.clearInterval(refreshInterval);
-      window.removeEventListener('focus', loadOrders);
+      window.removeEventListener('focus', refreshOrders);
     };
-  }, [onTrackOrder]);
+  }, [loadOrders, onLoadOrders]);
 
   const selectedOrder = orders.find((order) => order.id === selectedOrderId);
   const activeOrders = orders.filter((order) => !['Selesai', 'Dibatalkan'].includes(order.orderStatus));
@@ -58,7 +60,7 @@ export default function CustomerHistoryView({ onTrackOrder, onCompleteDelivery, 
     if (!selectedOrder || !window.confirm('Tandai pesanan ini selesai diterima?')) return;
     setCompletingDelivery(true);
     setCompletionError('');
-    const result = await onCompleteDelivery(selectedOrder.id, selectedOrder.phone);
+    const result = await onCompleteDelivery(selectedOrder.id);
     if (result?.success) setOrders((current) => current.map((order) => order.id === selectedOrder.id ? { ...order, orderStatus: 'Selesai' } : order));
     else setCompletionError(result?.message || 'Pesanan belum dapat ditandai selesai.');
     setCompletingDelivery(false);
@@ -86,7 +88,9 @@ export default function CustomerHistoryView({ onTrackOrder, onCompleteDelivery, 
         <button type="button" role="tab" aria-selected={activeTab === 'ongoing'} onClick={() => { setActiveTab('ongoing'); setSelectedOrderId(null); }} className={`rounded-lg px-3 py-3 text-xs font-bold transition sm:text-sm ${activeTab === 'ongoing' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>Sedang Berjalan <span className="ml-1 text-[10px]">({activeOrders.length})</span></button>
         <button type="button" role="tab" aria-selected={activeTab === 'finished'} onClick={() => { setActiveTab('finished'); setSelectedOrderId(null); }} className={`rounded-lg px-3 py-3 text-xs font-bold transition sm:text-sm ${activeTab === 'finished' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>Selesai <span className="ml-1 text-[10px]">({finishedOrders.length})</span></button>
       </div>
-      {orders.length === 0
+      {loadError
+        ? <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-6 text-center text-sm text-red-700"><p role="alert">{loadError}</p><button type="button" onClick={loadOrders} className="mt-3 font-bold text-red-800 underline">Coba lagi</button></div>
+        : orders.length === 0
         ? <p className="rounded-xl border border-dashed border-slate-200 px-4 py-10 text-center text-sm text-slate-500">Belum ada pesanan di riwayat ini. Pesanan yang Anda buat akan muncul di sini.</p>
         : renderOrderList(visibleOrders, activeTab === 'ongoing' ? 'Tidak ada pesanan yang sedang berjalan.' : 'Belum ada pesanan yang selesai.')}
     </>}

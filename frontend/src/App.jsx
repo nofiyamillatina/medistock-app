@@ -5,6 +5,7 @@ import CustomerHomeView from './components/customer/CustomerHomeView.jsx';
 import CheckoutView from './components/customer/CheckoutView.jsx';
 import QRISPaymentView from './components/customer/QRISPaymentView.jsx';
 import CustomerHistoryView from './components/customer/CustomerHistoryView.jsx';
+import CustomerAuthView from './components/customer/CustomerAuthView.jsx';
 import PharmacyLoginView from './components/pharmacy/PharmacyLoginView.jsx';
 import PharmacyDashboardView from './components/pharmacy/PharmacyDashboardView.jsx';
 import { apiService } from './services/api.js';
@@ -20,7 +21,8 @@ function SplashScreen() {
 
 export default function App() {
   // Router / Navigation state
-  const [currentView, setCurrentView] = useState('customer'); // 'customer' | 'checkout' | 'qris' | 'admin-login' | 'admin-dashboard'
+  const [currentView, setCurrentView] = useState('customer'); // customer | customer-login | checkout | qris | admin-login | admin-dashboard
+  const [customerAuthReturnView, setCustomerAuthReturnView] = useState('customer');
   const [adminTab, setAdminTab] = useState('orders'); // 'orders' | 'inventory' | 'reports'
 
   // Application Data State
@@ -32,6 +34,9 @@ export default function App() {
   // Auth State
   const [isLoggedIn, setIsLoggedIn] = useState(() => Boolean(localStorage.getItem('medistock_token')));
   const [token, setToken] = useState(() => localStorage.getItem('medistock_token') || null);
+  const [customerUser, setCustomerUser] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('medistock_customer_user') || 'null'); } catch { return null; }
+  });
 
   // Loading & Error States
   const [loadingMedicines, setLoadingMedicines] = useState(false);
@@ -98,18 +103,22 @@ export default function App() {
     setLoadingOrders(false);
   }, []);
 
+  useEffect(() => {
+    if (currentView === 'admin-dashboard' && canManageInventory) fetchOrders();
+  }, [currentView, canManageInventory, fetchOrders]);
+
   // Initial mount data load
   useEffect(() => {
     let isActive = true;
     const minimumSplashDuration = new Promise((resolve) => window.setTimeout(resolve, 5000));
     const loadInitialData = async () => {
-      await Promise.all([fetchPharmacyInfo(), fetchMedicines(), fetchOrders()]);
+      await Promise.all([fetchPharmacyInfo(), fetchMedicines()]);
       await minimumSplashDuration;
       if (isActive) setShowSplash(false);
     };
     loadInitialData();
     return () => { isActive = false; };
-  }, [fetchPharmacyInfo, fetchMedicines, fetchOrders]);
+  }, [fetchPharmacyInfo, fetchMedicines]);
 
   // Refresh the customer catalog when the app returns to the foreground, and periodically while viewing it.
   useEffect(() => {
@@ -190,6 +199,11 @@ export default function App() {
   // Navigation & Checkout Handlers
   const handleProceedToCheckout = () => {
     if (cart.length === 0) return;
+    if (!customerUser) {
+      setCustomerAuthReturnView('checkout');
+      setCurrentView('customer-login');
+      return;
+    }
     const unavailable = cart.find((item) => {
       const medicine = medicines.find((candidate) => candidate.id === item.id);
       return !medicine || item.qty > getDisplayStock(medicine.stock);
@@ -238,9 +252,6 @@ export default function App() {
       const res = await apiService.createOrder(orderPayload);
       if (res && res.success) {
         setCurrentOrder(res.data);
-        const knownOrders = (() => { try { return JSON.parse(localStorage.getItem('medistock_customer_orders') || '[]'); } catch { return []; } })();
-        const nextKnownOrders = [...knownOrders.filter((order) => order.id !== res.data.id), { id: res.data.id, phone: customerInfo.phone }];
-        localStorage.setItem('medistock_customer_orders', JSON.stringify(nextKnownOrders));
         setCustomerInfo({ name: '', phone: '', address: '' });
         setCurrentView('qris');
       } else {
@@ -277,8 +288,8 @@ export default function App() {
   };
 
   // Pharmacy Admin Handlers
-  const handlePharmacyLogin = async (username, password) => {
-    const res = await apiService.loginPharmacy(username, password);
+  const handlePharmacyLogin = async (email, password) => {
+    const res = await apiService.loginPharmacy(email, password);
     if (res && res.success) {
       localStorage.setItem('medistock_token', res.token);
       localStorage.setItem('medistock_user', JSON.stringify(res.user));
@@ -287,10 +298,9 @@ export default function App() {
       setCurrentView('admin-dashboard');
       fetchPharmacyInfo();
       fetchMedicines();
-      fetchOrders();
       return { success: true };
     } else {
-      return { success: false, message: res?.message || 'Username/email atau password tidak valid.' };
+      return { success: false, message: res?.message || 'Email atau password tidak valid.' };
     }
   };
 
@@ -300,6 +310,47 @@ export default function App() {
     setIsLoggedIn(false);
     setToken(null);
     setCurrentView('admin-login');
+  };
+
+  const handleCustomerAuth = async (authenticate) => {
+    const result = await authenticate();
+    if (result?.success) {
+      localStorage.setItem('medistock_customer_token', result.token);
+      localStorage.setItem('medistock_customer_user', JSON.stringify(result.user));
+      setCustomerUser(result.user);
+      setCurrentView(customerAuthReturnView);
+      return { success: true };
+    }
+    return { success: false, message: result?.message || 'Email atau password tidak valid.' };
+  };
+
+  const handleCustomerLogin = (email, password) => (
+    handleCustomerAuth(() => apiService.loginCustomer(email, password))
+  );
+
+  const handleCustomerRegister = (email, password) => (
+    handleCustomerAuth(() => apiService.registerCustomer(email, password))
+  );
+
+  const handleCustomerLogout = () => {
+    localStorage.removeItem('medistock_customer_token');
+    localStorage.removeItem('medistock_customer_user');
+    setCustomerUser(null);
+    setCurrentView('customer');
+  };
+
+  const handleOpenCustomerHistory = () => {
+    if (customerUser) {
+      setCurrentView('customer-history');
+      return;
+    }
+    setCustomerAuthReturnView('customer-history');
+    setCurrentView('customer-login');
+  };
+
+  const handleOpenCustomerLogin = () => {
+    setCustomerAuthReturnView('customer');
+    setCurrentView('customer-login');
   };
 
   const handleToggleStoreOpen = async (newStatus) => {
@@ -332,8 +383,8 @@ export default function App() {
     } finally { setUpdatingOrderId(null); }
   };
 
-  const handleCustomerCompleteDelivery = async (orderId, phone) => {
-    const result = await apiService.completeDeliveryOrder(orderId, phone);
+  const handleCustomerCompleteDelivery = async (orderId) => {
+    const result = await apiService.completeDeliveryOrder(orderId);
     if (result?.success) fetchOrders();
     return result;
   };
@@ -344,7 +395,11 @@ export default function App() {
       return;
     }
     const result = await apiService.verifyPharmacyToken(token);
-    if (result?.success) setCurrentView('admin-dashboard');
+    if (result?.success && result.user?.role === 'pharmacy_staff') setCurrentView('admin-dashboard');
+    else if (result?.success) {
+      alert('Akun ini tidak memiliki akses ke dashboard apotek.');
+      setCurrentView('admin-login');
+    }
     else if (result?.httpStatus === 401) {
       localStorage.removeItem('medistock_token');
       localStorage.removeItem('medistock_user');
@@ -362,7 +417,24 @@ export default function App() {
     }
     setSavingInventory(true);
     try {
-      const res = await apiService.saveInventory(items.map((item) => ({ ...item, stock: Number(item.stock) })), token);
+      const currentById = new Map(medicines.map((medicine) => [medicine.id, medicine]));
+      const changedItems = items.reduce((changed, item) => {
+        const current = currentById.get(item.id);
+        if (!current) return changed;
+        const updates = { id: item.id };
+        for (const field of ['name', 'desc', 'price', 'stock', 'image_url']) {
+          const nextValue = field === 'stock' ? Number(item[field]) : item[field] ?? null;
+          const currentValue = current[field] ?? null;
+          if (nextValue !== currentValue) updates[field] = nextValue;
+        }
+        if (Object.keys(updates).length > 1) {
+          if (Object.hasOwn(updates, 'name')) updates.restrictedConfirmed = item.restrictedConfirmed;
+          changed.push(updates);
+        }
+        return changed;
+      }, []);
+      if (changedItems.length === 0) return true;
+      const res = await apiService.saveInventory(changedItems, token);
       if (res && res.success) {
         await fetchMedicines();
         alert('Perubahan inventaris berhasil disimpan!');
@@ -409,6 +481,7 @@ export default function App() {
         setCurrentView={setCurrentView}
         isLoggedIn={isLoggedIn}
         onOpenPharmacy={handleOpenPharmacy}
+        onCustomerLogin={handleOpenCustomerLogin}
       />
 
       {/* Main Container */}
@@ -428,11 +501,18 @@ export default function App() {
             loadingMedicines={loadingMedicines}
             errorMedicines={errorMedicines}
             onRetryMedicines={() => fetchMedicines(searchQuery)}
-            onOpenHistory={() => setCurrentView('customer-history')}
+            onOpenHistory={handleOpenCustomerHistory}
+            onCustomerLogin={handleOpenCustomerLogin}
+            customerUser={customerUser}
+            onCustomerLogout={handleCustomerLogout}
           />
         )}
 
-        {currentView === 'customer-history' && <CustomerHistoryView onTrackOrder={apiService.trackOrder} onCompleteDelivery={handleCustomerCompleteDelivery} onBack={() => setCurrentView('customer')} />}
+        {currentView === 'customer-login' && (
+          <CustomerAuthView onLogin={handleCustomerLogin} onRegister={handleCustomerRegister} />
+        )}
+
+        {currentView === 'customer-history' && customerUser && <CustomerHistoryView onLoadOrders={apiService.getCustomerOrders} onCompleteDelivery={handleCustomerCompleteDelivery} onBack={() => setCurrentView('customer')} />}
 
         {currentView === 'checkout' && (
           <CheckoutView
@@ -458,7 +538,7 @@ export default function App() {
             onConfirmPayment={handleConfirmPayment}
             showSuccessModal={showSuccessModal}
             onReset={resetCustomerFlow}
-            onOpenHistory={() => setCurrentView('customer-history')}
+            onOpenHistory={handleOpenCustomerHistory}
             confirmingPayment={confirmingPayment}
           />
         )}
@@ -499,4 +579,3 @@ export default function App() {
     </div>
   );
 }
-

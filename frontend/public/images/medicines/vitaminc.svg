@@ -27,7 +27,7 @@
     <text x="130" y="148" fill="#EA580C" font-family="Inter, sans-serif" font-weight="700" font-size="14">1000 mg</text>
     
     <rect x="130" y="162" width="125" height="20" rx="4" fill="#FFEDD5"/>
-    <text x="136" y="176" fill="#9A3412" font-family="Inter, sans-serif" font-weight="600" font-size="10">Imunitas & Daya Tahan</text>
+    <text x="136" y="176" fill="#9A3412" font-family="Inter, sans-serif" font-weight="600" font-size="10">Imunitas &amp; Daya Tahan</text>
     
     <!-- Orange Slice & Chewable Tablet Graphic -->
     <g transform="translate(140, 195)">

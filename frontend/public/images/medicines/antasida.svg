@@ -27,7 +27,7 @@
     <text x="130" y="148" fill="#16A34A" font-family="Inter, sans-serif" font-weight="700" font-size="14">Tablet Kunyah</text>
     
     <rect x="130" y="162" width="130" height="20" rx="4" fill="#DCFCE7"/>
-    <text x="136" y="176" fill="#14532D" font-family="Inter, sans-serif" font-weight="600" font-size="10">Pereda Maag & Asam Lambung</text>
+    <text x="136" y="176" fill="#14532D" font-family="Inter, sans-serif" font-weight="600" font-size="10">Pereda Maag &amp; Asam Lambung</text>
     
     <g transform="translate(130, 195)">
       <rect x="10" y="5" width="120" height="30" rx="6" fill="#F8FAFC" stroke="#BBF7D0" stroke-width="1.5"/>

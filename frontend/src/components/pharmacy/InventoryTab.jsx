@@ -1,8 +1,60 @@
 import React from 'react';
-import { Check, ChevronDown, Pencil, Trash2 } from 'lucide-react';
+import { Check, ChevronDown, ImagePlus, Pencil, Trash2 } from 'lucide-react';
 import { normalizeStockInput } from '../../utils/stock.js';
 import { isRestrictedMedicine, RESTRICTED_MEDICINE_WARNING } from '../../config/restrictedMedicines.js';
 import { formatIDR } from '../../services/formatters.js';
+
+async function compressMedicineImage(file) {
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+  if (!allowedTypes.includes(file.type)) {
+    throw new Error('Format gambar harus JPEG, PNG, atau WebP.');
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    throw new Error('Ukuran gambar maksimal 10 MB.');
+  }
+
+  const sourceUrl = URL.createObjectURL(file);
+  try {
+    const image = new Image();
+    image.src = sourceUrl;
+    await image.decode();
+    const qualities = [0.82, 0.72, 0.62, 0.52];
+    for (const maxDimension of [1200, 1000, 800]) {
+      const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('Browser tidak dapat memproses gambar ini.');
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      for (const quality of qualities) {
+        const imageUrl = canvas.toDataURL('image/webp', quality);
+        if (imageUrl.length <= 1_400_000) return imageUrl;
+      }
+    }
+  } finally {
+    URL.revokeObjectURL(sourceUrl);
+  }
+  throw new Error('Gambar tidak dapat dikompres ke ukuran yang didukung. Pilih gambar yang lebih kecil.');
+}
+
+function normalizeMedicineIdentity(name) {
+  return String(name || '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('id')
+    .replace(/(\d+(?:[.,]\d+)?)\s*(micrograms?|mcg|μg|ug|milligrams?|mg|grams?|g)\b/gi, (_, rawValue, rawUnit) => {
+      const value = Number(rawValue.replace(',', '.'));
+      const unit = rawUnit.toLocaleLowerCase('id');
+      const milligrams = /^(?:g|gram|grams)$/.test(unit)
+        ? value * 1000
+        : /^(?:mcg|μg|ug|microgram|micrograms)$/.test(unit)
+          ? value / 1000
+          : value;
+      return `${Number(milligrams.toPrecision(8))}mg`;
+    })
+    .replace(/[^a-z0-9]/g, '');
+}
 
 export default function InventoryTab({
   inventoryDraft = [],
@@ -21,6 +73,8 @@ export default function InventoryTab({
   const [editForm, setEditForm] = React.useState(null);
   const [form, setForm] = React.useState({ name: '', desc: '', price: '', stock: 0, image_url: '' });
   const [formError, setFormError] = React.useState('');
+  const [imageFileName, setImageFileName] = React.useState('');
+  const [preparingImage, setPreparingImage] = React.useState(false);
   const [sortBy, setSortBy] = React.useState('id');
   const [sortDirection, setSortDirection] = React.useState('asc');
   const [showSortOptions, setShowSortOptions] = React.useState(false);
@@ -61,18 +115,41 @@ export default function InventoryTab({
     if (/^\d+$/.test(pasted)) setStock(normalizeStockInput(pasted));
   };
 
+  const handleImageFile = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setFormError('');
+    setPreparingImage(true);
+    try {
+      const imageUrl = await compressMedicineImage(file);
+      setForm((current) => ({ ...current, image_url: imageUrl }));
+      setImageFileName(file.name);
+    } catch (error) {
+      setFormError(error.message || 'Gagal memproses gambar.');
+      event.target.value = '';
+    } finally {
+      setPreparingImage(false);
+    }
+  };
+
   const handleAddSubmit = async (event) => {
     event.preventDefault();
+    if (preparingImage) return;
     const price = Number(form.price);
     const stock = normalizeStockInput(form.stock);
     if (!form.name.trim()) return setFormError('Nama obat wajib diisi.');
     if (form.price === '' || !Number.isFinite(price) || price < 0) return setFormError('Harga harus angka minimal 0.');
+    const identity = normalizeMedicineIdentity(form.name);
+    if (inventoryDraft.some((medicine) => normalizeMedicineIdentity(medicine.name) === identity)) {
+      return setFormError('Obat dengan nama dan dosis yang sama sudah ada di daftar.');
+    }
     const restricted = isRestrictedMedicine(form.name);
     if (restricted && !window.confirm(RESTRICTED_MEDICINE_WARNING)) return;
     setFormError('');
     const result = await onAddMedicine({ ...form, name: form.name.trim(), price, stock, image_url: form.image_url?.trim() || null, restrictedConfirmed: restricted });
     if (result?.success) {
       setForm({ name: '', desc: '', price: '', stock: 0, image_url: '' });
+      setImageFileName('');
       setShowAddForm(false);
     } else {
       setFormError(result?.message || 'Gagal menambahkan obat.');
@@ -189,9 +266,25 @@ export default function InventoryTab({
             <label className="text-xs font-bold text-slate-600">Deskripsi<input value={form.desc} onChange={(e) => setForm({ ...form, desc: e.target.value })} className="mt-1 w-full border border-slate-300 p-2 text-sm font-normal" /></label>
             <label className="text-xs font-bold text-slate-600">Harga<input required type="number" min="0" step="1" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="mt-1 w-full border border-slate-300 p-2 text-sm font-normal" /></label>
             <label className="text-xs font-bold text-slate-600">Stok<input type="number" min={0} step={1} value={normalizeStockInput(form.stock)} onKeyDown={(e) => handleStockKeyDown(e, form.stock, (stock) => setForm((prev) => ({ ...prev, stock })))} onPaste={(e) => handleStockPaste(e, (stock) => setForm((prev) => ({ ...prev, stock })))} onChange={(e) => setForm((prev) => ({ ...prev, stock: normalizeStockInput(e.target.value) }))} className={`mt-1 w-full border border-slate-300 p-2 text-sm font-normal ${normalizeStockInput(form.stock) === 0 ? 'text-slate-400' : 'text-slate-900'}`} /></label>
-            <label className="text-xs font-bold text-slate-600 sm:col-span-2">URL Gambar (Opsional)<input placeholder="Contoh: /images/medicines/paracetamol.svg atau https://..." value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} className="mt-1 w-full border border-slate-300 p-2 text-sm font-normal" /></label>
+            <label className="text-xs font-bold text-slate-600 sm:col-span-2">
+              Upload Gambar Obat (Opsional)
+              <span className="mt-1 flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 hover:border-primary hover:text-primary">
+                <ImagePlus size={18} aria-hidden="true" />
+                {preparingImage ? 'Memproses gambar...' : imageFileName || 'Pilih gambar dari perangkat'}
+                <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleImageFile} disabled={preparingImage || savingInventory} className="sr-only" />
+              </span>
+              <span className="mt-1 block text-[11px] font-normal text-slate-500">JPEG, PNG, atau WebP. Maksimal 10 MB; gambar akan dikompres otomatis.</span>
+            </label>
+            {form.image_url && (
+              <div className="sm:col-span-2 flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-2">
+                <img src={form.image_url} alt="Pratinjau gambar obat" className="h-16 w-16 rounded border border-slate-200 bg-white object-contain" />
+                <span className="min-w-0 break-all text-xs text-slate-600">{imageFileName || 'Pratinjau gambar'}</span>
+                <button type="button" onClick={() => { setForm((current) => ({ ...current, image_url: '' })); setImageFileName(''); }} className="ml-auto shrink-0 text-xs font-bold text-red-700">Hapus</button>
+              </div>
+            )}
+            <label className="text-xs font-bold text-slate-600 sm:col-span-2">Atau URL Gambar<input placeholder="Contoh: /images/medicines/paracetamol.svg atau https://..." value={form.image_url.startsWith('data:') ? '' : form.image_url} onChange={(e) => { setForm({ ...form, image_url: e.target.value }); setImageFileName(''); }} className="mt-1 w-full border border-slate-300 p-2 text-sm font-normal" /></label>
             {formError && <p className="sm:col-span-2 text-sm text-red-700">{formError}</p>}
-            <div className="sm:col-span-2 flex justify-end gap-2 border-t border-slate-100 pt-3"><button type="button" disabled={savingInventory} onClick={() => { setShowAddForm(false); setFormError(''); }} className="px-4 py-2 border border-slate-300 text-slate-700 text-xs font-bold uppercase disabled:opacity-50">Batal</button><button disabled={savingInventory} className="px-4 py-2 bg-primary hover:bg-primary-hover text-white text-xs font-bold uppercase disabled:opacity-50">{savingInventory ? 'Menambahkan...' : 'Tambah Obat'}</button></div>
+            <div className="sm:col-span-2 flex justify-end gap-2 border-t border-slate-100 pt-3"><button type="button" disabled={savingInventory || preparingImage} onClick={() => { setShowAddForm(false); setFormError(''); }} className="px-4 py-2 border border-slate-300 text-slate-700 text-xs font-bold uppercase disabled:opacity-50">Batal</button><button disabled={savingInventory || preparingImage} className="px-4 py-2 bg-primary hover:bg-primary-hover text-white text-xs font-bold uppercase disabled:opacity-50">{preparingImage ? 'Memproses Gambar...' : savingInventory ? 'Menambahkan...' : 'Tambah Obat'}</button></div>
           </form>
         </div>
       )}
@@ -317,4 +410,3 @@ export default function InventoryTab({
     </section>
   );
 }
-

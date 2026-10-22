@@ -52,6 +52,39 @@ export const getOrders = async (req, res) => {
   }
 };
 
+export const getCustomerOrders = async (req, res) => {
+  try {
+    const rawOrders = await prisma.orders.findMany({
+      where: { customer_id: req.user.id },
+      include: { items: true },
+      orderBy: { created_at: 'desc' }
+    });
+
+    const orders = rawOrders.map((order) => ({
+      id: order.id,
+      customerName: order.customer_name,
+      deliveryType: order.delivery_type,
+      subtotal: order.subtotal,
+      serviceFee: order.service_fee,
+      totalAmount: order.total_amount,
+      paymentStatus: order.payment_status,
+      orderStatus: order.order_status,
+      timestamp: order.timestamp,
+      items: order.items.map((item) => ({
+        medicineId: item.medicine_id,
+        name: item.name,
+        qty: item.qty,
+        price: item.price
+      }))
+    }));
+
+    res.json({ success: true, data: orders });
+  } catch (error) {
+    console.error('Error fetching customer order history:', error);
+    res.status(500).json({ success: false, message: 'Gagal mengambil riwayat pemesanan.' });
+  }
+};
+
 // Public customer tracking, scoped to the order ID and phone number.
 export const trackOrder = async (req, res) => {
   try {
@@ -81,10 +114,7 @@ export const trackOrder = async (req, res) => {
 export const completeDeliveryOrder = async (req, res) => {
   try {
     const { id } = req.params;
-    const phone = String(req.body.phone || '').trim();
-    if (!phone) return res.status(400).json({ success: false, message: 'Nomor telepon wajib diisi.' });
-
-    const order = await prisma.orders.findFirst({ where: { id, phone } });
+    const order = await prisma.orders.findFirst({ where: { id, customer_id: req.user.id } });
     if (!order) return res.status(404).json({ success: false, message: 'Pesanan tidak ditemukan.' });
     if (order.delivery_type !== 'Pengantaran') return res.status(400).json({ success: false, message: 'Konfirmasi selesai untuk pesanan ini dilakukan oleh apotek.' });
     if (order.order_status !== 'Dalam Pengantaran') return res.status(409).json({ success: false, message: 'Pesanan hanya dapat ditandai selesai saat dalam pengantaran.' });
@@ -135,6 +165,7 @@ export const createOrder = async (req, res) => {
     await prisma.orders.create({
       data: {
         id: orderId,
+        customer_id: req.user.id,
         customer_name: customerName,
         phone,
         address: deliveryType === 'Pengantaran' ? address : '-',
@@ -189,6 +220,9 @@ export const confirmPayment = async (req, res) => {
     const order = await prisma.orders.findUnique({ where: { id }, include: { items: true } });
 
     if (!order) {
+      return res.status(404).json({ success: false, message: 'Pesanan tidak ditemukan.' });
+    }
+    if (order.customer_id !== req.user.id) {
       return res.status(404).json({ success: false, message: 'Pesanan tidak ditemukan.' });
     }
 

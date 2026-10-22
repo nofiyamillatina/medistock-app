@@ -44,7 +44,7 @@
     
     <!-- Description Badge -->
     <rect x="130" y="162" width="115" height="20" rx="4" fill="#F0F9FF"/>
-    <text x="136" y="176" fill="#0369A1" font-family="Inter, sans-serif" font-weight="600" font-size="10">Pereda Demam & Nyeri</text>
+    <text x="136" y="176" fill="#0369A1" font-family="Inter, sans-serif" font-weight="600" font-size="10">Pereda Demam &amp; Nyeri</text>
     
     <!-- Blister Pack Illustration -->
     <rect x="130" y="195" width="140" height="35" rx="6" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1"/>

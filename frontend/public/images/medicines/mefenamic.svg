@@ -27,7 +27,7 @@
     <text x="130" y="146" fill="#9333EA" font-family="Inter, sans-serif" font-weight="700" font-size="14">500 mg</text>
     
     <rect x="130" y="160" width="130" height="20" rx="4" fill="#F3E8FF"/>
-    <text x="136" y="174" fill="#581C87" font-family="Inter, sans-serif" font-weight="600" font-size="10">Pereda Nyeri Haid & Gigi</text>
+    <text x="136" y="174" fill="#581C87" font-family="Inter, sans-serif" font-weight="600" font-size="10">Pereda Nyeri Haid &amp; Gigi</text>
     
     <g transform="translate(130, 195)">
       <rect x="10" y="5" width="120" height="30" rx="6" fill="#F8FAFC" stroke="#E9D5FF" stroke-width="1.5"/>

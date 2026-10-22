@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function DemoBanner({ currentView, setCurrentView, isLoggedIn, onOpenPharmacy }) {
+export default function DemoBanner({ currentView, setCurrentView, isLoggedIn, onOpenPharmacy, onCustomerLogin }) {
   return (
     <div className="bg-navy text-white px-4 py-2.5 flex flex-wrap items-center justify-between text-xs font-sans border-b border-slate-800">
       <div className="flex items-center space-x-2 py-1">
@@ -8,6 +8,15 @@ export default function DemoBanner({ currentView, setCurrentView, isLoggedIn, on
         <span className="font-semibold tracking-wide">MEDISTOCK</span>
       </div>
       <div className="flex items-center space-x-2 py-1">
+        <button
+          onClick={onCustomerLogin || (() => setCurrentView('customer-login'))}
+          className={`px-3 py-1 rounded border transition ${currentView === 'customer-login'
+              ? 'bg-primary text-white border-primary font-bold'
+              : 'border-slate-700 text-slate-300 hover:text-white'
+            }`}
+        >
+          Login Pengguna
+        </button>
         <button
           onClick={() => setCurrentView('customer')}
           className={`px-3 py-1 rounded border transition ${['customer', 'checkout', 'qris', 'customer-history'].includes(currentView)

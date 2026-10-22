@@ -99,7 +99,9 @@ medistock-app/
 - **`POST /api/orders/:id/confirm-payment`**: Konfirmasi pembayaran QRIS & otomatis kurangi stok obat di database
 
 ### Protected / Pharmacy Endpoints
-- **`POST /api/auth/login`**: Autentikasi login staf apotek (Credentials default: `apotek@medistock.id` / `password123`)
+- **`POST /api/auth/login`**: Autentikasi login staf apotek (kredensial default: `apotek@medistock.com` / `password123`)
+- **`POST /api/auth/customer/register`**: Daftar akun pengguna dengan email dan password (minimal 8 karakter)
+- **`POST /api/auth/customer/login`**: Login akun pengguna
 - **`PUT /api/pharmacy/status`**: Mengubah status operasional apotek (**BUKA / TUTUP**)
 - **`GET /api/orders`**: Mengambil seluruh daftar pesanan masuk & riwayat transaksi
 - **`PATCH /api/orders/:id/status`**: Mengubah status pesanan (`Selesai` atau `Dibatalkan`)
@@ -137,9 +139,9 @@ npm run dev
 ---
 
 ## 🔑 Hak Akses Demo
-- **Customer Flow**: Langsung klik menu `medistock.id` di bar navigasi atas demo.
+- **Customer Flow**: Klik `medistock.id` di bar navigasi atas untuk membuka katalog; gunakan `Login Pengguna` untuk masuk atau mendaftar.
 - **Pharmacy Portal**:
-  - Email: `apotek@medistock.id`
+  - Email: `apotek@medistock.com`
   - Password: `password123`
 
 ---
@@ -183,4 +185,3 @@ MEDISTOCK dirancang dengan arsitektur terpisah (Decoupled Architecture) antara *
 - **Rekomendasi Platform**: Vercel / Netlify / Cloudflare Pages.
 - **Build Command**: `npm run build`
 - **Output Directory**: `dist`
-

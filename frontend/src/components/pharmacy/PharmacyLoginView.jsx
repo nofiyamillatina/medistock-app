@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 
 export default function PharmacyLoginView({ onLoginSuccess }) {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -11,7 +11,7 @@ export default function PharmacyLoginView({ onLoginSuccess }) {
     setErrorMessage('');
     setIsSubmitting(true);
     try {
-      const res = await onLoginSuccess(username, password);
+      const res = await onLoginSuccess(email, password);
       if (res && !res.success) {
         setErrorMessage(res.message || 'Login gagal. Silakan periksa kredensial Anda.');
       }
@@ -40,26 +40,30 @@ export default function PharmacyLoginView({ onLoginSuccess }) {
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-              Username / Email
+            <label htmlFor="pharmacy-email" className="block text-xs font-bold text-slate-700 uppercase mb-1">
+              Email
             </label>
             <input
-              type="text"
+              id="pharmacy-email"
+              type="email"
               required
-              placeholder="Masukkan username atau email"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              autoComplete="username"
+              placeholder="Masukkan email apotek"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="w-full border border-slate-300 p-3 text-sm text-slate-900 focus:outline-none focus:border-primary"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+            <label htmlFor="pharmacy-password" className="block text-xs font-bold text-slate-700 uppercase mb-1">
               Password
             </label>
             <input
+              id="pharmacy-password"
               type="password"
               required
+              autoComplete="current-password"
               placeholder="Masukkan password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -79,4 +83,3 @@ export default function PharmacyLoginView({ onLoginSuccess }) {
     </div>
   );
 }
-

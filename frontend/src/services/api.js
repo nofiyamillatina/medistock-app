@@ -1,14 +1,16 @@
 const RAW_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 const API_BASE_URL = RAW_BASE_URL.endsWith('/') ? RAW_BASE_URL.slice(0, -1) : RAW_BASE_URL;
 
-const getHeaders = (customToken = null) => {
+const getHeaders = (customToken = null, tokenStorageKey = 'medistock_token') => {
   const headers = { 'Content-Type': 'application/json' };
-  const token = customToken || localStorage.getItem('medistock_token');
+  const token = customToken !== null ? customToken : localStorage.getItem(tokenStorageKey);
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
   return headers;
 };
+
+const getCustomerHeaders = () => getHeaders(null, 'medistock_customer_token');
 
 export const apiService = {
   // Pharmacy info & status
@@ -94,11 +96,30 @@ export const apiService = {
   // Orders
   async getOrders() {
     try {
-      const res = await fetch(`${API_BASE_URL}/orders`);
-      if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
-      return await res.json();
+      const res = await fetch(`${API_BASE_URL}/orders`, { headers: getHeaders() });
+      const result = await res.json();
+      if (!res.ok) {
+        return {
+          ...result,
+          success: false,
+          message: result?.message || `Gagal memuat pesanan (HTTP ${res.status}).`
+        };
+      }
+      return result;
     } catch (err) {
       console.error('API Error getOrders:', err);
+      return { success: false, message: 'Server backend tidak dapat dihubungi.' };
+    }
+  },
+
+  async getCustomerOrders() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/orders/customer/history`, {
+        headers: getCustomerHeaders()
+      });
+      return await res.json();
+    } catch (err) {
+      console.error('API Error getCustomerOrders:', err);
       return { success: false, message: 'Server backend tidak dapat dihubungi.' };
     }
   },
@@ -113,12 +134,11 @@ export const apiService = {
     }
   },
 
-  async completeDeliveryOrder(orderId, phone) {
+  async completeDeliveryOrder(orderId) {
     try {
       const res = await fetch(`${API_BASE_URL}/orders/${encodeURIComponent(orderId)}/customer-complete`, {
         method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify({ phone })
+        headers: getCustomerHeaders(),
       });
       return await res.json();
     } catch (err) {
@@ -131,7 +151,7 @@ export const apiService = {
     try {
       const res = await fetch(`${API_BASE_URL}/orders`, {
         method: 'POST',
-        headers: getHeaders(),
+        headers: getCustomerHeaders(),
         body: JSON.stringify(orderData)
       });
       return await res.json();
@@ -145,7 +165,7 @@ export const apiService = {
     try {
       const res = await fetch(`${API_BASE_URL}/orders/${orderId}/confirm-payment`, {
         method: 'POST',
-        headers: getHeaders()
+        headers: getCustomerHeaders()
       });
       return await res.json();
     } catch (err) {
@@ -169,16 +189,44 @@ export const apiService = {
   },
 
   // Pharmacy Authentication
-  async loginPharmacy(username, password) {
+  async loginPharmacy(email, password) {
     try {
       const res = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: getHeaders(),
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify({ email, password })
       });
       return await res.json();
     } catch (err) {
       console.error('API Error loginPharmacy:', err);
+      return { success: false, message: 'Server backend tidak dapat dihubungi.' };
+    }
+  },
+
+  async loginCustomer(email, password) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/customer/login`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ email, password })
+      });
+      return await res.json();
+    } catch (err) {
+      console.error('API Error loginCustomer:', err);
+      return { success: false, message: 'Server backend tidak dapat dihubungi.' };
+    }
+  },
+
+  async registerCustomer(email, password) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/customer/register`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ email, password })
+      });
+      return await res.json();
+    } catch (err) {
+      console.error('API Error registerCustomer:', err);
       return { success: false, message: 'Server backend tidak dapat dihubungi.' };
     }
   },
@@ -194,4 +242,3 @@ export const apiService = {
     }
   }
 };
-

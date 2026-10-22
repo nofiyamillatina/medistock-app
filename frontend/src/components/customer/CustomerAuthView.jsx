@@ -1,0 +1,132 @@
+import React, { useState } from 'react';
+
+export default function CustomerAuthView({ onLogin, onRegister }) {
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setErrorMessage('');
+
+    if (isRegistering && password !== confirmPassword) {
+      setErrorMessage('Konfirmasi password tidak cocok.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const result = await (isRegistering ? onRegister : onLogin)(email, password);
+      if (result && !result.success) {
+        setErrorMessage(result.message || 'Login gagal. Silakan periksa kredensial Anda.');
+      }
+    } catch {
+      setErrorMessage('Terjadi kesalahan saat menghubungi server.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const switchMode = () => {
+    setIsRegistering((current) => !current);
+    setErrorMessage('');
+    setPassword('');
+    setConfirmPassword('');
+  };
+
+  return (
+    <div className="max-w-sm mx-auto w-full px-4 py-16 flex-1 flex flex-col justify-center">
+      <div className="border border-slate-200 rounded-2xl bg-white p-8 shadow-sm">
+        <div className="text-center mb-8 border-b border-slate-200 pb-6">
+          <img src="/images/medistock-logo.png" alt="MEDISTOCK" className="mx-auto h-16 w-auto" />
+          <p className="text-xs font-semibold text-slate-500 tracking-wider uppercase mt-1">
+            Akun Pengguna
+          </p>
+          <p className="mt-3 text-sm text-slate-600">
+            Masuk atau daftar agar pesanan tersimpan dan riwayatnya bisa dilihat kembali.
+          </p>
+        </div>
+
+        {errorMessage && (
+          <div role="alert" className="mb-5 p-3 border border-red-200 bg-red-50 text-red-700 text-xs font-medium rounded">
+            {errorMessage}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div>
+            <label htmlFor="customer-email" className="block text-xs font-bold text-slate-700 uppercase mb-1">
+              Email
+            </label>
+            <input
+              id="customer-email"
+              type="email"
+              required
+              autoComplete="email"
+              placeholder="nama@email.com"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              className="w-full border border-slate-300 p-3 text-sm text-slate-900 focus:outline-none focus:border-primary"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="customer-password" className="block text-xs font-bold text-slate-700 uppercase mb-1">
+              Password
+            </label>
+            <input
+              id="customer-password"
+              type="password"
+              required
+              minLength={8}
+              autoComplete={isRegistering ? 'new-password' : 'current-password'}
+              placeholder={isRegistering ? 'Minimal 8 karakter' : 'Masukkan password'}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              className="w-full border border-slate-300 p-3 text-sm text-slate-900 focus:outline-none focus:border-primary"
+            />
+          </div>
+
+          {isRegistering && (
+            <div>
+              <label htmlFor="customer-confirm-password" className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                Konfirmasi Password
+              </label>
+              <input
+                id="customer-confirm-password"
+                type="password"
+                required
+                minLength={8}
+                autoComplete="new-password"
+                placeholder="Ulangi password"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                className="w-full border border-slate-300 p-3 text-sm text-slate-900 focus:outline-none focus:border-primary"
+              />
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full py-3.5 bg-primary hover:bg-primary-hover text-white font-bold text-xs tracking-wider uppercase transition mt-2 disabled:opacity-50"
+          >
+            {isSubmitting
+              ? <span className="inline-flex items-center gap-2"><span className="loading-spinner" aria-hidden="true" />Memproses...</span>
+              : isRegistering ? 'Daftar Akun' : 'Masuk'}
+          </button>
+        </form>
+
+        <p className="mt-5 text-center text-xs text-slate-500">
+          {isRegistering ? 'Sudah punya akun?' : 'Belum punya akun?'}{' '}
+          <button type="button" onClick={switchMode} className="font-bold text-primary hover:text-primary-hover">
+            {isRegistering ? 'Masuk' : 'Daftar'}
+          </button>
+        </p>
+      </div>
+    </div>
+  );
+}

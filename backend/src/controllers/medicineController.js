@@ -48,7 +48,37 @@ const validateMedicineFields = (body, { partial = false } = {}) => {
   if (img !== undefined && img !== null && typeof img !== 'string') {
     errors.image_url = 'URL gambar harus berupa teks.';
   }
+  if (typeof img === 'string' && img.startsWith('data:')) {
+    if (!/^data:image\/(?:jpeg|png|webp);base64,[a-z\d+/]+=*$/i.test(img)) {
+      errors.image_url = 'Gambar harus berupa JPEG, PNG, atau WebP yang valid.';
+    } else if (img.length > 1_400_000) {
+      errors.image_url = 'Ukuran gambar terlalu besar. Pilih gambar yang lebih kecil.';
+    }
+  }
   return errors;
+};
+
+const normalizeMedicineIdentity = (name) => String(name || '')
+  .normalize('NFKD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLocaleLowerCase('id')
+  .replace(/(\d+(?:[.,]\d+)?)\s*(micrograms?|mcg|μg|ug|milligrams?|mg|grams?|g)\b/gi, (_, rawValue, rawUnit) => {
+    const value = Number(rawValue.replace(',', '.'));
+    const unit = rawUnit.toLocaleLowerCase('id');
+    const milligrams = /^(?:g|gram|grams)$/.test(unit)
+      ? value * 1000
+      : /^(?:mcg|μg|ug|microgram|micrograms)$/.test(unit)
+        ? value / 1000
+        : value;
+    return `${Number(milligrams.toPrecision(8))}mg`;
+  })
+  .replace(/[^a-z0-9]/g, '');
+
+const findDuplicateMedicine = (medicines, name, excludedId = null) => {
+  const identity = normalizeMedicineIdentity(name);
+  return medicines.find((medicine) =>
+    medicine.id !== excludedId && normalizeMedicineIdentity(medicine.name) === identity
+  );
 };
 
 const nextMedicineId = async () => {
@@ -77,6 +107,14 @@ export const createMedicine = async (req, res) => {
   try {
     const stock = Number(req.body.stock);
     const imageUrl = (req.body.image_url ?? req.body.imageUrl ?? '').trim() || null;
+    const existingMedicines = await prisma.medicines.findMany({ select: { id: true, name: true } });
+    const duplicate = findDuplicateMedicine(existingMedicines, req.body.name);
+    if (duplicate) {
+      return res.status(409).json({
+        success: false,
+        message: `Obat dengan nama dan dosis yang sama sudah ada: ${duplicate.name}.`
+      });
+    }
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
         const medicine = await prisma.medicines.create({
@@ -128,11 +166,26 @@ export const updateInventory = async (req, res) => {
       select: { id: true, name: true }
     });
     const existingNames = new Map(existingMedicines.map((medicine) => [medicine.id, medicine.name]));
+    const allMedicines = await prisma.medicines.findMany({ select: { id: true, name: true } });
+    const updatedNames = new Map(allMedicines.map((medicine) => [medicine.id, medicine.name]));
     for (const item of items) {
       const medicineName = Object.hasOwn(item, 'name') ? item.name : existingNames.get(item.id);
       if (isRestrictedMedicine(medicineName) && item.restrictedConfirmed !== true) {
         return res.status(400).json({ success: false, code: 'RESTRICTED_MEDICINE_CONFIRMATION_REQUIRED', message: RESTRICTED_MEDICINE_WARNING });
       }
+      if (medicineName) updatedNames.set(item.id, medicineName);
+    }
+    const seenIdentities = new Map();
+    for (const [medicineId, medicineName] of updatedNames) {
+      const identity = normalizeMedicineIdentity(medicineName);
+      const duplicateId = seenIdentities.get(identity);
+      if (duplicateId && duplicateId !== medicineId) {
+        return res.status(409).json({
+          success: false,
+          message: `Nama dan dosis obat harus unik. "${medicineName}" sama dengan obat lain di daftar.`
+        });
+      }
+      seenIdentities.set(identity, medicineId);
     }
 
     try {

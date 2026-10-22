@@ -24,7 +24,7 @@ async function runTests() {
   const validLoginRes = await fetch(`${BASE_URL}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: 'apotek@medistock.id', password: 'password123' })
+    body: JSON.stringify({ email: 'apotek@medistock.com', password: 'password123' })
   });
   const validLoginData = await validLoginRes.json();
   assert(
@@ -38,7 +38,7 @@ async function runTests() {
   const invalidLoginRes = await fetch(`${BASE_URL}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: 'apotek@medistock.id', password: 'wrongpassword' })
+    body: JSON.stringify({ email: 'apotek@medistock.com', password: 'wrongpassword' })
   });
   assert(
     invalidLoginRes.status === 401,
@@ -109,17 +109,38 @@ async function runTests() {
   );
 
   // 8. GET /api/orders
-  const getOrdersRes = await fetch(`${BASE_URL}/orders`);
+  const getOrdersRes = await fetch(`${BASE_URL}/orders`, {
+    headers: { 'Authorization': `Bearer ${pharmacyToken}` }
+  });
   assert(
     getOrdersRes.status === 200,
     'GET /api/orders (HTTP 200)',
     `Status: ${getOrdersRes.status}`
   );
 
-  // 9. Customer Create Order
-  const createOrderRes = await fetch(`${BASE_URL}/orders`, {
+  // 9. Customer registration and order history
+  const registerCustomerRes = await fetch(`${BASE_URL}/auth/customer/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: `customer-${Date.now()}@example.com`,
+      password: 'password123'
+    })
+  });
+  const registerCustomerData = await registerCustomerRes.json();
+  assert(
+    registerCustomerRes.status === 201 && registerCustomerData.success && !!registerCustomerData.token,
+    'Customer dapat mendaftar untuk membuat akun',
+    `Status: ${registerCustomerRes.status}`
+  );
+  const customerAccountToken = registerCustomerData.token;
+
+  const createOrderRes = await fetch(`${BASE_URL}/orders`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${customerAccountToken}`
+    },
     body: JSON.stringify({
       customerName: 'Test Customer',
       phone: '081299990000',
@@ -133,8 +154,38 @@ async function runTests() {
   });
   assert(
     createOrderRes.status === 201,
-    'Customer dapat membuat order (HTTP 201)',
+    'Customer yang login dapat membuat order (HTTP 201)',
     `Status: ${createOrderRes.status}`
+  );
+  const createOrderData = await createOrderRes.json();
+
+  const customerHistoryRes = await fetch(`${BASE_URL}/orders/customer/history`, {
+    headers: { 'Authorization': `Bearer ${customerAccountToken}` }
+  });
+  const customerHistoryData = await customerHistoryRes.json();
+  assert(
+    customerHistoryRes.status === 200 && customerHistoryData.data.some((order) => order.id === createOrderData.data?.id),
+    'Pesanan tersimpan di riwayat akun customer',
+    `Status: ${customerHistoryRes.status}`
+  );
+
+  const otherCustomerRes = await fetch(`${BASE_URL}/auth/customer/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: `customer-other-${Date.now()}@example.com`,
+      password: 'password123'
+    })
+  });
+  const otherCustomerData = await otherCustomerRes.json();
+  const otherHistoryRes = await fetch(`${BASE_URL}/orders/customer/history`, {
+    headers: { 'Authorization': `Bearer ${otherCustomerData.token}` }
+  });
+  const otherHistoryData = await otherHistoryRes.json();
+  assert(
+    otherHistoryRes.status === 200 && !otherHistoryData.data.some((order) => order.id === createOrderData.data?.id),
+    'Riwayat akun customer lain tidak menampilkan pesanan tersebut',
+    `Status: ${otherHistoryRes.status}`
   );
 
   console.log(`\nRESULTS: ${passed}/${total} tests passed.`);

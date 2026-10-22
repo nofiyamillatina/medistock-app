@@ -77,28 +77,38 @@ export async function seedDatabase() {
   }
 
   // Seed Initial User (Pharmacy Staff)
-  const existingUser = await prisma.users.findFirst({
-    where: {
-      OR: [
-        { email: 'apotek@medistock.id' },
-        { username: 'apotek' }
-      ]
-    }
+  const existingPharmacyAccount = await prisma.users.findUnique({
+    where: { email: 'apotek@medistock.com' }
   });
-
-  if (!existingUser) {
-    const password_hash = await bcrypt.hash('password123', 10);
-    await prisma.users.create({
-      data: {
-        id: 'USER-APOTEK-1',
-        email: 'apotek@medistock.id',
-        username: 'apotek',
-        password_hash,
-        role: 'pharmacy_staff',
-        pharmacy_id: 'APOTEK-1'
+  if (!existingPharmacyAccount) {
+    const legacyPharmacyAccount = await prisma.users.findFirst({
+      where: {
+        OR: [
+          { email: 'apotek@medistock.id' },
+          { username: 'apotek' }
+        ]
       }
     });
-    console.log('🌱 Seeded Pharmacy Staff User (apotek@medistock.id)');
+    const password_hash = await bcrypt.hash('password123', 10);
+    if (legacyPharmacyAccount) {
+      await prisma.users.update({
+        where: { id: legacyPharmacyAccount.id },
+        data: { email: 'apotek@medistock.com', password_hash, role: 'pharmacy_staff', pharmacy_id: 'APOTEK-1' }
+      });
+      console.log('🌱 Updated Pharmacy Staff User (apotek@medistock.com)');
+    } else {
+      await prisma.users.create({
+        data: {
+          id: 'USER-APOTEK-1',
+          email: 'apotek@medistock.com',
+          username: 'apotek',
+          password_hash,
+          role: 'pharmacy_staff',
+          pharmacy_id: 'APOTEK-1'
+        }
+      });
+      console.log('🌱 Seeded Pharmacy Staff User (apotek@medistock.com)');
+    }
   }
 
   // Seed Medicines
@@ -160,5 +170,3 @@ if (process.argv[1]?.endsWith('seed.js')) {
     process.exit(1);
   });
 }
-
-
