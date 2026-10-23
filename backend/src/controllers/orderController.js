@@ -29,6 +29,7 @@ export const getOrders = async (req, res) => {
         phone: true,
         address: true,
         delivery_type: true,
+        payment_method: true,
         subtotal: true,
         service_fee: true,
         total_amount: true,
@@ -49,6 +50,7 @@ export const getOrders = async (req, res) => {
         ...order,
         customerName: order.customer_name,
         deliveryType: order.delivery_type,
+        paymentMethod: order.payment_method,
         serviceFee: order.service_fee,
         totalAmount: order.total_amount,
         paymentStatus: order.payment_status,
@@ -84,6 +86,7 @@ export const getCustomerOrders = async (req, res) => {
       id: order.id,
       customerName: order.customer_name,
       deliveryType: order.delivery_type,
+      paymentMethod: order.payment_method,
       subtotal: order.subtotal,
       serviceFee: order.service_fee,
       totalAmount: order.total_amount,
@@ -122,6 +125,7 @@ export const trackOrder = async (req, res) => {
       id: order.id,
       customerName: order.customer_name,
       deliveryType: order.delivery_type,
+      paymentMethod: order.payment_method,
       orderStatus: order.order_status,
       paymentStatus: order.payment_status,
       estimatedArrival: order.estimated_arrival,
@@ -189,13 +193,17 @@ export const submitOrderReview = async (req, res) => {
 // Create new Order (Customer Checkout)
 export const createOrder = async (req, res) => {
   try {
-    const { customerName, phone, address, deliveryType, items } = req.body;
+    const { customerName, phone, address, deliveryType, paymentMethod = 'QRIS', items } = req.body;
 
     if (!customerName?.trim() || !phone || !Array.isArray(items) || items.length === 0 || items.length > 50) {
       return res.status(400).json({ success: false, message: 'Data pesanan tidak lengkap.' });
     }
     if (!['Pengantaran', 'Ambil Sendiri'].includes(deliveryType)) {
       return res.status(400).json({ success: false, message: 'Metode pengambilan pesanan tidak valid.' });
+    }
+    if (!['QRIS', 'Tunai di Apotek'].includes(paymentMethod)
+      || (paymentMethod === 'Tunai di Apotek' && deliveryType !== 'Ambil Sendiri')) {
+      return res.status(400).json({ success: false, message: 'Metode pembayaran tidak sesuai dengan metode pengiriman.' });
     }
 
     // Validasi nomor telepon
@@ -240,11 +248,12 @@ export const createOrder = async (req, res) => {
         phone,
         address: deliveryType === 'Pengantaran' ? address : '-',
         delivery_type: deliveryType,
+        payment_method: paymentMethod,
         subtotal,
         service_fee: serviceFee || 3000,
         total_amount: totalAmount,
-        payment_status: 'Menunggu Pembayaran',
-        order_status: 'Menunggu Pembayaran',
+        payment_status: paymentMethod === 'QRIS' ? 'Menunggu Pembayaran' : 'Bayar di Apotek',
+        order_status: paymentMethod === 'QRIS' ? 'Menunggu Pembayaran' : 'Menunggu Konfirmasi',
         timestamp,
         items: {
           create: orderItems.map(item => ({
@@ -263,12 +272,13 @@ export const createOrder = async (req, res) => {
       phone,
       address: deliveryType === 'Pengantaran' ? address : '-',
       deliveryType,
+      paymentMethod,
       items: orderItems,
       subtotal,
       serviceFee: serviceFee || 3000,
       totalAmount,
-      paymentStatus: 'Menunggu Pembayaran',
-      orderStatus: 'Menunggu Pembayaran',
+      paymentStatus: paymentMethod === 'QRIS' ? 'Menunggu Pembayaran' : 'Bayar di Apotek',
+      orderStatus: paymentMethod === 'QRIS' ? 'Menunggu Pembayaran' : 'Menunggu Konfirmasi',
       timestamp
     };
 
@@ -409,7 +419,8 @@ export const updateOrderStatus = async (req, res) => {
       if (order.order_status === 'Selesai' || order.order_status === 'Dibatalkan') {
         return { status: 409, message: 'Pesanan ini sudah berakhir.' };
       }
-      if (order.payment_status !== 'Lunas (QRIS)') return { status: 409, message: 'Pembayaran harus diverifikasi sebelum pesanan diproses.' };
+      const isCashAtPharmacy = order.payment_method === 'Tunai di Apotek';
+      if (order.payment_status !== 'Lunas (QRIS)' && !isCashAtPharmacy) return { status: 409, message: 'Pembayaran harus diverifikasi sebelum pesanan diproses.' };
       const previousStatus = order.order_status;
       const validNext = orderStatus === 'Dibatalkan'
         || (previousStatus === 'Menunggu Konfirmasi' && orderStatus === 'Diproses')
@@ -418,7 +429,8 @@ export const updateOrderStatus = async (req, res) => {
       if (!validNext) return { status: 400, message: 'Perubahan status pesanan tidak sesuai urutan.' };
 
       let restoredQuantities = new Map();
-      if (orderStatus === 'Dibatalkan' && order.payment_status === 'Lunas (QRIS)') {
+      const cashStockReserved = isCashAtPharmacy && ['Diproses', 'Siap Diambil'].includes(previousStatus);
+      if (orderStatus === 'Dibatalkan' && (order.payment_status === 'Lunas (QRIS)' || cashStockReserved)) {
         const medicines = await tx.medicines.findMany();
         for (const item of order.items) {
           const matchedMed = matchMedicineForOrderItem(item.name, medicines, item.medicine_id);
@@ -438,12 +450,33 @@ export const updateOrderStatus = async (req, res) => {
         where: { id, order_status: previousStatus },
         data: {
           order_status: orderStatus,
+          ...(orderStatus === 'Selesai' && isCashAtPharmacy ? { payment_status: 'Lunas (Tunai)' } : {}),
           ...(isHandoff ? { estimated_arrival: new Date(Date.now() + estimatedArrivalMinutes * 60_000) } : {})
         }
       });
       if (transition.count !== 1) return { status: 409, message: 'Status pesanan berubah. Muat ulang daftar pesanan.' };
 
-      if (orderStatus === 'Dibatalkan') {
+      if (orderStatus === 'Diproses' && isCashAtPharmacy) {
+        const medicines = await tx.medicines.findMany();
+        const deductions = new Map();
+        for (const item of order.items) {
+          const medicine = matchMedicineForOrderItem(item.name, medicines, item.medicine_id);
+          if (!medicine || !Number.isInteger(item.qty) || item.qty <= 0) {
+            throw Object.assign(new Error(`Item ${item.name} tidak valid; stok tidak diubah.`), { statusCode: 409 });
+          }
+          deductions.set(medicine.id, (deductions.get(medicine.id) || 0) + item.qty);
+        }
+        for (const [medicineId, qty] of deductions) {
+          const medicine = medicines.find((entry) => entry.id === medicineId);
+          const changed = await tx.medicines.updateMany({
+            where: { id: medicineId, stock: { gte: qty } },
+            data: { stock: { decrement: qty }, ...(medicine.stock === qty ? { status: 'Habis' } : {}) }
+          });
+          if (changed.count !== 1) throw Object.assign(new Error(`Stok ${medicine.name} tidak mencukupi.`), { statusCode: 409 });
+        }
+      }
+
+      if (orderStatus === 'Dibatalkan' && (order.payment_status === 'Lunas (QRIS)' || cashStockReserved)) {
         const medicines = await tx.medicines.findMany();
         for (const [medicineId, quantity] of restoredQuantities) {
           const medicine = medicines.find((entry) => entry.id === medicineId);
@@ -463,6 +496,7 @@ export const updateOrderStatus = async (req, res) => {
       ? `Pesanan ${id} berhasil dibatalkan dan stok obat dikembalikan.`
       : `Status pesanan ${id} berhasil diperbarui menjadi '${orderStatus}'.` });
   } catch (error) {
+    if (error.statusCode) return res.status(error.statusCode).json({ success: false, message: error.message });
     console.error('Error updating order status:', error);
     res.status(500).json({ success: false, message: 'Gagal memperbarui status pesanan.' });
   }

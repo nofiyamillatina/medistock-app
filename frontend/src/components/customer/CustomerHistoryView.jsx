@@ -52,7 +52,7 @@ function OrderReviewForm({ order, onSubmitReview, onReviewSaved }) {
   </form>;
 }
 
-export default function CustomerHistoryView({ onLoadOrders, onCompleteDelivery, onSubmitReview, onResumePayment, onBack }) {
+export default function CustomerHistoryView({ onLoadOrders, onCompleteDelivery, onSubmitReview, onResumePayment, onBack, askConfirmation }) {
   const [orders, setOrders] = useState([]);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
   const [activeTab, setActiveTab] = useState('ongoing');
@@ -95,7 +95,7 @@ export default function CustomerHistoryView({ onLoadOrders, onCompleteDelivery, 
   const visibleOrders = activeTab === 'ongoing' ? activeOrders : finishedOrders;
 
   const handleCompleteDelivery = async () => {
-    if (!selectedOrder || !window.confirm('Tandai pesanan ini selesai diterima?')) return;
+    if (!selectedOrder || !(await askConfirmation('Tandai pesanan ini selesai diterima?', 'Konfirmasi pesanan diterima'))) return;
     setCompletingDelivery(true);
     setCompletionError('');
     const result = await onCompleteDelivery(selectedOrder.id);

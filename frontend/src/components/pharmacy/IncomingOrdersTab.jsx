@@ -24,7 +24,7 @@ function formatOrderTimestamp(value) {
 }
 
 function isPaymentPaid(status) {
-  return ['Lunas', 'Lunas (QRIS)', 'Selesai'].includes(status);
+  return ['Lunas', 'Lunas (QRIS)', 'Lunas (Tunai)', 'Selesai'].includes(status);
 }
 
 function statusTagStyle(status, type) {
@@ -102,6 +102,7 @@ function OrderDetailsModal({ order, onClose, onUpdateOrderStatus, onVerifyCustom
       </div>
       <p className="mt-3 text-xs text-slate-500">Dipesan: {formatOrderTimestamp(order.timestamp)}</p>
       {order.paymentStatus === 'Menunggu Pembayaran' && <p role="status" className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">QRIS statis tidak memberi notifikasi otomatis. Periksa transaksi pada aplikasi/akun merchant terlebih dahulu, lalu tandai pembayaran diterima di sini. Jangan verifikasi berdasarkan pernyataan pelanggan saja.</p>}
+      {order.paymentStatus === 'Bayar di Apotek' && <p role="status" className="mt-4 rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">Pelanggan akan membayar tunai saat mengambil pesanan. Konfirmasi dan siapkan pesanan seperti biasa.</p>}
       {order.paymentStatus === 'Lunas (QRIS)' && <p role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">Pembayaran sudah diperiksa dan diverifikasi oleh apotek. Tombol konfirmasi pelanggan kini aktif.</p>}
 
       <div className="mt-5 rounded-xl border border-slate-200 p-4">

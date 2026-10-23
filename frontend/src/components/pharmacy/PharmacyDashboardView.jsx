@@ -47,6 +47,7 @@ export default function PharmacyDashboardView({
   onRetryMedicines,
   onAddMedicine,
   onDeleteMedicine,
+  askConfirmation,
   canManageInventory = false,
   savingInventory = false,
   deletingMedicineId = null,
@@ -174,6 +175,7 @@ export default function PharmacyDashboardView({
           onRetryMedicines={onRetryMedicines}
           onAddMedicine={onAddMedicine}
           onDeleteMedicine={onDeleteMedicine}
+          askConfirmation={askConfirmation}
           canManageInventory={canManageInventory}
           savingInventory={savingInventory}
           deletingMedicineId={deletingMedicineId}

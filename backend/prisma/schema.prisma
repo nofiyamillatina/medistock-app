@@ -45,6 +45,7 @@ model orders {
   phone          String
   address        String?       @default("-")
   delivery_type  String
+  payment_method String        @default("QRIS")
   subtotal       Int
   service_fee    Int           @default(3000)
   total_amount   Int

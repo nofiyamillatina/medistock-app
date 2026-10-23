@@ -20,13 +20,13 @@
 
   :root[data-theme='dark'] {
     color-scheme: dark;
-    color: #E2E8F0;
-    background: #0F172A;
+    color: #D5DCE6;
+    background: #171E2B;
   }
 
   :root[data-theme='dark'] body {
-    background-color: #0F172A;
-    color: #E2E8F0;
+    background-color: #171E2B;
+    color: #D5DCE6;
   }
 
   h1, h2, h3, h4 {
@@ -62,120 +62,199 @@
 }
 
 :root[data-theme='dark'] [class~='bg-white'] {
-  background-color: #1E293B;
+  background-color: #222C3B;
 }
 
 :root[data-theme='dark'] [class~='bg-slate-50'] {
-  background-color: #0F172A;
+  background-color: #171E2B;
 }
 
 :root[data-theme='dark'] [class~='bg-slate-100'] {
-  background-color: #1E293B;
+  background-color: #273243;
 }
 
 :root[data-theme='dark'] [class~='bg-slate-200'] {
-  background-color: #334155;
+  background-color: #354153;
 }
 
 :root[data-theme='dark'] [class~='bg-navy'] {
-  background-color: #020617;
+  background-color: #1D2736;
 }
 
 :root[data-theme='dark'] [class~='bg-primary-soft'],
 :root[data-theme='dark'] [class~='bg-success-soft'] {
-  background-color: #082F49;
+  background-color: #293B4A;
+}
+
+:root[data-theme='dark'] [class~='bg-primary'] {
+  background-color: #456F89;
+}
+
+:root[data-theme='dark'] [class~='bg-success'] {
+  background-color: #527D6D;
+}
+
+:root[data-theme='dark'] [class~='hover:bg-primary-hover']:hover {
+  background-color: #527E96;
+}
+
+:root[data-theme='dark'] [class~='hover:bg-emerald-600']:hover {
+  background-color: #5B8878;
+}
+
+:root[data-theme='dark'] [class~='hover:bg-emerald-100']:hover,
+:root[data-theme='dark'] [class~='hover:bg-red-100']:hover,
+:root[data-theme='dark'] [class~='hover:bg-slate-50']:hover {
+  background-color: #354153;
+}
+
+:root[data-theme='dark'] [class~='bg-slate-100/80'],
+:root[data-theme='dark'] [class~='bg-slate-50/50'],
+:root[data-theme='dark'] [class~='bg-white/80'] {
+  background-color: #293444;
 }
 
 :root[data-theme='dark'] [class~='bg-red-50'],
 :root[data-theme='dark'] [class~='bg-red-100'] {
-  background-color: #450A0A;
+  background-color: #45313A;
 }
 
 :root[data-theme='dark'] [class~='bg-emerald-50'],
 :root[data-theme='dark'] [class~='bg-emerald-100'] {
-  background-color: #022C22;
+  background-color: #2D423D;
 }
 
 :root[data-theme='dark'] [class~='bg-amber-50'],
 :root[data-theme='dark'] [class~='bg-amber-100'] {
-  background-color: #451A03;
+  background-color: #494036;
 }
 
 :root[data-theme='dark'] [class~='bg-sky-50'],
 :root[data-theme='dark'] [class~='bg-blue-50'],
 :root[data-theme='dark'] [class~='bg-green-50'] {
-  background-color: #082F49;
+  background-color: #2D3E4B;
+}
+
+:root[data-theme='dark'] [class~='bg-red-50/90'] {
+  background-color: #49353E;
+}
+
+:root[data-theme='dark'] [class~='bg-emerald-50/90'] {
+  background-color: #334A42;
+}
+
+:root[data-theme='dark'] [class~='bg-emerald-500'],
+:root[data-theme='dark'] [class~='bg-emerald-400'] {
+  background-color: #6C9A87;
+}
+
+:root[data-theme='dark'] [class~='bg-amber-500'] {
+  background-color: #A28B5D;
+}
+
+:root[data-theme='dark'] [class~='bg-red-500'] {
+  background-color: #A36F76;
+}
+
+:root[data-theme='dark'] [class~='bg-red-700'] {
+  background-color: #82545D;
+}
+
+:root[data-theme='dark'] [class~='hover:bg-red-800']:hover {
+  background-color: #94636B;
+}
+
+:root[data-theme='dark'] [class~='bg-sky-500'] {
+  background-color: #6C8EA2;
 }
 
 :root[data-theme='dark'] [class~='text-navy'],
 :root[data-theme='dark'] [class~='text-slate-900'] {
-  color: #F1F5F9;
+  color: #E0E5EC;
 }
 
 :root[data-theme='dark'] [class~='text-slate-800'],
 :root[data-theme='dark'] [class~='text-slate-700'],
 :root[data-theme='dark'] [class~='text-slate-600'],
 :root[data-theme='dark'] [class~='text-neutral'] {
-  color: #CBD5E1;
+  color: #C1CAD6;
 }
 
 :root[data-theme='dark'] [class~='text-slate-500'],
 :root[data-theme='dark'] [class~='text-slate-400'] {
-  color: #94A3B8;
+  color: #9CAABD;
+}
+
+:root[data-theme='dark'] [class~='text-primary'] {
+  color: #9AB9CC;
+}
+
+:root[data-theme='dark'] [class~='hover:text-primary-hover']:hover {
+  color: #B1C9D6;
+}
+
+:root[data-theme='dark'] [class~='text-emerald-500'],
+:root[data-theme='dark'] [class~='text-emerald-400'] {
+  color: #A6C9B9;
+}
+
+:root[data-theme='dark'] [class~='text-emerald-700'],
+:root[data-theme='dark'] [class~='text-emerald-800'],
+:root[data-theme='dark'] [class~='text-emerald-600'],
+:root[data-theme='dark'] [class~='text-green-700'] {
+  color: #A6C9B9;
 }
 
 :root[data-theme='dark'] [class~='text-red-800'],
 :root[data-theme='dark'] [class~='text-red-700'],
 :root[data-theme='dark'] [class~='text-red-600'] {
-  color: #FCA5A5;
-}
-
-:root[data-theme='dark'] [class~='text-emerald-700'],
-:root[data-theme='dark'] [class~='text-emerald-600'],
-:root[data-theme='dark'] [class~='text-green-700'] {
-  color: #6EE7B7;
+  color: #D9A6A8;
 }
 
 :root[data-theme='dark'] [class~='text-amber-800'],
 :root[data-theme='dark'] [class~='text-amber-700'] {
-  color: #FCD34D;
+  color: #D8C18A;
 }
 
 :root[data-theme='dark'] [class~='text-sky-700'],
 :root[data-theme='dark'] [class~='text-blue-700'] {
-  color: #7DD3FC;
+  color: #A3BCCB;
 }
 
 :root[data-theme='dark'] [class~='border-slate-100'],
 :root[data-theme='dark'] [class~='border-slate-200'],
 :root[data-theme='dark'] [class~='border-slate-300'] {
-  border-color: #334155;
+  border-color: #354153;
+}
+
+:root[data-theme='dark'] [class~='border-primary'] {
+  border-color: #587B91;
 }
 
 :root[data-theme='dark'] [class~='border-red-200'] {
-  border-color: #7F1D1D;
+  border-color: #674750;
 }
 
 :root[data-theme='dark'] [class~='border-emerald-200'],
 :root[data-theme='dark'] [class~='border-green-200'] {
-  border-color: #065F46;
+  border-color: #49695D;
 }
 
 :root[data-theme='dark'] [class~='border-amber-200'] {
-  border-color: #78350F;
+  border-color: #6A5A40;
 }
 
 :root[data-theme='dark'] [class~='border-sky-200'],
 :root[data-theme='dark'] [class~='border-blue-200'] {
-  border-color: #075985;
+  border-color: #4E6879;
 }
 
 :root[data-theme='dark'] input:not([type='radio']):not([type='checkbox']),
 :root[data-theme='dark'] textarea,
 :root[data-theme='dark'] select {
-  border-color: #475569;
-  background-color: #1E293B;
-  color: #F1F5F9;
+  border-color: #465366;
+  background-color: #222C3B;
+  color: #E0E5EC;
 }
 
 :root[data-theme='dark'] input::placeholder,
@@ -184,12 +263,26 @@
 }
 
 :root[data-theme='dark'] .skeleton-shimmer {
-  background: linear-gradient(100deg, #1E293B 20%, #334155 38%, #1E293B 56%);
+  background: linear-gradient(100deg, #222C3B 20%, #303B4D 38%, #222C3B 56%);
   background-size: 220% 100%;
 }
 
 :root[data-theme='dark'] .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #475569;
+  background: #465366;
+}
+
+:root[data-theme='dark'] [class~='text-sky-900'],
+:root[data-theme='dark'] [class~='text-amber-900'],
+:root[data-theme='dark'] [class~='text-emerald-900'] {
+  color: #C1CAD6;
+}
+
+:root[data-theme='dark'] [class~='bg-slate-900/50'] {
+  background-color: rgb(10 15 24 / 68%);
+}
+
+:root[data-theme='dark'] [class~='ring-white'] {
+  --tw-ring-color: #222C3B;
 }
 
 input[aria-invalid='true'], textarea[aria-invalid='true'] {

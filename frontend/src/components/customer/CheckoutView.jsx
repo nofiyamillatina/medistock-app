@@ -7,6 +7,8 @@ export default function CheckoutView({
   updateCartQty,
   deliveryMethod,
   setDeliveryMethod,
+  paymentMethod,
+  setPaymentMethod,
   customerInfo,
   setCustomerInfo,
   cartSubtotal,
@@ -26,6 +28,7 @@ export default function CheckoutView({
   );
   const handleDeliveryMethodChange = (event) => {
     setDeliveryMethod(event.target.value);
+    if (event.target.value === 'Pengantaran') setPaymentMethod('QRIS');
     setFieldErrors({});
   };
   const inputBorderClass = (hasError) => hasError
@@ -164,6 +167,17 @@ export default function CheckoutView({
         </section>
 
         {/* 3. Customer Info Input */}
+        {deliveryMethod === 'Ambil Sendiri' && <section className="border border-slate-200 rounded-xl p-5 sm:p-6 bg-white shadow-sm">
+          <h2 className="text-sm font-bold text-navy tracking-wide mb-4">Metode Pembayaran</h2>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[['QRIS', 'Bayar via QRIS', 'Bayar sekarang melalui QRIS'], ['Tunai di Apotek', 'Bayar di Apotek', 'Bayar tunai saat mengambil pesanan']].map(([value, title, description]) => <label key={value} className={`border rounded-xl p-4 cursor-pointer transition ${paymentMethod === value ? 'border-primary bg-primary-soft' : 'border-slate-200 hover:border-primary'}`}>
+              <input type="radio" name="payment" value={value} checked={paymentMethod === value} onChange={() => setPaymentMethod(value)} className="mr-2 accent-primary" />
+              <span className="text-sm font-bold text-slate-900">{title}</span><span className="mt-1 block pl-6 text-xs text-slate-500">{description}</span>
+            </label>)}
+          </div>
+        </section>}
+
+        {/* 3. Customer Info Input */}
         <section className="border border-slate-200 rounded-xl p-5 sm:p-6 bg-white space-y-4 shadow-sm">
           <h2 className="text-sm font-bold text-navy tracking-wide mb-2">
             Informasi Pemesan
@@ -251,7 +265,7 @@ export default function CheckoutView({
             <span className="font-bold text-slate-900">{formatIDR(serviceFee)}</span>
           </div>
           <div className="border-t border-slate-200 pt-3 mt-2 flex justify-between font-bold text-base text-slate-900">
-            <span>Total Pembayaran QRIS</span>
+            <span>{paymentMethod === 'Tunai di Apotek' ? 'Total Dibayar di Apotek' : 'Total Pembayaran QRIS'}</span>
             <span className="font-extrabold text-primary">{formatIDR(cartTotal)}</span>
           </div>
         </section>
@@ -262,7 +276,7 @@ export default function CheckoutView({
           disabled={submittingOrder}
           className="w-full py-4 rounded-lg bg-primary hover:bg-primary-hover text-white font-bold text-sm tracking-wider uppercase transition shadow-sm"
         >
-          <span className="inline-flex items-center justify-center gap-2">{submittingOrder ? <span className="loading-spinner" aria-hidden="true" /> : null}{submittingOrder ? 'Membuat Pesanan...' : <>Lanjut Bayar via QRIS <ArrowRight size={18} aria-hidden="true" /></>}</span>
+          <span className="inline-flex items-center justify-center gap-2">{submittingOrder ? <span className="loading-spinner" aria-hidden="true" /> : null}{submittingOrder ? 'Membuat Pesanan...' : <>{paymentMethod === 'Tunai di Apotek' ? 'Buat Pesanan' : 'Lanjut Bayar via QRIS'} <ArrowRight size={18} aria-hidden="true" /></>}</span>
         </button>
       </form>
     </div>

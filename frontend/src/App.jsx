@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import DemoBanner from './components/common/DemoBanner.jsx';
 import Footer from './components/common/Footer.jsx';
+import AppDialog from './components/common/AppDialog.jsx';
 import CustomerHomeView from './components/customer/CustomerHomeView.jsx';
 import CheckoutView from './components/customer/CheckoutView.jsx';
 import QRISPaymentView from './components/customer/QRISPaymentView.jsx';
@@ -9,6 +10,7 @@ import CustomerAuthView from './components/customer/CustomerAuthView.jsx';
 import PharmacyLoginView from './components/pharmacy/PharmacyLoginView.jsx';
 import PharmacyDashboardView from './components/pharmacy/PharmacyDashboardView.jsx';
 import { apiService } from './services/api.js';
+import { formatIDR } from './services/formatters.js';
 import { getDisplayStock, isValidStockInput, STOCK_VALIDATION_MESSAGE } from './utils/stock.js';
 
 function SplashScreen() {
@@ -54,9 +56,17 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState([]);
   const [deliveryMethod, setDeliveryMethod] = useState('Pengantaran');
+  const [paymentMethod, setPaymentMethod] = useState('QRIS');
   const [customerInfo, setCustomerInfo] = useState({ name: '', phone: '', address: '' });
   const [currentOrder, setCurrentOrder] = useState(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [appDialog, setAppDialog] = useState(null);
+  const showNotice = (message, type = 'error', title) => setAppDialog({ type, title, message: String(message || '') });
+  const askConfirmation = (message, title) => new Promise((resolve) => setAppDialog({ type: 'confirm', title, message, resolve }));
+  const closeAppDialog = (confirmed = false) => {
+    appDialog?.resolve?.(confirmed);
+    setAppDialog(null);
+  };
 
   // Inventory Editing Draft State
   const [inventoryDraft, setInventoryDraft] = useState([]);
@@ -181,14 +191,14 @@ export default function App() {
   // Cart Functions
   const addToCart = (med) => {
     if (!isStoreOpen) {
-      alert('Mohon maaf, toko sedang tutup saat ini.');
+      showNotice('Mohon maaf, toko sedang tutup saat ini.');
       return;
     }
     const availableStock = getDisplayStock(med.stock);
     if (availableStock === 0) return;
     const existingCartItem = cart.find((item) => item.id === med.id);
     if (existingCartItem && existingCartItem.qty >= availableStock) {
-      alert(`Stok tersedia hanya ${availableStock}.`);
+      showNotice(`Stok tersedia hanya ${availableStock}.`, 'warning', 'Stok terbatas');
       return;
     }
 
@@ -207,7 +217,7 @@ export default function App() {
     const availableStock = medicine ? getDisplayStock(medicine.stock) : 0;
     if (!currentItem || delta === 0) return;
     if (delta > 0 && medicine && currentItem.qty + delta > availableStock) {
-      alert(`Stok tersedia hanya ${availableStock}.`);
+      showNotice(`Stok tersedia hanya ${availableStock}.`, 'warning', 'Stok terbatas');
       return;
     }
 
@@ -247,7 +257,7 @@ export default function App() {
     });
     if (unavailable) {
       const medicine = medicines.find((candidate) => candidate.id === unavailable.id);
-      alert(medicine ? `Stok ${medicine.name} tersedia hanya ${getDisplayStock(medicine.stock)}.` : 'Obat tidak lagi tersedia. Katalog akan diperbarui.');
+      showNotice(medicine ? `Stok ${medicine.name} tersedia hanya ${getDisplayStock(medicine.stock)}.` : 'Obat tidak lagi tersedia. Katalog akan diperbarui.', 'warning', 'Stok berubah');
       fetchMedicines();
       return;
     }
@@ -261,11 +271,11 @@ export default function App() {
       return;
     }
     if (!customerInfo.name || !customerInfo.phone) {
-      alert('Mohon lengkapi Nama dan Nomor Telepon.');
+      showNotice('Mohon lengkapi Nama dan Nomor Telepon.', 'warning', 'Data belum lengkap');
       return;
     }
     if (deliveryMethod === 'Pengantaran' && !customerInfo.address) {
-      alert('Mohon lengkapi Alamat Pengantaran.');
+      showNotice('Mohon lengkapi Alamat Pengantaran.', 'warning', 'Data belum lengkap');
       return;
     }
 
@@ -274,6 +284,7 @@ export default function App() {
       phone: customerInfo.phone,
       address: deliveryMethod === 'Pengantaran' ? customerInfo.address : '-',
       deliveryType: deliveryMethod,
+      paymentMethod,
       // Keep catalog ID and a numeric quantity in the order payload. The
       // backend uses the ID for stock validation; name/price remain for the
       // existing order-item schema and display flow.
@@ -294,9 +305,9 @@ export default function App() {
       if (res && res.success) {
         setCurrentOrder(res.data);
         setCustomerInfo({ name: '', phone: '', address: '' });
-        setCurrentView('qris');
+        setCurrentView(paymentMethod === 'Tunai di Apotek' ? 'cash-order' : 'qris');
       } else {
-        alert(res?.message || 'Gagal membuat pesanan di server. Silakan coba lagi.');
+        showNotice(res?.message || 'Gagal membuat pesanan di server. Silakan coba lagi.');
         fetchMedicines();
       }
     } finally { setSubmittingOrder(false); }
@@ -413,7 +424,7 @@ export default function App() {
     if (res && res.success) {
       fetchPharmacyInfo();
     } else {
-      alert(res?.message || 'Gagal mengubah status apotek.');
+      showNotice(res?.message || 'Gagal mengubah status apotek.');
       fetchPharmacyInfo();
     }
   };
@@ -432,20 +443,20 @@ export default function App() {
         setIsLoggedIn(false);
         setToken(null);
         setCurrentView('admin-login');
-        alert('Sesi apotek sudah berakhir. Silakan login kembali sebelum memperbarui pesanan.');
-      } else alert(res?.message || 'Gagal memperbarui status pesanan.');
+        showNotice('Sesi apotek sudah berakhir. Silakan login kembali sebelum memperbarui pesanan.', 'warning', 'Sesi berakhir');
+      } else showNotice(res?.message || 'Gagal memperbarui status pesanan.');
     } finally { setUpdatingOrderId(null); }
   };
 
   const handleVerifyCustomerPayment = async (orderId) => {
-    if (!window.confirm('Pastikan pembayaran QRIS benar-benar sudah diterima. Tandai pembayaran sebagai terverifikasi?')) return;
+    if (!await askConfirmation('Pastikan pembayaran QRIS benar-benar sudah diterima sebelum menandainya sebagai terverifikasi.', 'Verifikasi pembayaran')) return;
     setUpdatingOrderId(orderId);
     try {
       const result = await apiService.verifyCustomerPayment(orderId, token);
       if (result?.success) {
         await Promise.all([fetchOrders(), fetchMedicines()]);
       } else {
-        alert(result?.message || 'Gagal memverifikasi pembayaran.');
+        showNotice(result?.message || 'Gagal memverifikasi pembayaran.');
       }
     } finally {
       setUpdatingOrderId(null);
@@ -466,7 +477,7 @@ export default function App() {
     const result = await apiService.verifyPharmacyToken(token);
     if (result?.success && result.user?.role === 'pharmacy_staff') setCurrentView('admin-dashboard');
     else if (result?.success) {
-      alert('Akun ini tidak memiliki akses ke dashboard apotek.');
+      showNotice('Akun ini tidak memiliki akses ke dashboard apotek.', 'warning', 'Akses ditolak');
       setCurrentView('admin-login');
     }
     else if (result?.httpStatus === 401) {
@@ -475,13 +486,13 @@ export default function App() {
       setIsLoggedIn(false);
       setToken(null);
       setCurrentView('admin-login');
-    } else alert(result?.message || 'Sesi apotek belum dapat diverifikasi. Coba lagi.');
+    } else showNotice(result?.message || 'Sesi apotek belum dapat diverifikasi. Coba lagi.');
   };
 
   const handleSaveInventory = async (items = inventoryDraft) => {
     if (!canManageInventory || savingInventory) return;
     if (!items.every((item) => isValidStockInput(item.stock))) {
-      alert(STOCK_VALIDATION_MESSAGE);
+      showNotice(STOCK_VALIDATION_MESSAGE, 'warning', 'Stok tidak valid');
       return false;
     }
     setSavingInventory(true);
@@ -506,10 +517,10 @@ export default function App() {
       const res = await apiService.saveInventory(changedItems, token);
       if (res && res.success) {
         await fetchMedicines();
-        alert('Perubahan inventaris berhasil disimpan!');
+        showNotice('Perubahan inventaris berhasil disimpan!', 'success');
         return true;
       }
-      alert(res?.message || 'Gagal memperbarui inventaris.');
+      showNotice(res?.message || 'Gagal memperbarui inventaris.');
       return false;
     } finally { setSavingInventory(false); }
   };
@@ -528,7 +539,7 @@ export default function App() {
   };
 
   const handleDeleteMedicine = async (medicine) => {
-    if (!canManageInventory || !window.confirm('Apakah Anda yakin ingin menghapus obat ini?')) return false;
+    if (!canManageInventory || !await askConfirmation('Apakah Anda yakin ingin menghapus obat ini?', 'Hapus obat')) return false;
     setDeletingMedicineId(medicine.id);
     try {
       const res = await apiService.deleteMedicine(medicine.id, token);
@@ -536,7 +547,7 @@ export default function App() {
         await fetchMedicines();
         return true;
       }
-      alert(res?.message || 'Gagal menghapus obat.');
+      showNotice(res?.message || 'Gagal menghapus obat.');
       return false;
     } finally { setDeletingMedicineId(null); }
   };
@@ -583,7 +594,7 @@ export default function App() {
           <CustomerAuthView onLogin={handleCustomerLogin} onRegister={handleCustomerRegister} />
         )}
 
-        {currentView === 'customer-history' && customerUser && <CustomerHistoryView onLoadOrders={apiService.getCustomerOrders} onCompleteDelivery={handleCustomerCompleteDelivery} onSubmitReview={handleCustomerReview} onResumePayment={handleResumePayment} onBack={() => setCurrentView('customer')} />}
+        {currentView === 'customer-history' && customerUser && <CustomerHistoryView onLoadOrders={apiService.getCustomerOrders} onCompleteDelivery={handleCustomerCompleteDelivery} onSubmitReview={handleCustomerReview} onResumePayment={handleResumePayment} askConfirmation={askConfirmation} onBack={() => setCurrentView('customer')} />}
 
         {currentView === 'checkout' && (
           <CheckoutView
@@ -591,6 +602,8 @@ export default function App() {
             updateCartQty={updateCartQty}
             deliveryMethod={deliveryMethod}
             setDeliveryMethod={setDeliveryMethod}
+            paymentMethod={paymentMethod}
+            setPaymentMethod={setPaymentMethod}
             customerInfo={customerInfo}
             setCustomerInfo={setCustomerInfo}
             cartSubtotal={cartSubtotal}
@@ -616,6 +629,17 @@ export default function App() {
           />
         )}
 
+        {currentView === 'cash-order' && currentOrder && <main className="mx-auto flex w-full max-w-xl flex-1 flex-col items-center justify-center px-4 py-12 text-center">
+          <div className="w-full rounded-2xl border border-emerald-200 bg-white p-8 shadow-sm">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">✓</div>
+            <h1 className="text-xl font-bold text-slate-900">Pesanan berhasil dibuat</h1>
+            <p className="mt-2 text-sm text-slate-600">Siapkan pembayaran <strong>{formatIDR(currentOrder.totalAmount)}</strong> secara tunai saat mengambil pesanan di apotek.</p>
+            <p className="mt-5 rounded-lg bg-slate-50 p-3 font-mono text-lg font-bold text-primary">{currentOrder.id}</p>
+            <p className="mt-2 text-xs text-slate-500">Simpan ID pesanan ini dan tunjukkan kepada petugas saat mengambil obat.</p>
+            <button type="button" onClick={resetCustomerFlow} className="mt-6 w-full rounded-lg bg-primary px-4 py-3 text-sm font-bold text-white">Selesai</button>
+          </div>
+        </main>}
+
         {currentView === 'admin-login' && (
           <PharmacyLoginView onLoginSuccess={handlePharmacyLogin} />
         )}
@@ -640,6 +664,7 @@ export default function App() {
             onRetryMedicines={fetchMedicines}
             onAddMedicine={handleAddMedicine}
             onDeleteMedicine={handleDeleteMedicine}
+            askConfirmation={askConfirmation}
             canManageInventory={canManageInventory}
             savingInventory={savingInventory}
             deletingMedicineId={deletingMedicineId}
@@ -650,6 +675,7 @@ export default function App() {
 
       {/* Footer */}
       {currentView !== 'qris' && <Footer />}
+      <AppDialog dialog={appDialog} onClose={closeAppDialog} />
     </div>
   );
 }

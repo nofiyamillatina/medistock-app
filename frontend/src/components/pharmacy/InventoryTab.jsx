@@ -64,6 +64,7 @@ export default function InventoryTab({
   onRetryMedicines,
   onAddMedicine,
   onDeleteMedicine,
+  askConfirmation,
   savingInventory = false,
   deletingMedicineId = null,
   canManageInventory = false
@@ -144,7 +145,7 @@ export default function InventoryTab({
       return setFormError('Obat dengan nama dan dosis yang sama sudah ada di daftar.');
     }
     const restricted = isRestrictedMedicine(form.name);
-    if (restricted && !window.confirm(RESTRICTED_MEDICINE_WARNING)) return;
+    if (restricted && !(await askConfirmation(RESTRICTED_MEDICINE_WARNING, 'Konfirmasi obat terbatas'))) return;
     setFormError('');
     const result = await onAddMedicine({ ...form, name: form.name.trim(), price, stock, image_url: form.image_url?.trim() || null, restrictedConfirmed: restricted });
     if (result?.success) {
@@ -175,7 +176,7 @@ export default function InventoryTab({
     if (!editForm.name.trim()) return setFormError('Nama obat wajib diisi.');
     if (editForm.price === '' || !Number.isFinite(price) || price < 0) return setFormError('Harga harus angka minimal 0.');
     const restricted = isRestrictedMedicine(editForm.name);
-    if (restricted && !window.confirm(RESTRICTED_MEDICINE_WARNING)) return;
+    if (restricted && !(await askConfirmation(RESTRICTED_MEDICINE_WARNING, 'Konfirmasi obat terbatas'))) return;
     setFormError('');
     const updatedMedicine = {
       ...editingMedicine,
