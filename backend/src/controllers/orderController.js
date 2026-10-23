@@ -213,7 +213,7 @@ export const createOrder = async (req, res) => {
       });
     }
 
-    const orderId = `MDS-${Date.now()}-${randomUUID().slice(0, 8)}`;
+    const orderId = `MDS-${Math.floor(1000 + Math.random() * 9000)}`;
     const timestamp = new Date().toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' });
     const medicines = await prisma.medicines.findMany();
     const orderItems = items.map((item) => {
