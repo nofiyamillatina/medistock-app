@@ -335,3 +335,55 @@ input[aria-invalid='true']:focus, textarea[aria-invalid='true']:focus {
 @media (prefers-reduced-motion: reduce) {
   .animate-loading-progress, .skeleton-shimmer, .loading-spinner { animation: none; }
 }
+
+/* Small visual refinements that keep the existing layout, palette and icon set. */
+@layer base {
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4 {
+    letter-spacing: -0.025em;
+    text-wrap: balance;
+  }
+
+  p, label, button, input, textarea, select {
+    text-rendering: optimizeLegibility;
+  }
+
+  button:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
+
+}
+
+/* Give existing bordered panels a little more depth without changing their shape. */
+[class*='rounded-'][class*='border-slate-200'],
+[class*='rounded-'][class*='border-slate-100'] {
+  box-shadow: 0 1px 2px rgb(15 23 42 / 4%);
+}
+
+button:focus-visible, a:focus-visible {
+  border-radius: 0.5rem;
+}
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #CBD5E1 transparent;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  button, a, input, textarea, select {
+    transition-duration: 180ms;
+  }
+}
+
+:root[data-theme='dark'] [class*='rounded-'][class*='border-slate-200'],
+:root[data-theme='dark'] [class*='rounded-'][class*='border-slate-100'] {
+  box-shadow: 0 1px 3px rgb(0 0 0 / 14%);
+}
