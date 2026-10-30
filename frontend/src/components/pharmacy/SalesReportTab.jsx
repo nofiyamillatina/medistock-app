@@ -27,7 +27,7 @@ function formatTransactionDateTime(value) {
   return `${date} • ${time}`;
 }
 
-export default function SalesReportTab({ orders }) {
+export default function SalesReportTab({ orders, onResetOrders }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('latest');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -40,11 +40,11 @@ export default function SalesReportTab({ orders }) {
     return completedOrders.reduce((sum, o) => sum + o.totalAmount, 0);
   }, [completedOrders]);
 
-  const statuses = useMemo(() => [...new Set(orders.map((order) => order.orderStatus).filter(Boolean))].sort(), [orders]);
+  const statuses = useMemo(() => [...new Set(completedOrders.map((order) => order.orderStatus).filter(Boolean))].sort(), [completedOrders]);
 
   const visibleOrders = useMemo(() => {
     const query = searchQuery.trim().toLocaleLowerCase('id');
-    const filtered = orders.filter((order) => {
+    const filtered = completedOrders.filter((order) => {
       const matchesQuery = !query || [order.id, order.customerName, order.orderStatus]
         .some((value) => String(value || '').toLocaleLowerCase('id').includes(query));
       const matchesStatus = statusFilter === 'all' || order.orderStatus === statusFilter;
@@ -61,13 +61,15 @@ export default function SalesReportTab({ orders }) {
       const dateB = partsB ? new Date(partsB.year, partsB.month - 1, partsB.day, partsB.hour, partsB.minute).getTime() : 0;
       return dateB - dateA;
     });
-  }, [orders, searchQuery, sortBy, statusFilter]);
+  }, [completedOrders, searchQuery, sortBy, statusFilter]);
 
   return (
     <section className="space-y-6">
-      <h2 className="text-sm font-bold text-navy tracking-wide">
-        Ringkasan Penjualan Hari Ini
-      </h2>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="text-sm font-bold text-navy tracking-wide">Ringkasan Penjualan Hari Ini</h2>
+        <button type="button" onClick={() => onResetOrders?.('completed')} disabled={!onResetOrders || completedOrders.length === 0} className="rounded-lg border border-red-300 bg-white px-4 py-2 text-xs font-bold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50">Reset Laporan Penjualan</button>
+      </div>
+      <p className="-mt-4 text-xs text-slate-500">Reset menghapus transaksi berstatus Selesai dan riwayat pelanggan terkait.</p>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

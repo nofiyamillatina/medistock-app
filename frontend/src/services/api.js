@@ -112,6 +112,20 @@ export const apiService = {
     }
   },
 
+  async resetOrders(scope, token = null) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/orders/reset`, {
+        method: 'POST',
+        headers: getHeaders(token),
+        body: JSON.stringify({ scope, confirm: 'RESET_ORDERS' })
+      });
+      return await res.json();
+    } catch (err) {
+      console.error('API Error resetOrders:', err);
+      return { success: false, message: 'Server backend tidak dapat dihubungi.' };
+    }
+  },
+
   async getCustomerOrders() {
     try {
       const res = await fetch(`${API_BASE_URL}/orders/customer/history`, {

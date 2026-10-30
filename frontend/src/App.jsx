@@ -552,6 +552,28 @@ export default function App() {
     } finally { setDeletingMedicineId(null); }
   };
 
+  const handleResetOrders = async (scope) => {
+    if (!canManageInventory || !['all', 'completed'].includes(scope)) return false;
+    const affectedCount = scope === 'completed'
+      ? orders.filter((order) => order.orderStatus === 'Selesai').length
+      : orders.length;
+    const label = scope === 'completed' ? 'transaksi selesai pada laporan' : 'seluruh pesanan masuk';
+    const confirmed = await askConfirmation(
+      `Anda akan menghapus ${affectedCount} ${label}. Data yang dihapus tidak dapat dipulihkan dan riwayat pelanggan terkait juga akan hilang. Lanjutkan?`,
+      'Konfirmasi reset data'
+    );
+    if (!confirmed) return false;
+
+    const result = await apiService.resetOrders(scope, token);
+    if (!result?.success) {
+      showNotice(result?.message || 'Gagal mereset data pesanan.');
+      return false;
+    }
+    await fetchOrders();
+    showNotice(result.message || 'Data berhasil direset.', 'success', 'Reset berhasil');
+    return true;
+  };
+
   return (
     <div className="flex-1 flex flex-col min-h-screen selection:bg-primary selection:text-white font-sans bg-slate-50 text-navy">
       {showSplash && <SplashScreen />}
@@ -665,6 +687,7 @@ export default function App() {
             onAddMedicine={handleAddMedicine}
             onDeleteMedicine={handleDeleteMedicine}
             askConfirmation={askConfirmation}
+            onResetOrders={handleResetOrders}
             canManageInventory={canManageInventory}
             savingInventory={savingInventory}
             deletingMedicineId={deletingMedicineId}

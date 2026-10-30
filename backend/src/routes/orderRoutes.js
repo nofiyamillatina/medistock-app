@@ -1,10 +1,11 @@
 import express from 'express';
-import { getOrders, getCustomerOrders, getCustomerPaymentStatus, createOrder, confirmPayment, verifyCustomerPayment, updateOrderStatus, trackOrder, completeDeliveryOrder, submitOrderReview } from '../controllers/orderController.js';
+import { getOrders, getCustomerOrders, getCustomerPaymentStatus, createOrder, confirmPayment, verifyCustomerPayment, updateOrderStatus, trackOrder, completeDeliveryOrder, submitOrderReview, resetOrders } from '../controllers/orderController.js';
 import { authenticateToken, requireRole } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
 router.get('/', authenticateToken, requireRole('pharmacy_staff'), getOrders);
+router.post('/reset', authenticateToken, requireRole('pharmacy_staff'), resetOrders);
 router.get('/customer/history', authenticateToken, requireRole('customer'), getCustomerOrders);
 router.get('/:id/payment-status', authenticateToken, requireRole('customer'), getCustomerPaymentStatus);
 router.get('/:id/tracking', trackOrder);

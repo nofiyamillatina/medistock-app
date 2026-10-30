@@ -124,7 +124,8 @@ export default function IncomingOrdersTab({
   updatingOrderId = null,
   loadingOrders = false,
   errorOrders = null,
-  onRetryOrders
+  onRetryOrders,
+  onResetOrders
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('latest');
@@ -161,6 +162,11 @@ export default function IncomingOrdersTab({
       <h2 className="text-sm font-bold text-navy tracking-wide">
         Daftar Pesanan Terbaru
       </h2>
+
+      <div className="flex flex-col gap-2 rounded-xl border border-red-200 bg-red-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-xs text-red-800">Reset akan menghapus seluruh pesanan masuk beserta riwayat pelanggan terkait.</p>
+        <button type="button" onClick={() => onResetOrders?.('all')} disabled={!onResetOrders || loadingOrders || orders.length === 0} className="shrink-0 rounded-lg border border-red-300 bg-white px-4 py-2 text-xs font-bold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50">Reset Pesanan Masuk</button>
+      </div>
 
       {loadingOrders ? (
         <div className="py-12 text-center border border-slate-200 bg-white text-slate-500 text-sm">

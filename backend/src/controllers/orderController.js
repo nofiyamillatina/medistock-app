@@ -74,6 +74,23 @@ export const getOrders = async (req, res) => {
   }
 };
 
+// Pharmacy-only cleanup actions. Child order items are removed by the FK cascade.
+export const resetOrders = async (req, res) => {
+  const { scope, confirm } = req.body || {};
+  if (!['all', 'completed'].includes(scope) || confirm !== 'RESET_ORDERS') {
+    return res.status(400).json({ success: false, message: 'Validasi reset tidak cocok. Muat ulang halaman lalu konfirmasi kembali.' });
+  }
+
+  try {
+    const where = scope === 'completed' ? { order_status: 'Selesai' } : undefined;
+    const result = await prisma.orders.deleteMany({ where });
+    return res.json({ success: true, deletedCount: result.count, message: `${result.count} data pesanan berhasil direset.` });
+  } catch (error) {
+    console.error('Error resetting orders:', error);
+    return res.status(500).json({ success: false, message: 'Gagal mereset data pesanan.' });
+  }
+};
+
 export const getCustomerOrders = async (req, res) => {
   try {
     const rawOrders = await prisma.orders.findMany({
