@@ -24,7 +24,7 @@ export const getMedicines = async (req, res) => {
 
     res.json({ success: true, data: medicines });
   } catch (error) {
-    console.error('Error fetching medicines:', error);
+    console.error('Medicine list query failed.', error?.code || 'UNKNOWN');
     res.status(500).json({ success: false, message: 'Gagal mengambil data obat.' });
   }
 };
@@ -140,7 +140,7 @@ export const createMedicine = async (req, res) => {
       }
     }
   } catch (error) {
-    console.error('Error creating medicine:', error);
+    console.error('Medicine creation failed.', error?.code || 'UNKNOWN');
     return res.status(error.code === 'P2002' ? 409 : 500).json({
       success: false,
       message: error.code === 'P2002' ? 'ID obat bentrok. Silakan coba lagi.' : 'Gagal menambahkan obat.'
@@ -230,7 +230,7 @@ export const updateInventory = async (req, res) => {
       data: updatedMedicines
     });
   } catch (error) {
-    console.error('Error updating inventory:', error);
+    console.error('Inventory update failed.', error?.code || 'UNKNOWN');
     res.status(500).json({ success: false, message: 'Gagal memperbarui inventaris.' });
   }
 };
@@ -244,7 +244,7 @@ export const deleteMedicine = async (req, res) => {
     if (error.code === 'P2025') {
       return res.status(404).json({ success: false, message: 'Obat tidak ditemukan.' });
     }
-    console.error('Error deleting medicine:', error);
+    console.error('Medicine deletion failed.', error?.code || 'UNKNOWN');
     return res.status(500).json({ success: false, message: 'Gagal menghapus obat.' });
   }
 };

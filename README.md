@@ -189,3 +189,13 @@ Pembayaran menggunakan QR merchant statis di `frontend/public/images/qris-mercha
 - **Rekomendasi Platform**: Vercel / Netlify / Cloudflare Pages.
 - **Build Command**: `npm run build`
 - **Output Directory**: `dist`
+
+### Admin Platform dan pendaftaran apotek
+
+Frontend memakai `VITE_APP_MODE` untuk memilih portal. Buat Vercel project ketiga dari repository yang sama dengan **Root Directory** `frontend`, **Build Command** `npm run build`, dan environment `VITE_APP_MODE=platform-admin`. Atur `VITE_API_BASE_URL` ke API backend yang sama. Pertahankan nilai `customer` dan `pharmacy` pada dua project yang sudah ada. Backend `ALLOWED_ORIGIN` harus mengizinkan origin admin juga.
+
+Admin pertama tidak memiliki endpoint pendaftaran publik. Bootstrap hanya tersedia lewat `backend/db/bootstrapPlatformAdmin.js`; skrip membaca `PLATFORM_ADMIN_EMAIL`, `PLATFORM_ADMIN_PASSWORD`, dan `PLATFORM_ADMIN_BOOTSTRAP_CONFIRM` dari environment, mewajibkan konfirmasi email, tidak mengubah akun yang sudah ada, serta berhenti jika admin platform sudah terdaftar. Password minimal 14 karakter dan disimpan dengan bcrypt. Konfigurasikan ketiga variabel tersebut secara sementara pada lingkungan yang database targetnya sudah dipastikan, lalu jalankan `npm run db:bootstrap-admin --prefix backend` secara sadar. Jangan menjalankan bootstrap selama koneksi database atau status migrasi belum dipastikan.
+
+Admin dapat masuk ke portal tersebut untuk melihat daftar apotek dan membuat apotek beserta akun staf. Pembuatan apotek dan staf berlangsung dalam satu transaksi; password staf di-hash server dan tidak dikirim kembali di respons API.
+
+Role `platform_admin` memakai kolom `users.role` yang sudah ada, jadi fitur admin tidak menambah tabel atau memerlukan migrasi role. Namun, pemisahan katalog/stok/pesanan untuk multi-apotek memerlukan kolom kepemilikan pada migrasi `20261031_multi_pharmacy`. Karena riwayat migrasi Neon dan repository belum cocok, rekonsiliasi dan penerapan migrasi itu harus menjadi pekerjaan terpisah sebelum fitur katalog apotek baru diaktifkan pada production. Jangan jalankan skrip bootstrap atau migrasi terhadap Neon production sebelum target dan riwayatnya ditinjau.

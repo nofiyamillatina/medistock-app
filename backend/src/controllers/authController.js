@@ -11,7 +11,7 @@ const createAuthToken = (user, secret) => jwt.sign(
     email: user.email
   },
   secret,
-  { expiresIn: '24h' }
+  { expiresIn: user.role === 'platform_admin' ? '2h' : '24h' }
 );
 
 const getJwtSecret = (res) => {
@@ -62,16 +62,15 @@ export const loginPharmacy = async (req, res) => {
         message: 'Username/email atau password tidak valid.'
       });
     }
-    if (!user.pharmacy_id) {
-      return res.status(403).json({ success: false, message: 'Akun staf belum terhubung ke apotek.' });
-    }
-
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
       return res.status(401).json({
         success: false,
         message: 'Username/email atau password tidak valid.'
       });
+    }
+    if (!user.pharmacy_id) {
+      return res.status(403).json({ success: false, message: 'Akun staf belum terhubung ke apotek. Hubungi administrator untuk pemetaan manual.' });
     }
 
     const token = createAuthToken(user, JWT_SECRET);
@@ -83,8 +82,37 @@ export const loginPharmacy = async (req, res) => {
       user: toPublicUser(user)
     });
   } catch (error) {
-    console.error('Login error:', error.message);
+    console.error('Pharmacy login failed.', error?.code || 'UNKNOWN');
     res.status(500).json({ success: false, message: 'Server error saat login.' });
+  }
+};
+
+export const loginPlatformAdmin = async (req, res) => {
+  try {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+    const password = typeof body.password === 'string' ? body.password : '';
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: 'Email dan password wajib diisi.' });
+    }
+
+    const JWT_SECRET = getJwtSecret(res);
+    if (!JWT_SECRET) return;
+
+    const user = await prisma.users.findUnique({ where: { email } });
+    if (!user || user.role !== 'platform_admin' || !(await bcrypt.compare(password, user.password_hash))) {
+      return res.status(401).json({ success: false, message: 'Email atau password admin tidak valid.' });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Login admin berhasil.',
+      token: createAuthToken(user, JWT_SECRET),
+      user: toPublicUser(user)
+    });
+  } catch (error) {
+    console.error('Platform admin login failed.');
+    return res.status(500).json({ success: false, message: 'Server error saat login admin.' });
   }
 };
 
@@ -130,7 +158,7 @@ export const registerCustomer = async (req, res) => {
     if (error.code === 'P2002') {
       return res.status(409).json({ success: false, message: 'Email sudah terdaftar. Silakan masuk.' });
     }
-    console.error('Customer registration error:', error.message);
+    console.error('Customer registration failed.', error?.code || 'UNKNOWN');
     return res.status(500).json({ success: false, message: 'Server error saat mendaftar.' });
   }
 };
@@ -159,7 +187,7 @@ export const loginCustomer = async (req, res) => {
       user: toPublicUser(user)
     });
   } catch (error) {
-    console.error('Customer login error:', error.message);
+    console.error('Customer login failed.', error?.code || 'UNKNOWN');
     return res.status(500).json({ success: false, message: 'Server error saat login.' });
   }
 };

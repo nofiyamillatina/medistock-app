@@ -270,6 +270,57 @@ export const apiService = {
     }
   },
 
+  async loginPlatformAdmin(email, password) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/platform-admin/login`, {
+        method: 'POST',
+        headers: getHeaders(''),
+        body: JSON.stringify({ email, password })
+      });
+      return await res.json();
+    } catch (err) {
+      console.error('API Error loginPlatformAdmin:', err);
+      return { success: false, message: 'Server backend tidak dapat dihubungi.' };
+    }
+  },
+
+  async verifyPlatformAdminToken(token) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/verify`, { headers: getHeaders(token) });
+      const result = await res.json();
+      return { ...result, httpStatus: res.status };
+    } catch (err) {
+      console.error('API Error verifyPlatformAdminToken:', err);
+      return { success: false, httpStatus: 0, message: 'Server backend tidak dapat dihubungi.' };
+    }
+  },
+
+  async getPlatformAdminPharmacies(token) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/pharmacy/admin`, { headers: getHeaders(token) });
+      const result = await res.json();
+      return { ...result, httpStatus: res.status };
+    } catch (err) {
+      console.error('API Error getPlatformAdminPharmacies:', err);
+      return { success: false, message: 'Server backend tidak dapat dihubungi.' };
+    }
+  },
+
+  async createPharmacyWithStaff(payload, token) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/pharmacy/admin`, {
+        method: 'POST',
+        headers: getHeaders(token),
+        body: JSON.stringify(payload)
+      });
+      const result = await res.json();
+      return { ...result, httpStatus: res.status };
+    } catch (err) {
+      console.error('API Error createPharmacyWithStaff:', err);
+      return { success: false, message: 'Server backend tidak dapat dihubungi.' };
+    }
+  },
+
   async loginCustomer(email, password) {
     try {
       const res = await fetch(`${API_BASE_URL}/auth/customer/login`, {

@@ -72,7 +72,7 @@ export const getOrders = async (req, res) => {
 
     res.json({ success: true, data: orders });
   } catch (error) {
-    console.error('Error fetching orders:', error);
+    console.error('Order list query failed.', error?.code || 'UNKNOWN');
     res.status(500).json({ success: false, message: 'Gagal mengambil data pesanan.' });
   }
 };
@@ -89,7 +89,7 @@ export const resetOrders = async (req, res) => {
     const result = await prisma.orders.deleteMany({ where });
     return res.json({ success: true, deletedCount: result.count, message: `${result.count} data pesanan berhasil direset.` });
   } catch (error) {
-    console.error('Error resetting orders:', error);
+    console.error('Order reset failed.', error?.code || 'UNKNOWN');
     return res.status(500).json({ success: false, message: 'Gagal mereset data pesanan.' });
   }
 };
@@ -128,7 +128,7 @@ export const getCustomerOrders = async (req, res) => {
 
     res.json({ success: true, data: orders });
   } catch (error) {
-    console.error('Error fetching customer order history:', error);
+    console.error('Customer order history query failed.', error?.code || 'UNKNOWN');
     res.status(500).json({ success: false, message: 'Gagal mengambil riwayat pemesanan.' });
   }
 };
@@ -156,7 +156,7 @@ export const trackOrder = async (req, res) => {
       items: order.items.map((item) => ({ medicineId: item.medicine_id, name: item.name, qty: item.qty, price: item.price }))
     } });
   } catch (error) {
-    console.error('Error tracking order:', error);
+    console.error('Order tracking query failed.', error?.code || 'UNKNOWN');
     res.status(500).json({ success: false, message: 'Gagal memuat status pesanan.' });
   }
 };
@@ -178,7 +178,7 @@ export const completeDeliveryOrder = async (req, res) => {
     const updatedOrder = await prisma.orders.findUnique({ where: { id } });
     res.json({ success: true, message: 'Pesanan berhasil ditandai selesai.', data: { id: updatedOrder.id, orderStatus: updatedOrder.order_status } });
   } catch (error) {
-    console.error('Error completing delivery order:', error);
+    console.error('Delivery completion failed.', error?.code || 'UNKNOWN');
     res.status(500).json({ success: false, message: 'Gagal menyelesaikan pesanan.' });
   }
 };
@@ -207,7 +207,7 @@ export const submitOrderReview = async (req, res) => {
     if (result.count !== 1) return res.status(409).json({ success: false, message: 'Ulasan untuk pesanan ini sudah dikirim.' });
     res.json({ success: true, message: 'Terima kasih, ulasan Anda berhasil dikirim.', data: { reviewRating: rating, reviewComment: comment } });
   } catch (error) {
-    console.error('Error submitting order review:', error);
+    console.error('Order review submission failed.', error?.code || 'UNKNOWN');
     res.status(500).json({ success: false, message: 'Gagal menyimpan ulasan.' });
   }
 };
@@ -317,7 +317,7 @@ export const createOrder = async (req, res) => {
     });
   } catch (error) {
     if (error.statusCode) return res.status(error.statusCode).json({ success: false, message: error.message });
-    console.error('Error creating order:', error);
+    console.error('Order creation failed.', error?.code || 'UNKNOWN');
     res.status(500).json({ success: false, message: 'Gagal membuat pesanan.' });
   }
 };
@@ -335,7 +335,7 @@ export const getCustomerPaymentStatus = async (req, res) => {
       orderStatus: order.order_status
     } });
   } catch (error) {
-    console.error('Error checking customer payment status:', error);
+    console.error('Customer payment status query failed.', error?.code || 'UNKNOWN');
     res.status(500).json({ success: false, message: 'Gagal memeriksa status pembayaran.' });
   }
 };
@@ -352,7 +352,7 @@ export const confirmPayment = async (req, res) => {
     }
     return res.json({ success: true, message: 'Pembayaran telah diverifikasi oleh apotek.' });
   } catch (error) {
-    console.error('Error confirming customer payment:', error);
+    console.error('Customer payment confirmation failed.', error?.code || 'UNKNOWN');
     res.status(500).json({ success: false, message: 'Gagal memeriksa konfirmasi pembayaran.' });
   }
 };
@@ -360,12 +360,11 @@ export const confirmPayment = async (req, res) => {
 export const verifyCustomerPayment = async (req, res) => {
   try {
     const result = await prisma.$transaction(async (tx) => {
-      const order = await tx.orders.findUnique({
-        where: { id: req.params.id },
+      const order = await tx.orders.findFirst({
+        where: { id: req.params.id, pharmacy_id: req.user.pharmacyId },
         include: { items: true }
       });
       if (!order) return { status: 404, message: 'Pesanan tidak ditemukan.' };
-      if (order.pharmacy_id !== req.user.pharmacyId) return { status: 404, message: 'Pesanan tidak ditemukan.' };
       if (order.payment_status === 'Lunas (QRIS)') {
         return { status: 200, message: 'Pembayaran pesanan ini sudah diverifikasi.' };
       }
@@ -395,7 +394,10 @@ export const verifyCustomerPayment = async (req, res) => {
         data: { payment_status: 'Lunas (QRIS)', order_status: 'Menunggu Konfirmasi' }
       });
       if (transition.count !== 1) {
-        const latest = await tx.orders.findUnique({ where: { id: order.id }, select: { payment_status: true } });
+        const latest = await tx.orders.findFirst({
+          where: { id: order.id, pharmacy_id: req.user.pharmacyId },
+          select: { payment_status: true }
+        });
         return latest?.payment_status === 'Lunas (QRIS)'
           ? { status: 200, message: 'Pembayaran pesanan ini sudah diverifikasi.' }
           : { status: 409, message: 'Status pesanan berubah. Muat ulang daftar pesanan.' };
@@ -423,7 +425,7 @@ export const verifyCustomerPayment = async (req, res) => {
     return res.json({ success: true, message: result.message });
   } catch (error) {
     if (error.statusCode) return res.status(error.statusCode).json({ success: false, message: error.message });
-    console.error('Error verifying customer payment:', error);
+    console.error('Customer payment verification failed.', error?.code || 'UNKNOWN');
     res.status(500).json({ success: false, message: 'Gagal memverifikasi pembayaran.' });
   }
 };
@@ -444,9 +446,11 @@ export const updateOrderStatus = async (req, res) => {
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      const order = await tx.orders.findUnique({ where: { id }, include: { items: true } });
+      const order = await tx.orders.findFirst({
+        where: { id, pharmacy_id: req.user.pharmacyId },
+        include: { items: true }
+      });
       if (!order) return { status: 404, message: 'Pesanan tidak ditemukan.' };
-      if (order.pharmacy_id !== req.user.pharmacyId) return { status: 404, message: 'Pesanan tidak ditemukan.' };
       if (order.order_status === 'Selesai' || order.order_status === 'Dibatalkan') {
         return { status: 409, message: 'Pesanan ini sudah berakhir.' };
       }
@@ -512,10 +516,13 @@ export const updateOrderStatus = async (req, res) => {
         for (const [medicineId, quantity] of restoredQuantities) {
           const medicine = medicines.find((entry) => entry.id === medicineId);
           const stock = medicine.stock + quantity;
-          await tx.medicines.update({
-            where: { id: medicineId },
+          const restored = await tx.medicines.updateMany({
+            where: { id: medicineId, pharmacy_id: req.user.pharmacyId },
             data: { stock, status: stock > 0 ? 'Tersedia' : medicine.status }
           });
+          if (restored.count !== 1) {
+            throw Object.assign(new Error(`Stok ${medicine.name} tidak dapat dipulihkan.`), { statusCode: 409 });
+          }
         }
       }
       return { status: 200 };
@@ -528,7 +535,7 @@ export const updateOrderStatus = async (req, res) => {
       : `Status pesanan ${id} berhasil diperbarui menjadi '${orderStatus}'.` });
   } catch (error) {
     if (error.statusCode) return res.status(error.statusCode).json({ success: false, message: error.message });
-    console.error('Error updating order status:', error);
+    console.error('Order status update failed.', error?.code || 'UNKNOWN');
     res.status(500).json({ success: false, message: 'Gagal memperbarui status pesanan.' });
   }
 };

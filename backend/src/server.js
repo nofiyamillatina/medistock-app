@@ -26,6 +26,9 @@ const PORT = process.env.PORT || 5000;
 const HOST = process.env.HOST || '0.0.0.0';
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
+// Vercel and the Render web service sit behind one trusted proxy hop.
+app.set('trust proxy', 1);
+
 // --- CORS Configuration ---
 // In development, allow the Vite dev server (localhost:3000).
 // In production, set ALLOWED_ORIGIN env var to your actual frontend domain(s) or wildcard '*'.
@@ -84,7 +87,7 @@ app.use((req, res) => {
 // --- Global Error Handler ---
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
-  console.error('❌ Unhandled server error:', err.stack || err.message);
+  console.error('❌ Unhandled server error:', err?.code || err?.name || 'UNKNOWN');
   res.status(500).json({ success: false, message: 'Terjadi kesalahan internal pada server.' });
 });
 

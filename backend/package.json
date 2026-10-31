@@ -12,7 +12,8 @@
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:migrate:status": "prisma migrate status",
-    "db:seed": "node db/seed.js"
+    "db:seed": "node db/seed.js",
+    "db:bootstrap-admin": "node db/bootstrapPlatformAdmin.js"
   },
   "dependencies": {
     "@prisma/client": "^5.10.2",

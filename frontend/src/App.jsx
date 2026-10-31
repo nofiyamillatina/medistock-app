@@ -12,6 +12,7 @@ import PharmacyDashboardView from './components/pharmacy/PharmacyDashboardView.j
 import { apiService } from './services/api.js';
 import { formatIDR } from './services/formatters.js';
 import { getDisplayStock, isValidStockInput, STOCK_VALIDATION_MESSAGE } from './utils/stock.js';
+import PlatformAdminPortal from './components/platformAdmin/PlatformAdminPortal.jsx';
 
 function SplashScreen() {
   return <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white" role="status" aria-label="MEDISTOCK sedang memuat">
@@ -21,7 +22,7 @@ function SplashScreen() {
   </div>;
 }
 
-export default function App() {
+function MainApplication() {
   // Mode website: customer atau pharmacy
   const appMode = import.meta.env.VITE_APP_MODE || 'demo';
 
@@ -842,4 +843,10 @@ export default function App() {
       <AppDialog dialog={appDialog} onClose={closeAppDialog} />
     </div>
   );
+}
+
+export default function App() {
+  const appMode = import.meta.env.VITE_APP_MODE || 'demo';
+  if (appMode === 'platform-admin') return <PlatformAdminPortal />;
+  return <MainApplication />;
 }
