@@ -104,13 +104,21 @@ process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 // --- Start Server ---
-seedDatabase().then(() => {
-  app.listen(PORT, HOST, () => {
-    console.log(`🚀 MEDISTOCK Backend Server running on http://${HOST}:${PORT}`);
-    console.log(`   Environment : ${NODE_ENV}`);
-    console.log(`   CORS origin : ${allowedOrigins.join(', ') || '(permissive fallback)'}`);
-  });
-}).catch(err => {
-  console.error('❌ Failed to start server due to DB initialization error:', err);
-  process.exit(1);
-});
+const startServer = async () => {
+  try {
+    if (NODE_ENV !== 'production') {
+      await seedDatabase();
+    }
+
+    app.listen(PORT, HOST, () => {
+      console.log(`MEDISTOCK Backend Server running on http://${HOST}:${PORT}`);
+      console.log(`Environment: ${NODE_ENV}`);
+      console.log(`CORS origin: ${allowedOrigins.join(', ') || '(permissive fallback)'}`);
+    });
+  } catch (err) {
+    console.error('Failed to start server:', err);
+    process.exit(1);
+  }
+};
+
+startServer();
