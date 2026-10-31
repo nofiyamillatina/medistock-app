@@ -584,18 +584,36 @@ export default function App() {
   return (
     <div className="flex-1 flex flex-col min-h-screen selection:bg-primary selection:text-white font-sans bg-slate-50 text-navy">
       {showSplash && <SplashScreen />}
-      {/* Top Demo Route Switcher Bar */}
-      {appMode === 'demo' && (
-      <DemoBanner
-        currentView={currentView}
-        setCurrentView={setCurrentView}
-        isLoggedIn={isLoggedIn}
-        onOpenPharmacy={handleOpenPharmacy}
-        onCustomerLogin={handleOpenCustomerLogin}
-        theme={theme}
-        onThemeChange={setTheme}
-      />
-      )}
+      
+{/* Top Demo Route Switcher Bar */}
+{appMode === 'demo' ? (
+  <DemoBanner
+    currentView={currentView}
+    setCurrentView={setCurrentView}
+    isLoggedIn={isLoggedIn}
+    onOpenPharmacy={handleOpenPharmacy}
+    onCustomerLogin={handleOpenCustomerLogin}
+    theme={theme}
+    onThemeChange={setTheme}
+  />
+) : (
+  <div className="flex items-center justify-between bg-navy px-4 py-3 text-white">
+    <span className="font-semibold tracking-wide">MEDISTOCK</span>
+    <label className="flex items-center gap-2 text-xs">
+      <span>Tema</span>
+      <select
+        value={theme}
+        onChange={(event) => setTheme(event.target.value)}
+        className="rounded border border-slate-600 bg-navy px-2 py-1.5 text-white"
+        aria-label="Pilih tema tampilan"
+      >
+        <option value="light">Terang</option>
+        <option value="dark">Gelap</option>
+        <option value="system">Sesuai perangkat</option>
+      </select>
+    </label>
+  </div>
+)}
 
       {/* Main Container */}
       <main className="flex-1 flex flex-col bg-slate-50">
