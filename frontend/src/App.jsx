@@ -28,23 +28,38 @@ function MainApplication() {
   const appMode = import.meta.env.VITE_APP_MODE || 'demo';
 
   // Halaman pertama sesuai website yang dibuka
-  const [currentView, setCurrentView] = useState(() => {
-    if (appMode === 'customer') {
-      return localStorage.getItem('medistock_customer_token')
-        ? 'pharmacy-choice'
-        : 'customer-login';
+  
+const [currentView, setCurrentView] = useState(() => {
+  if (appMode === 'customer') {
+    const savedToken = localStorage.getItem('medistock_customer_token');
+    const savedView = sessionStorage.getItem('medistock_customer_view');
+
+    if (!savedToken) return 'customer-login';
+
+    return ['customer', 'pharmacy-choice'].includes(savedView)
+      ? savedView
+      : 'pharmacy-choice';
   }
 
-    if (appMode === 'pharmacy') {
-      return localStorage.getItem('medistock_token')
-        ? 'admin-dashboard'
-        : 'admin-login';
-    }
+  if (appMode === 'pharmacy') {
+    return localStorage.getItem('medistock_token')
+      ? 'admin-dashboard'
+      : 'admin-login';
+  }
 
-    return 'customer';
-  });
+  return 'customer';
+});
+
   const currentViewRef = useRef(currentView);
   currentViewRef.current = currentView;
+  useEffect(() => {
+  if (appMode !== 'customer') return;
+
+  if (['customer', 'pharmacy-choice'].includes(currentView)) {
+    sessionStorage.setItem('medistock_customer_view', currentView);
+  }
+}, [appMode, currentView]);
+
   const [theme, setTheme] = useState(() => {
     const savedTheme = localStorage.getItem('medistock_theme');
     return ['light', 'dark', 'system'].includes(savedTheme) ? savedTheme : 'system';
@@ -91,7 +106,13 @@ function MainApplication() {
             JSON.stringify(result.user)
           );
           setCustomerUser(result.user);
-          setCurrentView('pharmacy-choice');
+          const savedView = sessionStorage.getItem('medistock_customer_view');
+
+          setCurrentView(
+            ['customer', 'pharmacy-choice'].includes(savedView)
+              ? savedView
+              : 'pharmacy-choice'
+          );
         } else if (result.httpStatus === 401) {
           localStorage.removeItem('medistock_customer_token');
           localStorage.removeItem('medistock_customer_user');
@@ -584,6 +605,7 @@ function MainApplication() {
   localStorage.removeItem('medistock_customer_token');
   localStorage.removeItem('medistock_customer_user');
   localStorage.removeItem('medistock_selected_pharmacy');
+  sessionStorage.removeItem('medistock_customer_view');
 
   setCustomerUser(null);
   setSelectedPharmacyId('');
