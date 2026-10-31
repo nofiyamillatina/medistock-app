@@ -22,8 +22,15 @@ function SplashScreen() {
 }
 
 export default function App() {
-  // Router / Navigation state
-  const [currentView, setCurrentView] = useState('customer'); // customer | customer-login | checkout | qris | admin-login | admin-dashboard
+  // Mode website: customer atau pharmacy
+  const appMode = import.meta.env.VITE_APP_MODE || 'demo';
+
+  // Halaman pertama sesuai website yang dibuka
+  const [currentView, setCurrentView] = useState(() => {
+    if (appMode === 'customer') return 'customer-login';
+    if (appMode === 'pharmacy') return 'admin-login';
+    return 'customer';
+  });
   const [theme, setTheme] = useState(() => {
     const savedTheme = localStorage.getItem('medistock_theme');
     return ['light', 'dark', 'system'].includes(savedTheme) ? savedTheme : 'system';
@@ -578,6 +585,7 @@ export default function App() {
     <div className="flex-1 flex flex-col min-h-screen selection:bg-primary selection:text-white font-sans bg-slate-50 text-navy">
       {showSplash && <SplashScreen />}
       {/* Top Demo Route Switcher Bar */}
+      {appMode === 'demo' && (
       <DemoBanner
         currentView={currentView}
         setCurrentView={setCurrentView}
@@ -587,6 +595,7 @@ export default function App() {
         theme={theme}
         onThemeChange={setTheme}
       />
+      )}
 
       {/* Main Container */}
       <main className="flex-1 flex flex-col bg-slate-50">
