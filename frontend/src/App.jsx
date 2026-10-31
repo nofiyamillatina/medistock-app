@@ -586,6 +586,7 @@ export default function App() {
       {showSplash && <SplashScreen />}
       
 {/* Top Demo Route Switcher Bar */}
+
 {appMode === 'demo' ? (
   <DemoBanner
     currentView={currentView}
@@ -597,22 +598,73 @@ export default function App() {
     onThemeChange={setTheme}
   />
 ) : (
-  <div className="flex items-center justify-between bg-navy px-4 py-3 text-white">
-    <span className="font-semibold tracking-wide">MEDISTOCK</span>
-    <label className="flex items-center gap-2 text-xs">
-      <span>Tema</span>
-      <select
-        value={theme}
-        onChange={(event) => setTheme(event.target.value)}
-        className="rounded border border-slate-600 bg-navy px-2 py-1.5 text-white"
-        aria-label="Pilih tema tampilan"
+  <button
+    type="button"
+    onClick={() =>
+      setTheme(
+        theme === 'light'
+          ? 'dark'
+          : theme === 'dark'
+            ? 'system'
+            : 'light'
+      )
+    }
+    title={
+      theme === 'light'
+        ? 'Tema terang'
+        : theme === 'dark'
+          ? 'Tema gelap'
+          : 'Sesuai perangkat'
+    }
+    aria-label="Ganti mode tampilan"
+    className="fixed right-5 top-5 z-[110] flex h-11 w-11 items-center justify-center rounded-full border border-slate-200/70 bg-white/90 text-slate-700 shadow-lg backdrop-blur transition-all duration-200 hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-primary"
+  >
+    {theme === 'dark' ? (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       >
-        <option value="light">Terang</option>
-        <option value="dark">Gelap</option>
-        <option value="system">Sesuai perangkat</option>
-      </select>
-    </label>
-  </div>
+        <path d="M20.9 13A9 9 0 0 1 11 3.1 9 9 0 1 0 20.9 13Z" />
+      </svg>
+    ) : theme === 'system' ? (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <rect x="3" y="4" width="18" height="13" rx="2" />
+        <path d="M8 21h8M12 17v4" />
+      </svg>
+    ) : (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <circle cx="12" cy="12" r="4" />
+        <path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42" />
+      </svg>
+    )}
+  </button>
 )}
 
       {/* Main Container */}
