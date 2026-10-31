@@ -1,13 +1,11 @@
 import React, { useMemo } from 'react';
-import { Search, Sun, Moon, Monitor } from 'lucide-react';
+import { Search, Store, Sun, Moon, Monitor } from 'lucide-react';
 import MedicineCard from './MedicineCard.jsx';
 import { formatIDR } from '../../services/formatters.js';
 
 export default function CustomerHomeView({
   medicines = [],
-  pharmacies = [],
-  selectedPharmacyId,
-  onSelectPharmacy,
+  onChangePharmacy,
   pharmacyName = 'Apotek',
   searchQuery,
   setSearchQuery,
@@ -45,12 +43,10 @@ export default function CustomerHomeView({
         <div className="flex items-center justify-between">
           <div>
             <img src="/images/medistock-wordmark.png" alt="MEDISTOCK" className="aspect-[5.2/1] w-56 object-cover sm:w-64" />
-            <p className="text-xs text-slate-500 font-medium mt-1">
-              Apotek tujuan:
-              <select aria-label="Pilih apotek" value={selectedPharmacyId} onChange={(event) => onSelectPharmacy?.(event.target.value)} className="ml-2 max-w-52 rounded border border-slate-200 bg-white px-2 py-1 text-slate-800 font-semibold">
-                {pharmacies.map((pharmacy) => <option key={pharmacy.id} value={pharmacy.id}>{pharmacy.name}</option>)}
-              </select>
-            </p>
+            <button type="button" onClick={onChangePharmacy} className="mt-3 inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:border-primary/40 hover:bg-primary-soft hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 sm:text-sm">
+              <Store size={16} aria-hidden="true" />
+              <span>Ganti Apotek</span>
+            </button>
           </div>
                     <div className="flex flex-col items-end gap-2 text-right">
             {onThemeChange && (

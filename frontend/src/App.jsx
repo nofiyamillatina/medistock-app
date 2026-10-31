@@ -7,6 +7,7 @@ import CheckoutView from './components/customer/CheckoutView.jsx';
 import QRISPaymentView from './components/customer/QRISPaymentView.jsx';
 import CustomerHistoryView from './components/customer/CustomerHistoryView.jsx';
 import CustomerAuthView from './components/customer/CustomerAuthView.jsx';
+import PharmacySelectionView from './components/customer/PharmacySelectionView.jsx';
 import PharmacyLoginView from './components/pharmacy/PharmacyLoginView.jsx';
 import PharmacyDashboardView from './components/pharmacy/PharmacyDashboardView.jsx';
 import { apiService } from './services/api.js';
@@ -30,7 +31,7 @@ function MainApplication() {
   const [currentView, setCurrentView] = useState(() => {
     if (appMode === 'customer') {
       return localStorage.getItem('medistock_customer_token')
-        ? 'customer'
+        ? 'pharmacy-choice'
         : 'customer-login';
   }
 
@@ -48,13 +49,16 @@ function MainApplication() {
     const savedTheme = localStorage.getItem('medistock_theme');
     return ['light', 'dark', 'system'].includes(savedTheme) ? savedTheme : 'system';
   });
-  const [customerAuthReturnView, setCustomerAuthReturnView] = useState('customer');
   const [adminTab, setAdminTab] = useState('orders'); // 'orders' | 'inventory' | 'reports'
 
   // Application Data State
   const [isStoreOpen, setIsStoreOpen] = useState(true);
   const [pharmacies, setPharmacies] = useState([]);
-  const [selectedPharmacyId, setSelectedPharmacyId] = useState(() => localStorage.getItem('medistock_selected_pharmacy') || 'APOTEK-1');
+  const [loadingPharmacies, setLoadingPharmacies] = useState(true);
+  const [errorPharmacies, setErrorPharmacies] = useState('');
+  const [selectedPharmacyId, setSelectedPharmacyId] = useState(() => appMode === 'customer'
+    ? localStorage.getItem('medistock_selected_pharmacy') || ''
+    : localStorage.getItem('medistock_selected_pharmacy') || 'APOTEK-1');
   const [showSplash, setShowSplash] = useState(true);
   const [medicines, setMedicines] = useState([]);
   const hasLoadedMedicines = useRef(false);
@@ -87,7 +91,7 @@ function MainApplication() {
             JSON.stringify(result.user)
           );
           setCustomerUser(result.user);
-          setCurrentView('customer');
+          setCurrentView('pharmacy-choice');
         } else if (result.httpStatus === 401) {
           localStorage.removeItem('medistock_customer_token');
           localStorage.removeItem('medistock_customer_user');
@@ -143,6 +147,7 @@ function MainApplication() {
   // Customer State
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState([]);
+  const [cartPharmacyId, setCartPharmacyId] = useState('');
   const [deliveryMethod, setDeliveryMethod] = useState('Pengantaran');
   const [paymentMethod, setPaymentMethod] = useState('QRIS');
   const [customerInfo, setCustomerInfo] = useState({ name: '', phone: '', address: '' });
@@ -184,7 +189,27 @@ function MainApplication() {
   }, [theme]);
 
   // Data Fetching Handlers
+  const fetchPharmacies = useCallback(async () => {
+    setLoadingPharmacies(true);
+    setErrorPharmacies('');
+    const result = await apiService.getPharmacies();
+    if (result?.success && Array.isArray(result.data)) {
+      setPharmacies(result.data);
+      setSelectedPharmacyId((currentId) => {
+        if (result.data.some((pharmacy) => pharmacy.id === currentId)) return currentId;
+        return appMode === 'customer' ? '' : result.data[0]?.id || '';
+      });
+    } else {
+      setErrorPharmacies(result?.message || 'Gagal memuat daftar apotek.');
+    }
+    setLoadingPharmacies(false);
+  }, [appMode]);
+
   const fetchPharmacyInfo = useCallback(async (accessToken = null) => {
+    if (!selectedPharmacyId || (appMode === 'customer' && ['customer-login', 'pharmacy-choice'].includes(currentViewRef.current))) {
+      setLoadingPharmacyInfo(false);
+      return;
+    }
     setLoadingPharmacyInfo(true);
     setErrorPharmacyInfo(null);
     const pharmacyToken = accessToken || ((appMode === 'pharmacy' || currentViewRef.current === 'admin-dashboard') ? token : null);
@@ -196,9 +221,15 @@ function MainApplication() {
       setErrorPharmacyInfo(pInfo?.message || 'Gagal memuat informasi apotek.');
     }
     setLoadingPharmacyInfo(false);
-  }, [selectedPharmacyId, token]);
+  }, [appMode, selectedPharmacyId, token]);
 
   const fetchMedicines = useCallback(async (query = '', accessToken = null) => {
+  if (!selectedPharmacyId || (appMode === 'customer' && ['customer-login', 'pharmacy-choice'].includes(currentViewRef.current))) {
+    setMedicines([]);
+    setLoadingMedicines(false);
+    setErrorMedicines(null);
+    return;
+  }
   if (!hasLoadedMedicines.current) {
     setLoadingMedicines(true);
   }
@@ -224,22 +255,16 @@ function MainApplication() {
   }
 
   setLoadingMedicines(false);
-}, [selectedPharmacyId, token]);
+}, [appMode, selectedPharmacyId, token]);
 
   useEffect(() => {
-    apiService.getPharmacies().then((result) => {
-      if (!result?.success || !Array.isArray(result.data)) return;
-      setPharmacies(result.data);
-      if (!result.data.some((pharmacy) => pharmacy.id === selectedPharmacyId)) {
-        const firstPharmacy = result.data[0];
-        if (firstPharmacy) setSelectedPharmacyId(firstPharmacy.id);
-      }
-    });
-  }, []);
+    fetchPharmacies();
+  }, [fetchPharmacies]);
 
   useEffect(() => {
     if (selectedPharmacyId) localStorage.setItem('medistock_selected_pharmacy', selectedPharmacyId);
-  }, [selectedPharmacyId]);
+    else if (appMode === 'customer') localStorage.removeItem('medistock_selected_pharmacy');
+  }, [appMode, selectedPharmacyId]);
 
   const fetchOrders = useCallback(async () => {
     setLoadingOrders(true);
@@ -280,13 +305,17 @@ function MainApplication() {
     let isActive = true;
     const minimumSplashDuration = new Promise((resolve) => window.setTimeout(resolve, 5000));
     const loadInitialData = async () => {
+      if (appMode === 'customer' && (!selectedPharmacyId || ['customer-login', 'pharmacy-choice'].includes(currentView))) {
+        if (isActive) setShowSplash(false);
+        return;
+      }
       await Promise.all([fetchPharmacyInfo(), fetchMedicines()]);
       await minimumSplashDuration;
       if (isActive) setShowSplash(false);
     };
     loadInitialData();
     return () => { isActive = false; };
-  }, [fetchPharmacyInfo, fetchMedicines]);
+  }, [appMode, currentView, fetchPharmacyInfo, fetchMedicines, selectedPharmacyId]);
 
   // Refresh the customer catalog when the app returns to the foreground, and periodically while viewing it.
   useEffect(() => {
@@ -311,6 +340,14 @@ function MainApplication() {
 
   // Cart Functions
   const addToCart = (med) => {
+    if (!selectedPharmacyId || !pharmacies.some((pharmacy) => pharmacy.id === selectedPharmacyId)) {
+      showNotice('Pilih apotek aktif sebelum menambahkan obat ke keranjang.', 'warning', 'Pilih apotek');
+      return;
+    }
+    if (cartPharmacyId && cartPharmacyId !== selectedPharmacyId) {
+      showNotice('Keranjang hanya dapat berisi obat dari satu apotek.', 'warning', 'Apotek berubah');
+      return;
+    }
     if (!isStoreOpen) {
       showNotice('Mohon maaf, toko sedang tutup saat ini.');
       return;
@@ -325,6 +362,7 @@ function MainApplication() {
 
     setCurrentOrder(null);
     setShowSuccessModal(false);
+    setCartPharmacyId(selectedPharmacyId);
     setCart((prev) => {
       const existing = prev.find((item) => item.id === med.id);
       if (existing) return prev.map((item) => (item.id === med.id ? { ...item, qty: item.qty + 1 } : item));
@@ -333,6 +371,10 @@ function MainApplication() {
   };
 
   const updateCartQty = (medId, delta) => {
+    if (cartPharmacyId && cartPharmacyId !== selectedPharmacyId) {
+      showNotice('Pilih kembali apotek asal keranjang sebelum mengubah pesanan.', 'warning', 'Apotek berubah');
+      return;
+    }
     const medicine = medicines.find((item) => item.id === medId);
     const currentItem = cart.find((item) => item.id === medId);
     const availableStock = medicine ? getDisplayStock(medicine.stock) : 0;
@@ -367,8 +409,14 @@ function MainApplication() {
   // Navigation & Checkout Handlers
   const handleProceedToCheckout = () => {
     if (cart.length === 0) return;
+    if (!selectedPharmacyId || cartPharmacyId !== selectedPharmacyId || !pharmacies.some((pharmacy) => pharmacy.id === selectedPharmacyId)) {
+      showNotice('Pilih apotek tujuan dan tambahkan kembali obat dari katalog apotek tersebut.', 'warning', 'Apotek belum dipilih');
+      setCart([]);
+      setCartPharmacyId('');
+      setCurrentView('pharmacy-choice');
+      return;
+    }
     if (!customerUser) {
-      setCustomerAuthReturnView('checkout');
       setCurrentView('customer-login');
       return;
     }
@@ -389,6 +437,16 @@ function MainApplication() {
     e.preventDefault();
     if (currentOrder?.paymentStatus === 'Menunggu Pembayaran') {
       setCurrentView('qris');
+      return;
+    }
+    if (!selectedPharmacyId
+      || cartPharmacyId !== selectedPharmacyId
+      || !pharmacies.some((pharmacy) => pharmacy.id === selectedPharmacyId)
+      || cart.some((item) => !medicines.some((medicine) => medicine.id === item.id))) {
+      showNotice('Apotek atau katalog berubah. Pilih apotek kembali lalu susun ulang keranjang.', 'warning', 'Periksa apotek tujuan');
+      setCart([]);
+      setCartPharmacyId('');
+      setCurrentView('pharmacy-choice');
       return;
     }
     if (!customerInfo.name || !customerInfo.phone) {
@@ -462,6 +520,7 @@ function MainApplication() {
 
   const resetCustomerFlow = () => {
     setCart([]);
+    setCartPharmacyId('');
     setCustomerInfo({ name: '', phone: '', address: '' });
     setCurrentOrder(null);
     setShowSuccessModal(false);
@@ -498,8 +557,16 @@ function MainApplication() {
     if (result?.success) {
       localStorage.setItem('medistock_customer_token', result.token);
       localStorage.setItem('medistock_customer_user', JSON.stringify(result.user));
+      localStorage.removeItem('medistock_selected_pharmacy');
       setCustomerUser(result.user);
-      setCurrentView(customerAuthReturnView);
+      setSelectedPharmacyId('');
+      setCart([]);
+      setCartPharmacyId('');
+      setCurrentOrder(null);
+      setShowSuccessModal(false);
+      setMedicines([]);
+      hasLoadedMedicines.current = false;
+      setCurrentView('pharmacy-choice');
       return { success: true };
     }
     return { success: false, message: result?.message || 'Email atau password tidak valid.' };
@@ -525,7 +592,6 @@ function MainApplication() {
       setCurrentView('customer-history');
       return;
     }
-    setCustomerAuthReturnView('customer-history');
     setCurrentView('customer-login');
   };
 
@@ -536,9 +602,10 @@ function MainApplication() {
   };
 
   const handleOpenCustomerLogin = () => {
-    setCustomerAuthReturnView('customer');
     setCurrentView('customer-login');
   };
+
+  const handleOpenPharmacySelection = () => setCurrentView('pharmacy-choice');
 
   const handleToggleStoreOpen = async (newStatus) => {
     setIsStoreOpen(newStatus);
@@ -552,11 +619,22 @@ function MainApplication() {
   };
 
   const handleSelectPharmacy = (pharmacyId) => {
-    if (pharmacyId === selectedPharmacyId) return;
-    setSelectedPharmacyId(pharmacyId);
-    setCart([]);
-    setCurrentOrder(null);
-    setShowSuccessModal(false);
+    const pharmacy = pharmacies.find((item) => item.id === pharmacyId);
+    if (!pharmacy) {
+      showNotice('Apotek tidak tersedia atau sedang nonaktif. Pilih apotek lain.', 'warning', 'Apotek tidak tersedia');
+      return;
+    }
+    if (pharmacyId !== selectedPharmacyId) {
+      setSelectedPharmacyId(pharmacyId);
+      setCart([]);
+      setCartPharmacyId('');
+      setCurrentOrder(null);
+      setShowSuccessModal(false);
+      setMedicines([]);
+      hasLoadedMedicines.current = false;
+      setIsStoreOpen(Boolean(pharmacy.isOpen));
+    }
+    if (currentViewRef.current === 'pharmacy-choice') setCurrentView('customer');
   };
 
   const handleUpdateOrderStatus = async (orderId, newStatus, options = {}) => {
@@ -724,12 +802,21 @@ function MainApplication() {
 
       {/* Main Container */}
       <main className="flex-1 flex flex-col bg-slate-50">
+        {currentView === 'pharmacy-choice' && <PharmacySelectionView
+          pharmacies={pharmacies}
+          selectedPharmacyId={selectedPharmacyId}
+          loading={loadingPharmacies}
+          error={errorPharmacies}
+          onRetry={fetchPharmacies}
+          onSelect={handleSelectPharmacy}
+          customerUser={customerUser}
+          onLogout={handleCustomerLogout}
+        />}
+
         {currentView === 'customer' && (
           <CustomerHomeView
             medicines={medicines}
-            pharmacies={pharmacies}
-            selectedPharmacyId={selectedPharmacyId}
-            onSelectPharmacy={handleSelectPharmacy}
+            onChangePharmacy={handleOpenPharmacySelection}
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
             cart={cart}
