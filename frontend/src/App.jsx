@@ -581,11 +581,20 @@ function MainApplication() {
   );
 
   const handleCustomerLogout = () => {
-    localStorage.removeItem('medistock_customer_token');
-    localStorage.removeItem('medistock_customer_user');
-    setCustomerUser(null);
-    setCurrentView('customer');
-  };
+  localStorage.removeItem('medistock_customer_token');
+  localStorage.removeItem('medistock_customer_user');
+  localStorage.removeItem('medistock_selected_pharmacy');
+
+  setCustomerUser(null);
+  setSelectedPharmacyId('');
+  setCart([]);
+  setCartPharmacyId('');
+  setCurrentOrder(null);
+  setShowSuccessModal(false);
+  setMedicines([]);
+  hasLoadedMedicines.current = false;
+  setCurrentView('customer-login');
+};
 
   const handleOpenCustomerHistory = () => {
     if (customerUser) {
