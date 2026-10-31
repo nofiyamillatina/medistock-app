@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import DemoBanner from './components/common/DemoBanner.jsx';
 import Footer from './components/common/Footer.jsx';
 import AppDialog from './components/common/AppDialog.jsx';
@@ -16,7 +16,7 @@ import { getDisplayStock, isValidStockInput, STOCK_VALIDATION_MESSAGE } from './
 function SplashScreen() {
   return <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white" role="status" aria-label="MEDISTOCK sedang memuat">
     <img src="/images/medistock-logo.png" alt="MEDISTOCK" className="h-auto w-56 sm:w-72" />
-    <p className="mt-8 text-sm font-semibold tracking-wide text-slate-500">Menyiapkan MEDISTOCK...</p>
+    <p className="mt-8 text-sm font-semibold tracking-wide text-slate-500">MEDISTOCK...</p>
     <div className="mt-4 h-1 w-40 overflow-hidden rounded-full bg-slate-100"><div className="h-full w-2/5 animate-loading-progress rounded-full bg-primary" /></div>
   </div>;
 }
@@ -27,8 +27,18 @@ export default function App() {
 
   // Halaman pertama sesuai website yang dibuka
   const [currentView, setCurrentView] = useState(() => {
-    if (appMode === 'customer') return 'customer-login';
-    if (appMode === 'pharmacy') return 'admin-login';
+    if (appMode === 'customer') {
+      return localStorage.getItem('medistock_customer_token')
+        ? 'customer'
+        : 'customer-login';
+  }
+
+    if (appMode === 'pharmacy') {
+      return localStorage.getItem('medistock_token')
+        ? 'admin-dashboard'
+        : 'admin-login';
+    }
+
     return 'customer';
   });
   const [theme, setTheme] = useState(() => {
@@ -42,6 +52,7 @@ export default function App() {
   const [isStoreOpen, setIsStoreOpen] = useState(true);
   const [showSplash, setShowSplash] = useState(true);
   const [medicines, setMedicines] = useState([]);
+  const hasLoadedMedicines = useRef(false);
   const [orders, setOrders] = useState([]);
 
   // Auth State
@@ -50,6 +61,71 @@ export default function App() {
   const [customerUser, setCustomerUser] = useState(() => {
     try { return JSON.parse(localStorage.getItem('medistock_customer_user') || 'null'); } catch { return null; }
   });
+
+  // Pulihkan sesi login setelah browser di-refresh.
+  useEffect(() => {
+    let active = true;
+
+    const restoreSession = async () => {
+      if (appMode === 'customer') {
+        const savedToken = localStorage.getItem('medistock_customer_token');
+
+        if (!savedToken) return;
+
+        const result = await apiService.verifyCustomerToken(savedToken);
+
+        if (!active) return;
+
+        if (result.success && result.user?.role === 'customer') {
+          localStorage.setItem(
+            'medistock_customer_user',
+            JSON.stringify(result.user)
+          );
+          setCustomerUser(result.user);
+          setCurrentView('customer');
+        } else if (result.httpStatus === 401) {
+          localStorage.removeItem('medistock_customer_token');
+          localStorage.removeItem('medistock_customer_user');
+          setCustomerUser(null);
+          setCurrentView('customer-login');
+        }
+
+        return;
+      }
+
+      if (appMode === 'pharmacy') {
+        const savedToken = localStorage.getItem('medistock_token');
+
+        if (!savedToken) return;
+
+        const result = await apiService.verifyPharmacyToken(savedToken);
+
+        if (!active) return;
+
+        if (result.success && result.user?.role === 'pharmacy_staff') {
+          localStorage.setItem(
+            'medistock_user',
+            JSON.stringify(result.user)
+          );
+          setIsLoggedIn(true);
+          setToken(savedToken);
+          setCurrentView('admin-dashboard');
+        } else if (result.httpStatus === 401) {
+          localStorage.removeItem('medistock_token');
+          localStorage.removeItem('medistock_user');
+          setIsLoggedIn(false);
+          setToken(null);
+          setCurrentView('admin-login');
+        }
+      }
+    };
+
+    restoreSession();
+
+    return () => {
+      active = false;
+    };
+  }, [appMode]);
 
   // Loading & Error States
   const [loadingMedicines, setLoadingMedicines] = useState(false);
@@ -116,16 +192,31 @@ export default function App() {
   }, []);
 
   const fetchMedicines = useCallback(async (query = '') => {
+  if (!hasLoadedMedicines.current) {
     setLoadingMedicines(true);
-    setErrorMedicines(null);
-    const medRes = await apiService.getMedicines(query);
-    if (medRes && medRes.success) {
-      setMedicines(medRes.data.map((medicine) => ({ ...medicine, stock: getDisplayStock(medicine.stock) })));
-    } else {
-      setErrorMedicines(medRes?.message || 'Gagal memuat katalog obat dari server.');
-    }
-    setLoadingMedicines(false);
-  }, []);
+  }
+
+  setErrorMedicines(null);
+
+  const medRes = await apiService.getMedicines(query);
+
+  if (medRes && medRes.success) {
+    setMedicines(
+      medRes.data.map((medicine) => ({
+        ...medicine,
+        stock: getDisplayStock(medicine.stock),
+      }))
+    );
+
+    hasLoadedMedicines.current = true;
+  } else {
+    setErrorMedicines(
+      medRes?.message || 'Gagal memuat katalog obat dari server.'
+    );
+  }
+
+  setLoadingMedicines(false);
+}, []);
 
   const fetchOrders = useCallback(async () => {
     setLoadingOrders(true);
@@ -587,7 +678,7 @@ export default function App() {
       
 {/* Top Demo Route Switcher Bar */}
 
-{appMode === 'demo' ? (
+{appMode === 'demo' && (
   <DemoBanner
     currentView={currentView}
     setCurrentView={setCurrentView}
@@ -597,74 +688,6 @@ export default function App() {
     theme={theme}
     onThemeChange={setTheme}
   />
-) : (
-  <button
-    type="button"
-    onClick={() =>
-      setTheme(
-        theme === 'light'
-          ? 'dark'
-          : theme === 'dark'
-            ? 'system'
-            : 'light'
-      )
-    }
-    title={
-      theme === 'light'
-        ? 'Tema terang'
-        : theme === 'dark'
-          ? 'Tema gelap'
-          : 'Sesuai perangkat'
-    }
-    aria-label="Ganti mode tampilan"
-    className="fixed right-5 top-5 z-[110] flex h-11 w-11 items-center justify-center rounded-full border border-slate-200/70 bg-white/90 text-slate-700 shadow-lg backdrop-blur transition-all duration-200 hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-primary"
-  >
-    {theme === 'dark' ? (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="20"
-        height="20"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M20.9 13A9 9 0 0 1 11 3.1 9 9 0 1 0 20.9 13Z" />
-      </svg>
-    ) : theme === 'system' ? (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="20"
-        height="20"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <rect x="3" y="4" width="18" height="13" rx="2" />
-        <path d="M8 21h8M12 17v4" />
-      </svg>
-    ) : (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="20"
-        height="20"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <circle cx="12" cy="12" r="4" />
-        <path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42" />
-      </svg>
-    )}
-  </button>
 )}
 
       {/* Main Container */}
@@ -688,6 +711,8 @@ export default function App() {
             onCustomerLogin={handleOpenCustomerLogin}
             customerUser={customerUser}
             onCustomerLogout={handleCustomerLogout}
+            theme={theme}
+            onThemeChange={!showSplash ? setTheme : undefined}
           />
         )}
 
@@ -771,6 +796,8 @@ export default function App() {
             savingInventory={savingInventory}
             deletingMedicineId={deletingMedicineId}
             updatingOrderId={updatingOrderId}
+            theme={theme}
+            onThemeChange={!showSplash ? setTheme : undefined}
           />
         )}
       </main>

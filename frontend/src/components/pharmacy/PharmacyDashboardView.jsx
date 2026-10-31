@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BarChart3, ClipboardList, Menu, Package, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
+import {BarChart3,ClipboardList,Menu,Package,PanelLeftClose,PanelLeftOpen,X,Sun,Moon,Monitor} from 'lucide-react';
 import IncomingOrdersTab from './IncomingOrdersTab.jsx';
 import InventoryTab from './InventoryTab.jsx';
 import SalesReportTab from './SalesReportTab.jsx';
@@ -34,7 +34,9 @@ export default function PharmacyDashboardView({
   canManageInventory = false,
   savingInventory = false,
   deletingMedicineId = null,
-  updatingOrderId = null
+  updatingOrderId = null,
+  theme = 'system',
+  onThemeChange
 }) {
   const pendingOrdersCount = orders.filter((o) => o.orderStatus === 'Menunggu Konfirmasi').length;
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
@@ -69,33 +71,68 @@ export default function PharmacyDashboardView({
             </p>
           </div>
 
-          <div className="flex items-center space-x-4">
-            {/* Store Status Toggle */}
-            <div className="flex items-center space-x-2 border border-slate-200 rounded-lg px-3 py-2 bg-white shadow-sm">
-              <span className="text-xs font-bold text-slate-700">Status Toko:</span>
+                    
+          <div className="flex flex-col items-end gap-2">
+            {onThemeChange && (
               <button
-                onClick={() => setIsStoreOpen(!isStoreOpen)}
-                className={`px-2 py-0.5 text-xs font-bold transition border ${
-                  isStoreOpen
-                    ? 'bg-success text-white border-success'
-                    : 'bg-slate-100 text-slate-600 border-slate-300'
-                }`}
+                type="button"
+                onClick={() =>
+                  onThemeChange(
+                    theme === 'light'
+                      ? 'dark'
+                      : theme === 'dark'
+                        ? 'system'
+                        : 'light'
+                  )
+                }
+                title={
+                  theme === 'light'
+                    ? 'Tema terang'
+                    : theme === 'dark'
+                      ? 'Tema gelap'
+                      : 'Sesuai perangkat'
+                }
+                aria-label="Ganti mode tampilan"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-primary"
               >
-                {isStoreOpen ? 'BUKA' : 'TUTUP'}
+                {theme === 'light' ? (
+                  <Sun size={16} />
+                ) : theme === 'dark' ? (
+                  <Moon size={16} />
+                ) : (
+                  <Monitor size={16} />
+                )}
+              </button>
+            )}
+
+            <div className="flex items-center gap-4">
+              <div className="flex items-center space-x-2 border border-slate-200 rounded-lg px-3 py-2 bg-white shadow-sm">
+                <span className="text-xs font-bold text-slate-700">
+                  Status Toko:
+                </span>
+                <button
+                  onClick={() => setIsStoreOpen(!isStoreOpen)}
+                  className={`px-2 py-0.5 text-xs font-bold transition border ${
+                    isStoreOpen
+                      ? 'bg-success text-white border-success'
+                      : 'bg-slate-100 text-slate-600 border-slate-300'
+                  }`}
+                >
+                  {isStoreOpen ? 'BUKA' : 'TUTUP'}
+                </button>
+              </div>
+
+              <button
+                onClick={onLogout}
+                className="text-xs font-bold text-neutral hover:text-navy underline"
+              >
+                Keluar
               </button>
             </div>
-
-            <button
-              onClick={onLogout}
-              className="text-xs font-bold text-neutral hover:text-navy underline"
-            >
-              Keluar
-            </button>
           </div>
         </div>
-
       </header>
-
+      
       <div className="flex flex-1 flex-col gap-6 md:flex-row md:items-start">
         <nav role="tablist" aria-label="Menu dashboard apotek" aria-orientation="vertical" className={`hidden shrink-0 flex-col gap-1 rounded-xl border border-slate-200 bg-white p-2 transition-[width] duration-200 md:sticky md:top-6 md:flex ${sidebarExpanded ? 'md:w-60' : 'md:w-[4.5rem]'}`}>
           <button type="button" onClick={() => setSidebarExpanded((expanded) => !expanded)} aria-label={sidebarExpanded ? 'Sembunyikan nama menu' : 'Tampilkan nama menu'} aria-expanded={sidebarExpanded} title={sidebarExpanded ? 'Sembunyikan menu' : 'Tampilkan menu'} className={`mb-1 flex h-10 items-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 ${sidebarExpanded ? 'justify-end px-3' : 'justify-center'}`}>

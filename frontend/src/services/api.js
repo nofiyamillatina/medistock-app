@@ -284,14 +284,41 @@ export const apiService = {
     }
   },
 
+   
+ 
+  async verifyCustomerToken(token = null) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/verify`, {
+        headers: token
+          ? getHeaders(token)
+          : getCustomerHeaders()
+      });
+      const result = await res.json();
+      return { ...result, httpStatus: res.status };
+    } catch (err) {
+      console.error('API Error verifyCustomerToken:', err);
+      return {
+        success: false,
+        httpStatus: 0,
+        message: 'Server backend tidak dapat dihubungi.'
+      };
+    }
+  },
+
   async verifyPharmacyToken(token = null) {
     try {
-      const res = await fetch(`${API_BASE_URL}/auth/verify`, { headers: getHeaders(token) });
+      const res = await fetch(`${API_BASE_URL}/auth/verify`, {
+        headers: getHeaders(token)
+      });
       const result = await res.json();
       return { ...result, httpStatus: res.status };
     } catch (err) {
       console.error('API Error verifyPharmacyToken:', err);
-      return { success: false, message: 'Server backend tidak dapat dihubungi.' };
+      return {
+        success: false,
+        httpStatus: 0,
+        message: 'Server backend tidak dapat dihubungi.'
+      };
     }
-  }
+  },
 };
