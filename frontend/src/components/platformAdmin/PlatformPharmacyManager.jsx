@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { KeyRound, Power, Save, Trash2, X } from 'lucide-react';
 import { apiService } from '../../services/api.js';
+import AppDialog from '../common/AppDialog.jsx';
 
 export default function PlatformPharmacyManager({ pharmacyId, token, onClose, onChanged, onLogout }) {
   const [detail, setDetail] = useState(null);
@@ -10,6 +11,7 @@ export default function PlatformPharmacyManager({ pharmacyId, token, onClose, on
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [formModal, setFormModal] = useState(null);
 
   const load = async () => {
     setError('');
@@ -41,13 +43,15 @@ export default function PlatformPharmacyManager({ pharmacyId, token, onClose, on
   const savePharmacy = async (event) => {
     event.preventDefault();
     setBusy(true);
-    await finishAction(await apiService.updatePlatformAdminPharmacy(pharmacyId, { name }, token), 'Informasi apotek berhasil disimpan.');
+    const succeeded = await finishAction(await apiService.updatePlatformAdminPharmacy(pharmacyId, { name }, token), 'Informasi apotek berhasil disimpan.');
+    if (succeeded) setFormModal(null);
     setBusy(false);
   };
 
   const saveStaff = async (staffId) => {
     setBusy(true);
-    await finishAction(await apiService.updatePlatformAdminStaff(pharmacyId, staffId, staffDrafts[staffId], token), 'Akun staf berhasil diperbarui.');
+    const succeeded = await finishAction(await apiService.updatePlatformAdminStaff(pharmacyId, staffId, staffDrafts[staffId], token), 'Akun staf berhasil diperbarui.');
+    if (succeeded) setFormModal(null);
     setBusy(false);
   };
 
@@ -55,7 +59,8 @@ export default function PlatformPharmacyManager({ pharmacyId, token, onClose, on
     setBusy(true);
     const result = await apiService.resetPlatformAdminStaffPassword(pharmacyId, staffId, passwordDrafts[staffId] || '', token);
     setPasswordDrafts((drafts) => ({ ...drafts, [staffId]: '' }));
-    await finishAction(result, 'Password staf berhasil direset dan tidak ditampilkan kembali.');
+    const succeeded = await finishAction(result, 'Password staf berhasil direset dan tidak ditampilkan kembali.');
+    if (succeeded) setFormModal(null);
     setBusy(false);
   };
 
@@ -75,44 +80,46 @@ export default function PlatformPharmacyManager({ pharmacyId, token, onClose, on
     if (result?.httpStatus === 401 || result?.httpStatus === 403) onLogout();
     if (result?.success) {
       setMessage('Apotek kosong berhasil dihapus.');
+      setDetail(null);
       await onChanged();
-      onClose();
     } else setError(result?.message || 'Apotek tidak dapat dihapus.');
     setBusy(false);
   };
 
   return (
-    <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+    <>
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/50 p-3 sm:p-6" onClick={() => !busy && onClose()}>
+    <section role="dialog" aria-modal="true" aria-labelledby="pharmacy-detail-title" onClick={(event) => event.stopPropagation()} className="my-auto max-h-[calc(100dvh-1.5rem)] w-full max-w-4xl overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl sm:max-h-[calc(100dvh-3rem)] sm:p-6">
       <header className="mb-5 flex items-start justify-between gap-3">
-        <div><h2 className="text-lg font-bold text-slate-900">Detail apotek</h2><p className="mt-1 break-all font-mono text-xs text-slate-500">ID tetap: {pharmacyId}</p></div>
-        <button onClick={onClose} aria-label="Tutup detail apotek" className="rounded-lg border border-slate-200 p-2 text-slate-600"><X size={16} /></button>
+        <div><h2 id="pharmacy-detail-title" className="text-lg font-bold text-slate-900">Detail apotek</h2><p className="mt-1 break-all font-mono text-xs text-slate-500">ID tetap: {pharmacyId}</p></div>
+        <button onClick={onClose} disabled={busy} aria-label="Tutup detail apotek" className="rounded-lg border border-slate-200 p-2 text-slate-600 disabled:opacity-50"><X size={16} /></button>
       </header>
-      {error && <p role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-      {message && <p role="status" className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{message}</p>}
-      {!detail ? <p className="py-5 text-sm text-slate-500">Memuat detail apotek…</p> : <div className="space-y-6">
-        <form onSubmit={savePharmacy} className="flex flex-wrap items-end gap-3">
-          <label className="min-w-64 flex-1 text-xs font-bold uppercase text-slate-700">Nama apotek<input required minLength={2} maxLength={120} value={name} onChange={(event) => setName(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm font-normal normal-case text-slate-900" /></label>
-          <button disabled={busy} className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"><Save size={15} /> Simpan</button>
+      {error && <div role="alert" className="mb-5 rounded border border-red-200 bg-red-50 p-3 text-xs font-medium text-red-700">{error}</div>}
+      {!detail ? <div aria-busy="true" className="flex min-h-40 items-center justify-center gap-3 text-sm text-slate-500"><span className="loading-spinner text-primary" aria-hidden="true" />Memuat detail apotek...</div> : <div className="space-y-6">
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 p-4"><div className="min-w-48 flex-1"><p className="text-xs font-bold uppercase text-slate-500">Nama apotek</p><p className="mt-1 font-semibold text-slate-900">{detail.name}</p></div><button type="button" disabled={busy} onClick={() => setFormModal({ type: 'pharmacy' })} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-bold text-slate-700 disabled:opacity-60"><Save size={15} /> Edit informasi</button>
           <button type="button" disabled={busy} onClick={changeActive} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-bold text-slate-700 disabled:opacity-60"><Power size={15} /> {detail.isActive ? 'Nonaktifkan' : 'Aktifkan'}</button>
           <button type="button" disabled={busy} onClick={deletePharmacy} className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-4 py-2.5 text-sm font-bold text-red-700 disabled:opacity-60"><Trash2 size={15} /> Hapus permanen</button>
-        </form>
-        <div className="grid gap-3 text-sm text-slate-600 sm:grid-cols-3"><p>Status apotek: <strong>{detail.isActive ? 'Aktif' : 'Nonaktif'}</strong></p><p>Status operasional: <strong>{detail.isOpen ? 'Buka' : 'Tutup'}</strong></p><p>Data: <strong>{detail.medicineCount} obat · {detail.orderCount} pesanan</strong></p></div>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3"><div className="rounded-xl border border-slate-200 bg-white p-4"><p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Status apotek</p><span className={`inline-flex items-center gap-1.5 rounded border px-2 py-0.5 text-[10px] font-bold ${detail.isActive ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-red-200 bg-red-50 text-red-700'}`}><span className={`h-1.5 w-1.5 rounded-full ${detail.isActive ? 'bg-emerald-500' : 'bg-red-500'}`} />{detail.isActive ? 'Aktif' : 'Nonaktif'}</span></div><div className="rounded-xl border border-slate-200 bg-white p-4"><p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Operasional</p><span className={`inline-flex items-center gap-1.5 rounded border px-2 py-0.5 text-[10px] font-bold ${detail.isOpen ? 'border-sky-200 bg-sky-50 text-sky-700' : 'border-slate-200 bg-slate-100 text-slate-600'}`}><span className={`h-1.5 w-1.5 rounded-full ${detail.isOpen ? 'bg-sky-500' : 'bg-slate-400'}`} />{detail.isOpen ? 'Buka' : 'Tutup'}</span></div><div className="rounded-xl border border-slate-200 bg-white p-4"><p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Data apotek</p><p className="text-sm font-semibold text-slate-800">{detail.medicineCount} obat · {detail.orderCount} pesanan</p></div></div>
         <div><h3 className="mb-3 font-bold text-slate-900">Akun staf ({detail.staff.length})</h3>
-          {detail.staff.length === 0 ? <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">Belum ada akun staf.</p> : <div className="space-y-4">{detail.staff.map((staff) => <article key={staff.id} className="rounded-xl border border-slate-200 p-4">
-            <p className="mb-3 break-all font-mono text-xs text-slate-500">Akun {staff.id}</p>
-            <div className="grid gap-3 md:grid-cols-2">
-              <label className="text-xs font-bold uppercase text-slate-600">Email<input type="email" required value={staffDrafts[staff.id]?.email || ''} onChange={(event) => setStaffDrafts((drafts) => ({ ...drafts, [staff.id]: { ...drafts[staff.id], email: event.target.value } }))} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm font-normal normal-case text-slate-900" /></label>
-              <label className="text-xs font-bold uppercase text-slate-600">Username<input value={staffDrafts[staff.id]?.username || ''} onChange={(event) => setStaffDrafts((drafts) => ({ ...drafts, [staff.id]: { ...drafts[staff.id], username: event.target.value } }))} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm font-normal normal-case text-slate-900" /></label>
-            </div>
-            <button disabled={busy} onClick={() => saveStaff(staff.id)} className="mt-3 inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 disabled:opacity-60"><Save size={14} /> Simpan akun staf</button>
-            <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-slate-100 pt-4">
-              <label className="min-w-64 flex-1 text-xs font-bold uppercase text-slate-600">Password baru<input type="password" autoComplete="new-password" minLength={10} maxLength={128} value={passwordDrafts[staff.id] || ''} onChange={(event) => setPasswordDrafts((drafts) => ({ ...drafts, [staff.id]: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm font-normal normal-case text-slate-900" /><span className="mt-1 block font-normal normal-case">Minimal 10 karakter: huruf besar/kecil, angka, dan simbol.</span></label>
-              <button disabled={busy || !passwordDrafts[staff.id]} onClick={() => resetPassword(staff.id)} className="inline-flex items-center gap-2 rounded-lg border border-amber-300 px-3 py-2.5 text-xs font-bold text-amber-800 disabled:opacity-50"><KeyRound size={14} /> Reset password</button>
-            </div>
+          {detail.staff.length === 0 ? <p className="rounded-xl border border-dashed border-slate-200 bg-white p-5 text-center text-sm text-slate-500">Belum ada akun staf.</p> : <div className="space-y-4">{detail.staff.map((staff) => <article key={staff.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="break-all font-mono text-xs text-slate-500">Akun {staff.id}</p><p className="mt-2 text-sm text-slate-800">{staff.email}<span className="text-slate-500">{staff.username ? ` · ${staff.username}` : ' · Tanpa username'}</span></p>
+            <div className="mt-3 flex flex-wrap gap-2"><button type="button" disabled={busy} onClick={() => setFormModal({ type: 'staff', staffId: staff.id })} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 disabled:opacity-60"><Save size={14} /> Edit akun</button><button type="button" disabled={busy} onClick={() => setFormModal({ type: 'password', staffId: staff.id })} className="inline-flex items-center gap-2 rounded-lg border border-amber-300 px-3 py-2 text-xs font-bold text-amber-800 disabled:opacity-60"><KeyRound size={14} /> Reset password</button></div>
           </article>)}</div>}
         </div>
         <p className="text-xs text-slate-500">Penghapusan permanen hanya berhasil bila tidak ada akun staf, obat, atau pesanan terkait. Riwayat transaksi tidak dihapus.</p>
       </div>}
+      {formModal && detail && <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/60 p-3 sm:p-5" onClick={() => !busy && setFormModal(null)}>
+        <section role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()} className="max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-6">
+          <header className="mb-5 flex items-start justify-between gap-3"><h3 className="text-lg font-bold text-slate-900">{formModal.type === 'pharmacy' ? 'Edit apotek' : formModal.type === 'staff' ? 'Edit akun staf' : 'Reset password staf'}</h3><button type="button" disabled={busy} onClick={() => setFormModal(null)} aria-label="Tutup formulir" className="rounded-lg border border-slate-200 p-2 text-slate-600 disabled:opacity-50"><X size={16} /></button></header>
+          {formModal.type === 'pharmacy' && <form onSubmit={savePharmacy} className="space-y-4"><label className="block text-xs font-bold uppercase text-slate-700">Nama apotek<input required minLength={2} maxLength={120} value={name} onChange={(event) => setName(event.target.value)} className="mt-1 w-full border border-slate-300 p-3 text-sm font-normal normal-case text-slate-900 focus:outline-none focus:border-primary" /></label><div className="flex justify-end gap-2"><button type="button" disabled={busy} onClick={() => { setName(detail.name); setFormModal(null); }} className="border border-slate-300 px-4 py-2.5 text-xs font-bold uppercase text-slate-700">Batal</button><button disabled={busy} className="bg-primary px-4 py-2.5 text-xs font-bold uppercase text-white hover:bg-primary-hover disabled:opacity-50">{busy ? <span className="inline-flex items-center gap-2"><span className="loading-spinner" aria-hidden="true" />Menyimpan...</span> : 'Simpan'}</button></div></form>}
+          {formModal.type === 'staff' && <form onSubmit={(event) => { event.preventDefault(); saveStaff(formModal.staffId); }} className="space-y-4"><label className="block text-xs font-bold uppercase text-slate-700">Email<input type="email" required value={staffDrafts[formModal.staffId]?.email || ''} onChange={(event) => setStaffDrafts((drafts) => ({ ...drafts, [formModal.staffId]: { ...drafts[formModal.staffId], email: event.target.value } }))} className="mt-1 w-full border border-slate-300 p-3 text-sm font-normal normal-case text-slate-900 focus:outline-none focus:border-primary" /></label><label className="block text-xs font-bold uppercase text-slate-700">Username<input value={staffDrafts[formModal.staffId]?.username || ''} onChange={(event) => setStaffDrafts((drafts) => ({ ...drafts, [formModal.staffId]: { ...drafts[formModal.staffId], username: event.target.value } }))} className="mt-1 w-full border border-slate-300 p-3 text-sm font-normal normal-case text-slate-900 focus:outline-none focus:border-primary" /></label><div className="flex justify-end gap-2"><button type="button" disabled={busy} onClick={() => { setStaffDrafts((drafts) => ({ ...drafts, [formModal.staffId]: { email: detail.staff.find((staff) => staff.id === formModal.staffId)?.email || '', username: detail.staff.find((staff) => staff.id === formModal.staffId)?.username || '' } })); setFormModal(null); }} className="border border-slate-300 px-4 py-2.5 text-xs font-bold uppercase text-slate-700">Batal</button><button disabled={busy} className="bg-primary px-4 py-2.5 text-xs font-bold uppercase text-white hover:bg-primary-hover disabled:opacity-50">{busy ? <span className="inline-flex items-center gap-2"><span className="loading-spinner" aria-hidden="true" />Menyimpan...</span> : 'Simpan'}</button></div></form>}
+          {formModal.type === 'password' && <form onSubmit={(event) => { event.preventDefault(); resetPassword(formModal.staffId); }} className="space-y-4"><label className="block text-xs font-bold uppercase text-slate-700">Password baru<input type="password" autoComplete="new-password" required minLength={10} maxLength={128} value={passwordDrafts[formModal.staffId] || ''} onChange={(event) => setPasswordDrafts((drafts) => ({ ...drafts, [formModal.staffId]: event.target.value }))} className="mt-1 w-full border border-slate-300 p-3 text-sm font-normal normal-case text-slate-900 focus:outline-none focus:border-primary" /><span className="mt-1 block font-normal normal-case">Minimal 10 karakter: huruf besar, huruf kecil, angka, dan simbol.</span></label><div className="flex justify-end gap-2"><button type="button" disabled={busy} onClick={() => { setPasswordDrafts((drafts) => ({ ...drafts, [formModal.staffId]: '' })); setFormModal(null); }} className="border border-slate-300 px-4 py-2.5 text-xs font-bold uppercase text-slate-700">Batal</button><button disabled={busy} className="bg-primary px-4 py-2.5 text-xs font-bold uppercase text-white hover:bg-primary-hover disabled:opacity-50">{busy ? <span className="inline-flex items-center gap-2"><span className="loading-spinner" aria-hidden="true" />Memproses...</span> : 'Reset password'}</button></div></form>}
+        </section>
+      </div>}
     </section>
+    </div>
+    <AppDialog dialog={message ? { type: 'success', title: 'Perubahan berhasil', message } : null} onClose={() => setMessage('')} />
+    </>
   );
 }
