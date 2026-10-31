@@ -7,6 +7,8 @@ export const getMedicines = async (req, res) => {
     const { search, pharmacyId } = req.query;
     const selectedPharmacyId = req.user?.role === 'pharmacy_staff' ? req.user.pharmacyId : pharmacyId;
     if (!selectedPharmacyId) return res.status(400).json({ success: false, message: 'Pilih apotek untuk melihat katalog.' });
+    const activePharmacy = await prisma.pharmacy_info.findFirst({ where: { id: selectedPharmacyId, is_active: true }, select: { id: true } });
+    if (!activePharmacy) return res.status(404).json({ success: false, message: 'Apotek tidak ditemukan atau sedang dinonaktifkan.' });
     const where = {
       pharmacy_id: selectedPharmacyId,
       ...(search ? {

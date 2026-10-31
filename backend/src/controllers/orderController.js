@@ -244,53 +244,60 @@ export const createOrder = async (req, res) => {
     }
 
     if (typeof pharmacyId !== 'string' || !pharmacyId.trim()) return res.status(400).json({ success: false, message: 'Pilih apotek tujuan pesanan.' });
-    const pharmacy = await prisma.pharmacy_info.findUnique({ where: { id: pharmacyId } });
-    if (!pharmacy) return res.status(404).json({ success: false, message: 'Apotek tujuan tidak ditemukan.' });
     const orderId = `MDS-${randomUUID()}`;
     const timestamp = new Date().toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' });
-    const medicines = await prisma.medicines.findMany({ where: { pharmacy_id: pharmacy.id } });
-    const orderItems = items.map((item) => {
-      const medicine = matchMedicineForOrderItem(item.name, medicines, item.medicineId || item.id);
-      if (!medicine || !Number.isInteger(item.qty) || item.qty < 1) return null;
-      if (item.qty > medicine.stock) return null;
-      return { medicineId: medicine.id, name: medicine.name, qty: item.qty, price: medicine.price };
-    });
-    if (orderItems.some((item) => !item)) {
+    const serviceFee = 3000;
+    const creation = await prisma.$transaction(async (tx) => {
+      const pharmacy = await tx.pharmacy_info.findFirst({ where: { id: pharmacyId, is_active: true } });
+      if (!pharmacy) return { notFound: true };
+      const medicines = await tx.medicines.findMany({ where: { pharmacy_id: pharmacy.id } });
+      const orderItems = items.map((item) => {
+        const medicine = matchMedicineForOrderItem(item.name, medicines, item.medicineId || item.id);
+        if (!medicine || !Number.isInteger(item.qty) || item.qty < 1 || item.qty > medicine.stock) return null;
+        return { medicineId: medicine.id, name: medicine.name, qty: item.qty, price: medicine.price };
+      });
+      if (orderItems.some((item) => !item)) return { invalidItems: true };
+      const subtotal = orderItems.reduce((sum, item) => sum + item.price * item.qty, 0);
+      const totalAmount = subtotal + serviceFee;
+      if (!Number.isSafeInteger(totalAmount) || totalAmount <= 0) return { invalidTotal: true };
+
+      await tx.orders.create({
+        data: {
+          id: orderId,
+          customer_id: req.user.id,
+          pharmacy_id: pharmacy.id,
+          customer_name: customerName,
+          phone,
+          address: deliveryType === 'Pengantaran' ? address : '-',
+          delivery_type: deliveryType,
+          payment_method: paymentMethod,
+          subtotal,
+          service_fee: serviceFee,
+          total_amount: totalAmount,
+          payment_status: paymentMethod === 'QRIS' ? 'Menunggu Pembayaran' : 'Bayar di Apotek',
+          order_status: paymentMethod === 'QRIS' ? 'Menunggu Pembayaran' : 'Menunggu Konfirmasi',
+          timestamp,
+          items: {
+            create: orderItems.map(item => ({
+              medicine_id: item.medicineId,
+              name: item.name,
+              qty: item.qty,
+              price: item.price
+            }))
+          }
+        }
+      });
+      return { pharmacy, orderItems, subtotal, totalAmount };
+    }, { isolationLevel: 'Serializable' });
+
+    if (creation.notFound) return res.status(404).json({ success: false, message: 'Apotek tujuan tidak ditemukan atau sedang dinonaktifkan.' });
+    if (creation.invalidItems) {
       return res.status(400).json({ success: false, message: 'Obat tidak tersedia, jumlahnya melebihi stok, atau data tidak valid. Muat ulang katalog lalu coba lagi.' });
     }
-    const subtotal = orderItems.reduce((sum, item) => sum + item.price * item.qty, 0);
-    const serviceFee = 3000;
-    const totalAmount = subtotal + serviceFee;
-    if (!Number.isSafeInteger(totalAmount) || totalAmount <= 0) {
+    if (creation.invalidTotal) {
       return res.status(400).json({ success: false, message: 'Total pembayaran tidak valid.' });
     }
-
-    await prisma.orders.create({
-      data: {
-        id: orderId,
-        customer_id: req.user.id,
-        pharmacy_id: pharmacy.id,
-        customer_name: customerName,
-        phone,
-        address: deliveryType === 'Pengantaran' ? address : '-',
-        delivery_type: deliveryType,
-        payment_method: paymentMethod,
-        subtotal,
-        service_fee: serviceFee || 3000,
-        total_amount: totalAmount,
-        payment_status: paymentMethod === 'QRIS' ? 'Menunggu Pembayaran' : 'Bayar di Apotek',
-        order_status: paymentMethod === 'QRIS' ? 'Menunggu Pembayaran' : 'Menunggu Konfirmasi',
-        timestamp,
-        items: {
-          create: orderItems.map(item => ({
-            medicine_id: item.medicineId,
-            name: item.name,
-            qty: item.qty,
-            price: item.price
-          }))
-        }
-      }
-    });
+    const { pharmacy, orderItems, subtotal, totalAmount } = creation;
 
     const createdOrder = {
       id: orderId,

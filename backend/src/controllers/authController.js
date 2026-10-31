@@ -53,7 +53,8 @@ export const loginPharmacy = async (req, res) => {
           { email: identifier },
           { username: identifier }
         ]
-      }
+      },
+      include: { pharmacy: { select: { is_active: true } } }
     });
 
     if (!user || user.role !== 'pharmacy_staff') {
@@ -71,6 +72,9 @@ export const loginPharmacy = async (req, res) => {
     }
     if (!user.pharmacy_id) {
       return res.status(403).json({ success: false, message: 'Akun staf belum terhubung ke apotek. Hubungi administrator untuk pemetaan manual.' });
+    }
+    if (!user.pharmacy?.is_active) {
+      return res.status(403).json({ success: false, message: 'Apotek akun staf sedang dinonaktifkan.' });
     }
 
     const token = createAuthToken(user, JWT_SECRET);

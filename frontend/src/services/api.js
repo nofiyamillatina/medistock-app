@@ -306,6 +306,81 @@ export const apiService = {
     }
   },
 
+  async getPlatformAdminPharmacy(id, token) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/pharmacy/admin/${encodeURIComponent(id)}`, { headers: getHeaders(token) });
+      const result = await res.json();
+      return { ...result, httpStatus: res.status };
+    } catch (err) {
+      console.error('API Error getPlatformAdminPharmacy:', err);
+      return { success: false, httpStatus: 0, message: 'Server backend tidak dapat dihubungi.' };
+    }
+  },
+
+  async updatePlatformAdminPharmacy(id, data, token) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/pharmacy/admin/${encodeURIComponent(id)}`, {
+        method: 'PATCH', headers: getHeaders(token), body: JSON.stringify(data)
+      });
+      const result = await res.json();
+      return { ...result, httpStatus: res.status };
+    } catch (err) {
+      console.error('API Error updatePlatformAdminPharmacy:', err);
+      return { success: false, httpStatus: 0, message: 'Server backend tidak dapat dihubungi.' };
+    }
+  },
+
+  async setPlatformAdminPharmacyActive(id, isActive, token) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/pharmacy/admin/${encodeURIComponent(id)}/status`, {
+        method: 'PATCH', headers: getHeaders(token), body: JSON.stringify({ isActive })
+      });
+      const result = await res.json();
+      return { ...result, httpStatus: res.status };
+    } catch (err) {
+      console.error('API Error setPlatformAdminPharmacyActive:', err);
+      return { success: false, httpStatus: 0, message: 'Server backend tidak dapat dihubungi.' };
+    }
+  },
+
+  async updatePlatformAdminStaff(pharmacyId, staffId, data, token) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/pharmacy/admin/${encodeURIComponent(pharmacyId)}/staff/${encodeURIComponent(staffId)}`, {
+        method: 'PATCH', headers: getHeaders(token), body: JSON.stringify(data)
+      });
+      const result = await res.json();
+      return { ...result, httpStatus: res.status };
+    } catch (err) {
+      console.error('API Error updatePlatformAdminStaff:', err);
+      return { success: false, httpStatus: 0, message: 'Server backend tidak dapat dihubungi.' };
+    }
+  },
+
+  async resetPlatformAdminStaffPassword(pharmacyId, staffId, password, token) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/pharmacy/admin/${encodeURIComponent(pharmacyId)}/staff/${encodeURIComponent(staffId)}/reset-password`, {
+        method: 'POST', headers: getHeaders(token), body: JSON.stringify({ password })
+      });
+      const result = await res.json();
+      return { ...result, httpStatus: res.status };
+    } catch (err) {
+      console.error('API Error resetPlatformAdminStaffPassword:', err);
+      return { success: false, httpStatus: 0, message: 'Server backend tidak dapat dihubungi.' };
+    }
+  },
+
+  async deletePlatformAdminPharmacy(id, token) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/pharmacy/admin/${encodeURIComponent(id)}`, { method: 'DELETE', headers: getHeaders(token) });
+      if (res.status === 204) return { success: true, httpStatus: res.status };
+      const result = await res.json();
+      return { ...result, httpStatus: res.status };
+    } catch (err) {
+      console.error('API Error deletePlatformAdminPharmacy:', err);
+      return { success: false, httpStatus: 0, message: 'Server backend tidak dapat dihubungi.' };
+    }
+  },
+
   async createPharmacyWithStaff(payload, token) {
     try {
       const res = await fetch(`${API_BASE_URL}/pharmacy/admin`, {

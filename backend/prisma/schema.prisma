@@ -11,6 +11,7 @@ model pharmacy_info {
   id         String    @id
   name       String
   is_open    Int       @default(1)
+  is_active  Boolean   @default(true)
   updated_at DateTime? @default(now())
   users      users[]
   medicines  medicines[]

@@ -45,7 +45,7 @@ export const authenticateToken = async (req, res, next) => {
     try {
       account = await prisma.users.findUnique({
         where: { id: user.id },
-        select: { id: true, role: true, pharmacy_id: true, email: true }
+        select: { id: true, role: true, pharmacy_id: true, email: true, updated_at: true, pharmacy: { select: { is_active: true } } }
       });
     } catch (error) {
       console.error('Pharmacy staff account lookup failed.', error?.code || 'UNKNOWN');
@@ -53,6 +53,12 @@ export const authenticateToken = async (req, res, next) => {
     }
     if (!account || account.role !== 'pharmacy_staff' || !account.pharmacy_id) {
       return res.status(403).json({ success: false, message: 'Akun staf belum terhubung ke apotek.' });
+    }
+    if (!account.pharmacy?.is_active) {
+      return res.status(403).json({ success: false, message: 'Apotek staf ini sedang dinonaktifkan.' });
+    }
+    if (account.updated_at && Number.isInteger(user.iat) && user.iat * 1000 < account.updated_at.getTime()) {
+      return res.status(401).json({ success: false, message: 'Sesi staf telah berakhir. Silakan login kembali.' });
     }
     req.user = { ...user, id: account.id, role: account.role, pharmacyId: account.pharmacy_id, email: account.email };
   } else {

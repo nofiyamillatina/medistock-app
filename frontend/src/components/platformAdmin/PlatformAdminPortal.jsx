@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Building2, LogOut, Plus, RefreshCw, ShieldCheck } from 'lucide-react';
+import { Building2, Eye, LogOut, Plus, RefreshCw, ShieldCheck } from 'lucide-react';
 import { apiService } from '../../services/api.js';
+import PlatformPharmacyManager from './PlatformPharmacyManager.jsx';
 
 const TOKEN_KEY = 'medistock_platform_admin_token';
 
@@ -87,6 +88,7 @@ function PlatformAdminDashboard({ token, onLogout }) {
   const [pharmacies, setPharmacies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectedPharmacyId, setSelectedPharmacyId] = useState('');
 
   const loadPharmacies = async () => {
     setLoading(true);
@@ -115,11 +117,12 @@ function PlatformAdminDashboard({ token, onLogout }) {
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="mb-5 flex items-center justify-between gap-3"><div><h2 className="font-bold text-slate-900">Apotek terdaftar</h2><p className="mt-1 text-xs text-slate-500">{pharmacies.length} apotek</p></div><button onClick={loadPharmacies} disabled={loading} aria-label="Muat ulang daftar apotek" className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50"><RefreshCw size={16} className={loading ? 'animate-spin' : ''} /></button></div>
             {error && <p role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-            {loading ? <p className="py-8 text-center text-sm text-slate-500">Memuat daftar apotek…</p> : pharmacies.length === 0 ? <p className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">Belum ada apotek.</p> : <div className="space-y-3">{pharmacies.map((pharmacy) => <article key={pharmacy.id} className="rounded-xl border border-slate-200 p-4"><div className="flex items-start justify-between gap-3"><div className="flex min-w-0 items-start gap-3"><Building2 size={18} className="mt-0.5 shrink-0 text-primary" /><div className="min-w-0"><h3 className="truncate font-bold text-slate-900">{pharmacy.name}</h3><p className="mt-1 break-all font-mono text-[11px] text-slate-500">{pharmacy.id}</p></div></div><span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${pharmacy.isOpen ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{pharmacy.isOpen ? 'Buka' : 'Tutup'}</span></div></article>)}</div>}
+            {loading ? <p className="py-8 text-center text-sm text-slate-500">Memuat daftar apotek…</p> : pharmacies.length === 0 ? <p className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">Belum ada apotek.</p> : <div className="space-y-3">{pharmacies.map((pharmacy) => <article key={pharmacy.id} className="rounded-xl border border-slate-200 p-4"><div className="flex items-start justify-between gap-3"><div className="flex min-w-0 items-start gap-3"><Building2 size={18} className="mt-0.5 shrink-0 text-primary" /><div className="min-w-0"><h3 className="truncate font-bold text-slate-900">{pharmacy.name}</h3><p className="mt-1 break-all font-mono text-[11px] text-slate-500">{pharmacy.id}</p><p className="mt-2 text-xs text-slate-600">{pharmacy.staff?.length ? pharmacy.staff.map((staff) => `${staff.email}${staff.username ? ` · ${staff.username}` : ""}`).join(", ") : "Belum ada akun staf"}</p><p className="mt-1 text-xs font-bold">{pharmacy.isActive ? "Aktif" : "Nonaktif"}</p><button onClick={() => setSelectedPharmacyId(pharmacy.id)} className="mt-2 inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700"><Eye size={14} /> Detail</button></div></div><span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${pharmacy.isOpen ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{pharmacy.isOpen ? 'Buka' : 'Tutup'}</span></div></article>)}</div>}
           </section>
 
           <NewPharmacyForm token={token} onCreated={loadPharmacies} onUnauthorized={onLogout} />
         </div>
+        {selectedPharmacyId && <PlatformPharmacyManager pharmacyId={selectedPharmacyId} token={token} onClose={() => setSelectedPharmacyId('')} onChanged={loadPharmacies} onLogout={onLogout} />}
       </div>
     </main>
   );
