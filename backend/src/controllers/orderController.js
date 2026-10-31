@@ -23,6 +23,7 @@ function matchMedicineForOrderItem(itemName, medicines, medicineId = null) {
 export const getOrders = async (req, res) => {
   try {
     const rawOrders = await prisma.orders.findMany({
+      where: { pharmacy_id: req.user.pharmacyId },
       select: {
         id: true,
         customer_name: true,
@@ -39,6 +40,7 @@ export const getOrders = async (req, res) => {
         estimated_arrival: true,
         review_rating: true,
         review_comment: true,
+        pharmacy_id: true,
         items: true
       },
       orderBy: { id: 'desc' }
@@ -58,6 +60,7 @@ export const getOrders = async (req, res) => {
         estimatedArrival: order.estimated_arrival,
         reviewRating: order.review_rating,
         reviewComment: order.review_comment,
+        pharmacyId: order.pharmacy_id,
         items: order.items.map(item => ({
           medicineId: item.medicine_id,
           name: item.name,
@@ -82,7 +85,7 @@ export const resetOrders = async (req, res) => {
   }
 
   try {
-    const where = scope === 'completed' ? { order_status: 'Selesai' } : undefined;
+    const where = { pharmacy_id: req.user.pharmacyId, ...(scope === 'completed' ? { order_status: 'Selesai' } : {}) };
     const result = await prisma.orders.deleteMany({ where });
     return res.json({ success: true, deletedCount: result.count, message: `${result.count} data pesanan berhasil direset.` });
   } catch (error) {
@@ -95,7 +98,7 @@ export const getCustomerOrders = async (req, res) => {
   try {
     const rawOrders = await prisma.orders.findMany({
       where: { customer_id: req.user.id },
-      include: { items: true },
+      include: { items: true, pharmacy: { select: { name: true } } },
       orderBy: { created_at: 'desc' }
     });
 
@@ -113,6 +116,8 @@ export const getCustomerOrders = async (req, res) => {
       estimatedArrival: order.estimated_arrival,
       reviewRating: order.review_rating,
       reviewComment: order.review_comment,
+      pharmacyId: order.pharmacy_id,
+      pharmacyName: order.pharmacy?.name || null,
       items: order.items.map((item) => ({
         medicineId: item.medicine_id,
         name: item.name,
@@ -210,7 +215,7 @@ export const submitOrderReview = async (req, res) => {
 // Create new Order (Customer Checkout)
 export const createOrder = async (req, res) => {
   try {
-    const { customerName, phone, address, deliveryType, paymentMethod = 'QRIS', items } = req.body;
+    const { customerName, phone, address, deliveryType, paymentMethod = 'QRIS', items, pharmacyId } = req.body;
 
     if (!customerName?.trim() || !phone || !Array.isArray(items) || items.length === 0 || items.length > 50) {
       return res.status(400).json({ success: false, message: 'Data pesanan tidak lengkap.' });
@@ -238,9 +243,12 @@ export const createOrder = async (req, res) => {
       });
     }
 
-    const orderId = `MDS-${Math.floor(1000 + Math.random() * 9000)}`;
+    if (typeof pharmacyId !== 'string' || !pharmacyId.trim()) return res.status(400).json({ success: false, message: 'Pilih apotek tujuan pesanan.' });
+    const pharmacy = await prisma.pharmacy_info.findUnique({ where: { id: pharmacyId } });
+    if (!pharmacy) return res.status(404).json({ success: false, message: 'Apotek tujuan tidak ditemukan.' });
+    const orderId = `MDS-${randomUUID()}`;
     const timestamp = new Date().toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' });
-    const medicines = await prisma.medicines.findMany();
+    const medicines = await prisma.medicines.findMany({ where: { pharmacy_id: pharmacy.id } });
     const orderItems = items.map((item) => {
       const medicine = matchMedicineForOrderItem(item.name, medicines, item.medicineId || item.id);
       if (!medicine || !Number.isInteger(item.qty) || item.qty < 1) return null;
@@ -261,6 +269,7 @@ export const createOrder = async (req, res) => {
       data: {
         id: orderId,
         customer_id: req.user.id,
+        pharmacy_id: pharmacy.id,
         customer_name: customerName,
         phone,
         address: deliveryType === 'Pengantaran' ? address : '-',
@@ -285,6 +294,8 @@ export const createOrder = async (req, res) => {
 
     const createdOrder = {
       id: orderId,
+      pharmacyId: pharmacy.id,
+      pharmacyName: pharmacy.name,
       customerName: customerName.trim(),
       phone,
       address: deliveryType === 'Pengantaran' ? address : '-',
@@ -354,6 +365,7 @@ export const verifyCustomerPayment = async (req, res) => {
         include: { items: true }
       });
       if (!order) return { status: 404, message: 'Pesanan tidak ditemukan.' };
+      if (order.pharmacy_id !== req.user.pharmacyId) return { status: 404, message: 'Pesanan tidak ditemukan.' };
       if (order.payment_status === 'Lunas (QRIS)') {
         return { status: 200, message: 'Pembayaran pesanan ini sudah diverifikasi.' };
       }
@@ -361,7 +373,7 @@ export const verifyCustomerPayment = async (req, res) => {
         return { status: 409, message: 'Pesanan ini tidak lagi menunggu verifikasi pembayaran.' };
       }
 
-      const medicines = await tx.medicines.findMany();
+      const medicines = await tx.medicines.findMany({ where: { pharmacy_id: req.user.pharmacyId } });
       const deductions = new Map();
       for (const item of order.items) {
         const medicine = matchMedicineForOrderItem(item.name, medicines, item.medicine_id);
@@ -376,6 +388,7 @@ export const verifyCustomerPayment = async (req, res) => {
       const transition = await tx.orders.updateMany({
         where: {
           id: order.id,
+          pharmacy_id: req.user.pharmacyId,
           payment_status: 'Menunggu Pembayaran',
           order_status: 'Menunggu Pembayaran'
         },
@@ -390,12 +403,12 @@ export const verifyCustomerPayment = async (req, res) => {
 
       for (const { medicine, qty } of deductions.values()) {
         let updated = await tx.medicines.updateMany({
-          where: { id: medicine.id, stock: qty },
+          where: { id: medicine.id, pharmacy_id: req.user.pharmacyId, stock: qty },
           data: { stock: { decrement: qty }, status: 'Habis' }
         });
         if (updated.count === 0) {
           updated = await tx.medicines.updateMany({
-            where: { id: medicine.id, stock: { gt: qty } },
+            where: { id: medicine.id, pharmacy_id: req.user.pharmacyId, stock: { gt: qty } },
             data: { stock: { decrement: qty } }
           });
         }
@@ -433,6 +446,7 @@ export const updateOrderStatus = async (req, res) => {
     const result = await prisma.$transaction(async (tx) => {
       const order = await tx.orders.findUnique({ where: { id }, include: { items: true } });
       if (!order) return { status: 404, message: 'Pesanan tidak ditemukan.' };
+      if (order.pharmacy_id !== req.user.pharmacyId) return { status: 404, message: 'Pesanan tidak ditemukan.' };
       if (order.order_status === 'Selesai' || order.order_status === 'Dibatalkan') {
         return { status: 409, message: 'Pesanan ini sudah berakhir.' };
       }
@@ -448,7 +462,7 @@ export const updateOrderStatus = async (req, res) => {
       let restoredQuantities = new Map();
       const cashStockReserved = isCashAtPharmacy && ['Diproses', 'Siap Diambil'].includes(previousStatus);
       if (orderStatus === 'Dibatalkan' && (order.payment_status === 'Lunas (QRIS)' || cashStockReserved)) {
-        const medicines = await tx.medicines.findMany();
+        const medicines = await tx.medicines.findMany({ where: { pharmacy_id: req.user.pharmacyId } });
         for (const item of order.items) {
           const matchedMed = matchMedicineForOrderItem(item.name, medicines, item.medicine_id);
           if (!matchedMed) {
@@ -464,7 +478,7 @@ export const updateOrderStatus = async (req, res) => {
       // Claim the status transition before restoring inventory so concurrent
       // duplicate requests cannot return the same items to stock twice.
       const transition = await tx.orders.updateMany({
-        where: { id, order_status: previousStatus },
+        where: { id, pharmacy_id: req.user.pharmacyId, order_status: previousStatus },
         data: {
           order_status: orderStatus,
           ...(orderStatus === 'Selesai' && isCashAtPharmacy ? { payment_status: 'Lunas (Tunai)' } : {}),
@@ -474,7 +488,7 @@ export const updateOrderStatus = async (req, res) => {
       if (transition.count !== 1) return { status: 409, message: 'Status pesanan berubah. Muat ulang daftar pesanan.' };
 
       if (orderStatus === 'Diproses' && isCashAtPharmacy) {
-        const medicines = await tx.medicines.findMany();
+        const medicines = await tx.medicines.findMany({ where: { pharmacy_id: req.user.pharmacyId } });
         const deductions = new Map();
         for (const item of order.items) {
           const medicine = matchMedicineForOrderItem(item.name, medicines, item.medicine_id);
@@ -486,7 +500,7 @@ export const updateOrderStatus = async (req, res) => {
         for (const [medicineId, qty] of deductions) {
           const medicine = medicines.find((entry) => entry.id === medicineId);
           const changed = await tx.medicines.updateMany({
-            where: { id: medicineId, stock: { gte: qty } },
+            where: { id: medicineId, pharmacy_id: req.user.pharmacyId, stock: { gte: qty } },
             data: { stock: { decrement: qty }, ...(medicine.stock === qty ? { status: 'Habis' } : {}) }
           });
           if (changed.count !== 1) throw Object.assign(new Error(`Stok ${medicine.name} tidak mencukupi.`), { statusCode: 409 });
@@ -494,7 +508,7 @@ export const updateOrderStatus = async (req, res) => {
       }
 
       if (orderStatus === 'Dibatalkan' && (order.payment_status === 'Lunas (QRIS)' || cashStockReserved)) {
-        const medicines = await tx.medicines.findMany();
+        const medicines = await tx.medicines.findMany({ where: { pharmacy_id: req.user.pharmacyId } });
         for (const [medicineId, quantity] of restoredQuantities) {
           const medicine = medicines.find((entry) => entry.id === medicineId);
           const stock = medicine.stock + quantity;

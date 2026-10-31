@@ -89,14 +89,10 @@ export async function seedDatabase() {
         ]
       }
     });
-    const password_hash = await bcrypt.hash('password123', 10);
     if (legacyPharmacyAccount) {
-      await prisma.users.update({
-        where: { id: legacyPharmacyAccount.id },
-        data: { email: 'apotek@medistock.com', password_hash, role: 'pharmacy_staff', pharmacy_id: 'APOTEK-1' }
-      });
-      console.log('🌱 Updated Pharmacy Staff User (apotek@medistock.com)');
+      console.log('Pharmacy account already exists; seed left its credentials and pharmacy assignment unchanged.');
     } else {
+      const password_hash = await bcrypt.hash('password123', 10);
       await prisma.users.create({
         data: {
           id: 'USER-APOTEK-1',
@@ -122,7 +118,8 @@ export async function seedDatabase() {
         price: m.price,
         stock: m.stock,
         status: m.status,
-        image_url: m.image_url
+        image_url: m.image_url,
+        pharmacy_id: 'APOTEK-1'
       }))
     });
     console.log('🌱 Seeded Initial Medicines catalog');
@@ -145,6 +142,7 @@ export async function seedDatabase() {
           payment_status: order.paymentStatus,
           order_status: order.orderStatus,
           timestamp: order.timestamp,
+          pharmacy_id: 'APOTEK-1',
           items: {
             create: order.items.map(i => ({
               name: i.name,

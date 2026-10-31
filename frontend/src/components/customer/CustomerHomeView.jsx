@@ -5,6 +5,10 @@ import { formatIDR } from '../../services/formatters.js';
 
 export default function CustomerHomeView({
   medicines = [],
+  pharmacies = [],
+  selectedPharmacyId,
+  onSelectPharmacy,
+  pharmacyName = 'Apotek',
   searchQuery,
   setSearchQuery,
   cart,
@@ -42,7 +46,10 @@ export default function CustomerHomeView({
           <div>
             <img src="/images/medistock-wordmark.png" alt="MEDISTOCK" className="aspect-[5.2/1] w-56 object-cover sm:w-64" />
             <p className="text-xs text-slate-500 font-medium mt-1">
-              Apotek Mitra: <span className="text-slate-800 font-semibold">Apotek Sehat</span>
+              Apotek tujuan:
+              <select aria-label="Pilih apotek" value={selectedPharmacyId} onChange={(event) => onSelectPharmacy?.(event.target.value)} className="ml-2 max-w-52 rounded border border-slate-200 bg-white px-2 py-1 text-slate-800 font-semibold">
+                {pharmacies.map((pharmacy) => <option key={pharmacy.id} value={pharmacy.id}>{pharmacy.name}</option>)}
+              </select>
             </p>
           </div>
                     <div className="flex flex-col items-end gap-2 text-right">
@@ -104,7 +111,7 @@ export default function CustomerHomeView({
 
       {!isStoreOpen && (
         <div className="mb-6 p-4 border border-red-200 bg-red-50 text-red-800 text-sm font-medium rounded">
-          Apotek Sehat sedang tutup sementara. Anda masih bisa melihat katalog obat, namun pemesanan akan diproses saat toko buka.
+          {pharmacyName} sedang tutup sementara. Anda masih bisa melihat katalog obat, namun pemesanan akan diproses saat toko buka.
         </div>
       )}
 

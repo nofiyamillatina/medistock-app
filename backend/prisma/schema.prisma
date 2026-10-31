@@ -13,6 +13,8 @@ model pharmacy_info {
   is_open    Int       @default(1)
   updated_at DateTime? @default(now())
   users      users[]
+  medicines  medicines[]
+  orders     orders[]
 }
 
 model users {
@@ -37,6 +39,10 @@ model medicines {
   status     String    @default("Tersedia")
   image_url  String?
   created_at DateTime? @default(now())
+  pharmacy_id String?
+  pharmacy   pharmacy_info? @relation(fields: [pharmacy_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([pharmacy_id])
 }
 
 model orders {
@@ -58,10 +64,13 @@ model orders {
   estimated_arrival DateTime?
   review_rating  Int?
   review_comment String?
+  pharmacy_id String?
   customer       users?        @relation(fields: [customer_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  pharmacy       pharmacy_info? @relation(fields: [pharmacy_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
   items          order_items[]
 
   @@index([customer_id, created_at])
+  @@index([pharmacy_id, created_at])
 }
 
 model order_items {

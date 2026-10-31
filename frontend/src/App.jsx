@@ -41,6 +41,8 @@ export default function App() {
 
     return 'customer';
   });
+  const currentViewRef = useRef(currentView);
+  currentViewRef.current = currentView;
   const [theme, setTheme] = useState(() => {
     const savedTheme = localStorage.getItem('medistock_theme');
     return ['light', 'dark', 'system'].includes(savedTheme) ? savedTheme : 'system';
@@ -50,6 +52,8 @@ export default function App() {
 
   // Application Data State
   const [isStoreOpen, setIsStoreOpen] = useState(true);
+  const [pharmacies, setPharmacies] = useState([]);
+  const [selectedPharmacyId, setSelectedPharmacyId] = useState(() => localStorage.getItem('medistock_selected_pharmacy') || 'APOTEK-1');
   const [showSplash, setShowSplash] = useState(true);
   const [medicines, setMedicines] = useState([]);
   const hasLoadedMedicines = useRef(false);
@@ -179,26 +183,29 @@ export default function App() {
   }, [theme]);
 
   // Data Fetching Handlers
-  const fetchPharmacyInfo = useCallback(async () => {
+  const fetchPharmacyInfo = useCallback(async (accessToken = null) => {
     setLoadingPharmacyInfo(true);
     setErrorPharmacyInfo(null);
-    const pInfo = await apiService.getPharmacyInfo();
+    const pharmacyToken = accessToken || ((appMode === 'pharmacy' || currentViewRef.current === 'admin-dashboard') ? token : null);
+    const pInfo = await apiService.getPharmacyInfo(selectedPharmacyId, pharmacyToken);
     if (pInfo && pInfo.success) {
       setIsStoreOpen(pInfo.data.isOpen);
+      setPharmacies((current) => current.map((pharmacy) => pharmacy.id === pInfo.data.id ? { ...pharmacy, name: pInfo.data.name, isOpen: pInfo.data.isOpen } : pharmacy));
     } else {
       setErrorPharmacyInfo(pInfo?.message || 'Gagal memuat informasi apotek.');
     }
     setLoadingPharmacyInfo(false);
-  }, []);
+  }, [selectedPharmacyId, token]);
 
-  const fetchMedicines = useCallback(async (query = '') => {
+  const fetchMedicines = useCallback(async (query = '', accessToken = null) => {
   if (!hasLoadedMedicines.current) {
     setLoadingMedicines(true);
   }
 
   setErrorMedicines(null);
 
-  const medRes = await apiService.getMedicines(query);
+  const pharmacyToken = accessToken || ((appMode === 'pharmacy' || currentViewRef.current === 'admin-dashboard') ? token : null);
+  const medRes = await apiService.getMedicines(query, selectedPharmacyId, pharmacyToken);
 
   if (medRes && medRes.success) {
     setMedicines(
@@ -216,7 +223,22 @@ export default function App() {
   }
 
   setLoadingMedicines(false);
-}, []);
+}, [selectedPharmacyId, token]);
+
+  useEffect(() => {
+    apiService.getPharmacies().then((result) => {
+      if (!result?.success || !Array.isArray(result.data)) return;
+      setPharmacies(result.data);
+      if (!result.data.some((pharmacy) => pharmacy.id === selectedPharmacyId)) {
+        const firstPharmacy = result.data[0];
+        if (firstPharmacy) setSelectedPharmacyId(firstPharmacy.id);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    if (selectedPharmacyId) localStorage.setItem('medistock_selected_pharmacy', selectedPharmacyId);
+  }, [selectedPharmacyId]);
 
   const fetchOrders = useCallback(async () => {
     setLoadingOrders(true);
@@ -378,6 +400,7 @@ export default function App() {
     }
 
     const orderPayload = {
+      pharmacyId: selectedPharmacyId,
       customerName: customerInfo.name,
       phone: customerInfo.phone,
       address: deliveryMethod === 'Pengantaran' ? customerInfo.address : '-',
@@ -453,8 +476,8 @@ export default function App() {
       setIsLoggedIn(true);
       setToken(res.token);
       setCurrentView('admin-dashboard');
-      fetchPharmacyInfo();
-      fetchMedicines();
+      fetchPharmacyInfo(res.token);
+      fetchMedicines('', res.token);
       return { success: true };
     } else {
       return { success: false, message: res?.message || 'Email atau password tidak valid.' };
@@ -525,6 +548,14 @@ export default function App() {
       showNotice(res?.message || 'Gagal mengubah status apotek.');
       fetchPharmacyInfo();
     }
+  };
+
+  const handleSelectPharmacy = (pharmacyId) => {
+    if (pharmacyId === selectedPharmacyId) return;
+    setSelectedPharmacyId(pharmacyId);
+    setCart([]);
+    setCurrentOrder(null);
+    setShowSuccessModal(false);
   };
 
   const handleUpdateOrderStatus = async (orderId, newStatus, options = {}) => {
@@ -695,6 +726,9 @@ export default function App() {
         {currentView === 'customer' && (
           <CustomerHomeView
             medicines={medicines}
+            pharmacies={pharmacies}
+            selectedPharmacyId={selectedPharmacyId}
+            onSelectPharmacy={handleSelectPharmacy}
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
             cart={cart}
@@ -703,6 +737,7 @@ export default function App() {
             cartTotal={cartTotal}
             hasPlacedOrder={Boolean(currentOrder)}
             isStoreOpen={isStoreOpen}
+            pharmacyName={pharmacies.find((pharmacy) => pharmacy.id === selectedPharmacyId)?.name || 'Apotek'}
             onProceedToCheckout={handleProceedToCheckout}
             loadingMedicines={loadingMedicines}
             errorMedicines={errorMedicines}

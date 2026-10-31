@@ -4,14 +4,18 @@ import { isRestrictedMedicine, RESTRICTED_MEDICINE_WARNING } from '../config/res
 // Get all medicines catalog (Customer & Admin)
 export const getMedicines = async (req, res) => {
   try {
-    const { search } = req.query;
-    
-    const where = search ? {
+    const { search, pharmacyId } = req.query;
+    const selectedPharmacyId = req.user?.role === 'pharmacy_staff' ? req.user.pharmacyId : pharmacyId;
+    if (!selectedPharmacyId) return res.status(400).json({ success: false, message: 'Pilih apotek untuk melihat katalog.' });
+    const where = {
+      pharmacy_id: selectedPharmacyId,
+      ...(search ? {
       OR: [
         { name: { contains: search } },
         { desc: { contains: search } }
       ]
-    } : {};
+      } : {})
+    };
 
     const medicines = await prisma.medicines.findMany({
       where,
@@ -106,8 +110,9 @@ export const createMedicine = async (req, res) => {
   }
   try {
     const stock = Number(req.body.stock);
+    const pharmacyId = req.user.pharmacyId;
     const imageUrl = (req.body.image_url ?? req.body.imageUrl ?? '').trim() || null;
-    const existingMedicines = await prisma.medicines.findMany({ select: { id: true, name: true } });
+    const existingMedicines = await prisma.medicines.findMany({ where: { pharmacy_id: pharmacyId }, select: { id: true, name: true } });
     const duplicate = findDuplicateMedicine(existingMedicines, req.body.name);
     if (duplicate) {
       return res.status(409).json({
@@ -125,7 +130,8 @@ export const createMedicine = async (req, res) => {
             price: Number(req.body.price),
             stock,
             status: stock === 0 ? 'Habis' : 'Tersedia',
-            image_url: imageUrl
+            image_url: imageUrl,
+            pharmacy_id: pharmacyId
           }
         });
         return res.status(201).json({ success: true, data: medicine });
@@ -161,12 +167,16 @@ export const updateInventory = async (req, res) => {
       }
     }
 
+    const pharmacyId = req.user.pharmacyId;
     const existingMedicines = await prisma.medicines.findMany({
-      where: { id: { in: items.map((item) => item.id) } },
+      where: { id: { in: items.map((item) => item.id) }, pharmacy_id: pharmacyId },
       select: { id: true, name: true }
     });
+    if (new Set(existingMedicines.map(({ id }) => id)).size !== new Set(items.map(({ id }) => id)).size) {
+      return res.status(404).json({ success: false, message: 'Satu atau beberapa obat tidak ditemukan di apotek Anda.' });
+    }
     const existingNames = new Map(existingMedicines.map((medicine) => [medicine.id, medicine.name]));
-    const allMedicines = await prisma.medicines.findMany({ select: { id: true, name: true } });
+    const allMedicines = await prisma.medicines.findMany({ where: { pharmacy_id: pharmacyId }, select: { id: true, name: true } });
     const updatedNames = new Map(allMedicines.map((medicine) => [medicine.id, medicine.name]));
     for (const item of items) {
       const medicineName = Object.hasOwn(item, 'name') ? item.name : existingNames.get(item.id);
@@ -200,7 +210,7 @@ export const updateInventory = async (req, res) => {
           const imgVal = item.image_url ?? item.imageUrl;
           data.image_url = typeof imgVal === 'string' ? imgVal.trim() || null : null;
         }
-        return prisma.medicines.update({ where: { id: item.id }, data });
+        return prisma.medicines.updateMany({ where: { id: item.id, pharmacy_id: pharmacyId }, data });
       }));
     } catch (error) {
       if (error.code === 'P2025') {
@@ -210,6 +220,7 @@ export const updateInventory = async (req, res) => {
     }
 
     const updatedMedicines = await prisma.medicines.findMany({
+      where: { pharmacy_id: pharmacyId },
       orderBy: { created_at: 'asc' }
     });
     
@@ -226,7 +237,8 @@ export const updateInventory = async (req, res) => {
 
 export const deleteMedicine = async (req, res) => {
   try {
-    await prisma.medicines.delete({ where: { id: req.params.id } });
+    const deleted = await prisma.medicines.deleteMany({ where: { id: req.params.id, pharmacy_id: req.user.pharmacyId } });
+    if (deleted.count === 0) return res.status(404).json({ success: false, message: 'Obat tidak ditemukan.' });
     return res.json({ success: true, message: 'Obat berhasil dihapus.' });
   } catch (error) {
     if (error.code === 'P2025') {

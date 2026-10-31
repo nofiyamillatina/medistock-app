@@ -52,6 +52,7 @@ async function createOrder(token, medicineName, quantity) {
     method: 'POST',
     headers: headers(token, true),
     body: JSON.stringify({
+      pharmacyId: 'APOTEK-1',
       customerName: 'Pelanggan QR Statis',
       phone: '081299990000',
       address: 'Jalan Sementara 1',
@@ -69,7 +70,7 @@ try {
   const suffix = Date.now();
   medicineId = `STATIC-QR-TEST-${suffix}`;
   await prisma.medicines.create({
-    data: { id: medicineId, name: 'Obat QR Statis', price: 2100, stock: 4, status: 'Tersedia' }
+    data: { id: medicineId, name: 'Obat QR Statis', price: 2100, stock: 4, status: 'Tersedia', pharmacy_id: 'APOTEK-1' }
   });
   backend = spawn(process.execPath, ['src/server.js'], {
     cwd: fileURLToPath(new URL('.', import.meta.url)),

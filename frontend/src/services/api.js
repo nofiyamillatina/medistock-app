@@ -14,9 +14,20 @@ const getCustomerHeaders = () => getHeaders(null, 'medistock_customer_token');
 
 export const apiService = {
   // Pharmacy info & status
-  async getPharmacyInfo() {
+  async getPharmacies() {
     try {
-      const res = await fetch(`${API_BASE_URL}/pharmacy/info`);
+      const res = await fetch(`${API_BASE_URL}/pharmacy/list`);
+      return await res.json();
+    } catch (err) {
+      console.error('API Error getPharmacies:', err);
+      return { success: false, message: 'Server backend tidak dapat dihubungi.' };
+    }
+  },
+
+  async getPharmacyInfo(pharmacyId = '', token = null) {
+    try {
+      const query = pharmacyId ? `?pharmacyId=${encodeURIComponent(pharmacyId)}` : '';
+      const res = await fetch(`${API_BASE_URL}/pharmacy/info${query}`, { headers: token ? getHeaders(token) : { 'Content-Type': 'application/json' } });
       if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
       return await res.json();
     } catch (err) {
@@ -40,10 +51,13 @@ export const apiService = {
   },
 
   // Medicines Catalog & Inventory
-  async getMedicines(search = '') {
+  async getMedicines(search = '', pharmacyId = '', token = null) {
     try {
-      const url = search ? `${API_BASE_URL}/medicines?search=${encodeURIComponent(search)}` : `${API_BASE_URL}/medicines`;
-      const res = await fetch(url);
+      const params = new URLSearchParams();
+      if (search) params.set('search', search);
+      if (pharmacyId) params.set('pharmacyId', pharmacyId);
+      const url = `${API_BASE_URL}/medicines${params.size ? `?${params}` : ''}`;
+      const res = await fetch(url, { headers: token ? getHeaders(token) : { 'Content-Type': 'application/json' } });
       if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
       return await res.json();
     } catch (err) {

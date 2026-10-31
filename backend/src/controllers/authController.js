@@ -62,6 +62,9 @@ export const loginPharmacy = async (req, res) => {
         message: 'Username/email atau password tidak valid.'
       });
     }
+    if (!user.pharmacy_id) {
+      return res.status(403).json({ success: false, message: 'Akun staf belum terhubung ke apotek.' });
+    }
 
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
