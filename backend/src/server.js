@@ -103,7 +103,8 @@ async function gracefulShutdown(signal) {
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
-// --- Start Server ---
+
+ // --- Start Server ---
 const startServer = async () => {
   try {
     if (NODE_ENV !== 'production') {
@@ -121,4 +122,9 @@ const startServer = async () => {
   }
 };
 
-startServer();
+// Jalankan server lokal, tetapi biarkan Vercel menangani request.
+if (!process.env.VERCEL) {
+  startServer();
+}
+
+export default app;
