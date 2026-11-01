@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import PasswordInput from '../common/PasswordInput.jsx';
 
 export default function PharmacyLoginView({ onLoginSuccess }) {
   const [email, setEmail] = useState('');
@@ -59,9 +60,8 @@ export default function PharmacyLoginView({ onLoginSuccess }) {
             <label htmlFor="pharmacy-password" className="block text-xs font-bold text-slate-700 uppercase mb-1">
               Password
             </label>
-            <input
+            <PasswordInput
               id="pharmacy-password"
-              type="password"
               required
               autoComplete="current-password"
               placeholder="Masukkan password"

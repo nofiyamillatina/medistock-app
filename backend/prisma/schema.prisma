@@ -9,6 +9,7 @@ datasource db {
 
 model pharmacy_info {
   id         String    @id
+  pharmacy_code_number BigInt @unique @default(autoincrement())
   name       String
   address    String?
   maps_url   String?
@@ -51,6 +52,7 @@ model medicines {
 
 model orders {
   id             String        @id
+  display_order_number String   @unique
   customer_name  String
   phone          String
   address        String?       @default("-")

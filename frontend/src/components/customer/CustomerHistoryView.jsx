@@ -6,7 +6,7 @@ function OrderRow({ order, selected, onSelect }) {
   const isFinished = ['Selesai', 'Dibatalkan'].includes(order.orderStatus);
   return <button type="button" onClick={() => onSelect(order.id)} className={`w-full rounded-xl border p-4 text-left transition hover:border-primary/50 ${selected ? 'border-primary bg-primary-soft/40' : 'border-slate-200 bg-white'}`}>
     <div className="flex flex-wrap items-start justify-between gap-3">
-      <div><p className="font-mono text-sm font-bold text-slate-900">{order.id}</p><p className="mt-1 text-xs text-slate-500">{order.deliveryType} - {order.timestamp}</p></div>
+      <div><p className="font-mono text-sm font-bold text-slate-900">{order.displayOrderNumber || order.id}</p><p className="mt-1 text-xs text-slate-500">{order.deliveryType} - {order.timestamp}</p></div>
       <span className={`rounded-full px-3 py-1 text-xs font-bold ${isFinished ? order.orderStatus === 'Selesai' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700' : 'bg-primary-soft text-primary'}`}>{order.orderStatus}</span>
     </div>
     <p className="mt-3 text-xs text-slate-600">{order.items.map((item) => `${item.name} x ${item.qty}`).join(', ')}</p>
@@ -135,7 +135,7 @@ export default function CustomerHistoryView({ onLoadOrders, onCompleteDelivery, 
 
     {selectedOrder && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-3 sm:p-6" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedOrderId(null); }}>
       <section role="dialog" aria-modal="true" aria-labelledby="customer-order-progress-title" className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-7" aria-live="polite">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4"><div><p className="text-xs text-slate-500">ID Pesanan</p><h2 id="customer-order-progress-title" className="font-mono text-lg font-bold text-slate-900">{selectedOrder.id}</h2></div><button type="button" onClick={() => setSelectedOrderId(null)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50">Tutup</button></div>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4"><div><p className="text-xs text-slate-500">ID Pesanan</p><h2 id="customer-order-progress-title" className="font-mono text-lg font-bold text-slate-900">{selectedOrder.displayOrderNumber || selectedOrder.id}</h2></div><button type="button" onClick={() => setSelectedOrderId(null)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50">Tutup</button></div>
         <p className="mt-3 text-sm text-slate-600">{selectedOrder.deliveryType} - {selectedOrder.timestamp}</p>
         <OrderTrackingProgress order={selectedOrder} />
         {selectedOrder.paymentStatus === 'Menunggu Pembayaran' && <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4">

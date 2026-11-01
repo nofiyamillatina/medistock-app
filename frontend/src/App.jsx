@@ -29,7 +29,7 @@ function MainApplication() {
 
   // Halaman pertama sesuai website yang dibuka
   
-const [currentView, setCurrentView] = useState(() => {
+const [currentView, setCurrentViewState] = useState(() => {
   if (appMode === 'customer') {
     const savedToken = localStorage.getItem('medistock_customer_token');
     const savedView = sessionStorage.getItem('medistock_customer_view');
@@ -52,6 +52,31 @@ const [currentView, setCurrentView] = useState(() => {
 
   const currentViewRef = useRef(currentView);
   currentViewRef.current = currentView;
+  const setCurrentView = useCallback((nextView) => {
+    const resolvedView = typeof nextView === 'function' ? nextView(currentViewRef.current) : nextView;
+    if (!resolvedView || resolvedView === currentViewRef.current) return;
+    window.history.pushState({ ...window.history.state, medistockView: resolvedView }, '');
+    currentViewRef.current = resolvedView;
+    setCurrentViewState(resolvedView);
+  }, []);
+  useEffect(() => {
+    window.history.replaceState({ ...window.history.state, medistockView: currentViewRef.current }, '');
+    const restoreInternalView = (event) => {
+      const nextView = event.state?.medistockView;
+      if (typeof nextView !== 'string') return;
+      if (appMode === 'customer' && ['admin-login', 'admin-dashboard'].includes(nextView)) return;
+      if (appMode === 'pharmacy' && !['admin-login', 'admin-dashboard'].includes(nextView)) return;
+      const customerProtectedViews = ['customer', 'pharmacy-choice', 'checkout', 'qris', 'cash-order', 'customer-history'];
+      const pharmacyTokenMissing = appMode === 'pharmacy' && nextView === 'admin-dashboard' && !localStorage.getItem('medistock_token');
+      const customerTokenMissing = appMode === 'customer' && customerProtectedViews.includes(nextView) && !localStorage.getItem('medistock_customer_token');
+      const safeView = pharmacyTokenMissing ? 'admin-login' : customerTokenMissing ? 'customer-login' : nextView;
+      if (safeView !== nextView) window.history.replaceState({ ...event.state, medistockView: safeView }, '');
+      currentViewRef.current = safeView;
+      setCurrentViewState(safeView);
+    };
+    window.addEventListener('popstate', restoreInternalView);
+    return () => window.removeEventListener('popstate', restoreInternalView);
+  }, []);
   useEffect(() => {
   if (appMode !== 'customer') return;
 
@@ -64,7 +89,16 @@ const [currentView, setCurrentView] = useState(() => {
     const savedTheme = localStorage.getItem('medistock_theme');
     return ['light', 'dark', 'system'].includes(savedTheme) ? savedTheme : 'system';
   });
-  const [adminTab, setAdminTab] = useState('orders'); // 'orders' | 'inventory' | 'reports'
+  const [adminTab, setAdminTabState] = useState(() => {
+    const savedTab = sessionStorage.getItem('medistock_pharmacy_admin_tab');
+    return ['orders', 'inventory', 'reports'].includes(savedTab) ? savedTab : 'orders';
+  }); // 'orders' | 'inventory' | 'reports'
+  const setAdminTab = useCallback((nextTab) => {
+    const resolvedTab = typeof nextTab === 'function' ? nextTab(adminTab) : nextTab;
+    if (!['orders', 'inventory', 'reports'].includes(resolvedTab)) return;
+    sessionStorage.setItem('medistock_pharmacy_admin_tab', resolvedTab);
+    setAdminTabState(resolvedTab);
+  }, [adminTab]);
 
   // Application Data State
   const [isStoreOpen, setIsStoreOpen] = useState(true);
@@ -828,6 +862,7 @@ const [currentView, setCurrentView] = useState(() => {
     onCustomerLogin={handleOpenCustomerLogin}
     theme={theme}
     onThemeChange={setTheme}
+    hideTheme={currentView === 'pharmacy-choice'}
   />
 )}
 
@@ -842,6 +877,8 @@ const [currentView, setCurrentView] = useState(() => {
           onSelect={handleSelectPharmacy}
           customerUser={customerUser}
           onLogout={handleCustomerLogout}
+          theme={theme}
+          onThemeChange={setTheme}
         />}
 
         {currentView === 'customer' && (
@@ -914,7 +951,7 @@ const [currentView, setCurrentView] = useState(() => {
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">✓</div>
             <h1 className="text-xl font-bold text-slate-900">Pesanan berhasil dibuat</h1>
             <p className="mt-2 text-sm text-slate-600">Siapkan pembayaran <strong>{formatIDR(currentOrder.totalAmount)}</strong> secara tunai saat mengambil pesanan di apotek.</p>
-            <p className="mt-5 rounded-lg bg-slate-50 p-3 font-mono text-lg font-bold text-primary">{currentOrder.id}</p>
+            <p className="mt-5 rounded-lg bg-slate-50 p-3 font-mono text-lg font-bold text-primary">{currentOrder.displayOrderNumber || currentOrder.id}</p>
             <p className="mt-2 text-xs text-slate-500">Simpan ID pesanan ini dan tunjukkan kepada petugas saat mengambil obat.</p>
             <button type="button" onClick={resetCustomerFlow} className="mt-6 w-full rounded-lg bg-primary px-4 py-3 text-sm font-bold text-white">Selesai</button>
           </div>

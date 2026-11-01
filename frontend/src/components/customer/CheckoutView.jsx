@@ -86,14 +86,14 @@ export default function CheckoutView({
           </div>
           <div className="divide-y divide-slate-100">
             {cart.map((item) => (
-              <div key={item.id} className="py-3 flex items-center justify-between text-sm">
-                <div>
+              <div key={item.id} className="flex min-w-0 items-start justify-between gap-3 py-3 text-sm sm:items-center">
+                <div className="min-w-0 flex-1">
                   <p className="font-bold text-slate-900">{item.name}</p>
                   <p className="text-xs text-slate-500">
                     {formatIDR(item.price)} &times; {item.qty}
                   </p>
                 </div>
-                <div className="flex items-center space-x-3">
+                <div className="flex shrink-0 items-center gap-2 sm:gap-3">
                   <div className="flex items-center border border-slate-200">
                     <button
                       type="button"
@@ -125,9 +125,9 @@ export default function CheckoutView({
           <h2 className="text-sm font-bold text-navy tracking-wide mb-4">
             Metode Pengiriman
           </h2>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
             <label
-              className={`border rounded-xl p-4 cursor-pointer flex items-center space-x-3 transition ${deliveryMethod === 'Pengantaran' ? 'border-primary bg-primary-soft' : 'border-slate-200 hover:border-primary'
+              className={`min-w-0 border rounded-xl p-4 cursor-pointer flex items-start sm:items-center gap-3 transition ${deliveryMethod === 'Pengantaran' ? 'border-primary bg-primary-soft' : 'border-slate-200 hover:border-primary'
                 }`}
             >
               <input
@@ -139,14 +139,14 @@ export default function CheckoutView({
                 className="accent-primary"
               />
               <Truck size={20} aria-hidden="true" className="shrink-0 text-primary" />
-              <div>
+              <div className="min-w-0">
                 <span className="block text-sm font-bold text-slate-900">Pengantaran</span>
                 <span className="block text-xs text-slate-500">Diantar kurir resmi apotek ke alamat Anda</span>
               </div>
             </label>
 
             <label
-              className={`border rounded-xl p-4 cursor-pointer flex items-center space-x-3 transition ${deliveryMethod === 'Ambil Sendiri' ? 'border-primary bg-primary-soft' : 'border-slate-200 hover:border-primary'
+              className={`min-w-0 border rounded-xl p-4 cursor-pointer flex items-start sm:items-center gap-3 transition ${deliveryMethod === 'Ambil Sendiri' ? 'border-primary bg-primary-soft' : 'border-slate-200 hover:border-primary'
                 }`}
             >
               <input
@@ -158,7 +158,7 @@ export default function CheckoutView({
                 className="accent-primary"
               />
               <Store size={20} aria-hidden="true" className="shrink-0 text-primary" />
-              <div>
+              <div className="min-w-0">
                 <span className="block text-sm font-bold text-slate-900">Ambil Sendiri di Apotek</span>
                 <span className="block text-xs text-slate-500">Ambil langsung di kasir Apotek (Bebas Ongkir)</span>
               </div>

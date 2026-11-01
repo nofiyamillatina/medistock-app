@@ -85,7 +85,7 @@ function OrderDetailsModal({ order, onClose, onUpdateOrderStatus, onVerifyCustom
   return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-3 sm:p-6" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
     <section role="dialog" aria-modal="true" aria-labelledby="order-detail-title" className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-7">
       <header className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
-        <div><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Detail Pesanan</p><h2 id="order-detail-title" className="mt-1 font-mono text-xl font-bold text-navy">{order.id}</h2></div>
+        <div><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Detail Pesanan</p><h2 id="order-detail-title" className="mt-1 font-mono text-xl font-bold text-navy">{order.displayOrderNumber || order.id}</h2></div>
         <button type="button" onClick={onClose} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50">Tutup</button>
       </header>
 
@@ -141,7 +141,7 @@ export default function IncomingOrdersTab({
   const visibleOrders = useMemo(() => {
     const query = searchQuery.trim().toLocaleLowerCase('id');
     const filtered = orders.filter((order) => {
-      const searchable = [order.id, order.customerName, order.phone, order.deliveryType, order.paymentStatus, order.orderStatus];
+      const searchable = [order.displayOrderNumber, order.id, order.customerName, order.phone, order.deliveryType, order.paymentStatus, order.orderStatus];
       return (!query || searchable.some((value) => String(value || '').toLocaleLowerCase('id').includes(query)))
         && (deliveryFilter === 'all' || order.deliveryType === deliveryFilter)
         && (paymentFilter === 'all' || order.paymentStatus === paymentFilter)
@@ -149,7 +149,7 @@ export default function IncomingOrdersTab({
     });
 
     return filtered.sort((a, b) => {
-      if (sortBy === 'id') return String(a.id || '').localeCompare(String(b.id || ''), 'id');
+      if (sortBy === 'id') return String(a.displayOrderNumber || a.id || '').localeCompare(String(b.displayOrderNumber || b.id || ''), 'id', { numeric: true });
       if (sortBy === 'name') return String(a.customerName || '').localeCompare(String(b.customerName || ''), 'id');
       return timestampValue(b.timestamp) - timestampValue(a.timestamp);
     });
@@ -220,7 +220,7 @@ export default function IncomingOrdersTab({
             {needsStaffAction(order) && <span role="img" aria-label="Memerlukan tindakan staf" title="Memerlukan tindakan staf" className="absolute right-3 top-3 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white" />}
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <span className="font-mono text-sm font-bold text-slate-900">{order.id}</span>
+                <span className="font-mono text-sm font-bold text-slate-900">{order.displayOrderNumber || order.id}</span>
                 <span className="text-sm font-semibold text-slate-700">{order.customerName}</span>
               </div>
               <p className="mt-1 text-xs text-slate-500">Dipesan: {formatOrderTimestamp(order.timestamp)}</p>

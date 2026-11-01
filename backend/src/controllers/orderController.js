@@ -1,6 +1,8 @@
 import prisma from '../config/database.js';
 import { randomUUID } from 'node:crypto';
 
+const formatDisplayOrderNumber = (value) => `MDS-${String(value).padStart(6, '0')}`;
+
 function matchMedicineForOrderItem(itemName, medicines, medicineId = null) {
   if (medicineId) {
     const idMatch = medicines.find((medicine) => medicine.id === medicineId);
@@ -26,6 +28,7 @@ export const getOrders = async (req, res) => {
       where: { pharmacy_id: req.user.pharmacyId },
       select: {
         id: true,
+        display_order_number: true,
         customer_name: true,
         phone: true,
         address: true,
@@ -50,6 +53,7 @@ export const getOrders = async (req, res) => {
     const orders = rawOrders.map(order => {
       return {
         ...order,
+        displayOrderNumber: order.display_order_number,
         customerName: order.customer_name,
         deliveryType: order.delivery_type,
         paymentMethod: order.payment_method,
@@ -104,6 +108,7 @@ export const getCustomerOrders = async (req, res) => {
 
     const orders = rawOrders.map((order) => ({
       id: order.id,
+      displayOrderNumber: order.display_order_number,
       customerName: order.customer_name,
       deliveryType: order.delivery_type,
       paymentMethod: order.payment_method,
@@ -140,11 +145,12 @@ export const trackOrder = async (req, res) => {
     const phone = String(req.query.phone || '').trim();
     if (!phone) return res.status(400).json({ success: false, message: 'Nomor telepon wajib diisi.' });
 
-    const order = await prisma.orders.findFirst({ where: { id, phone }, include: { items: true } });
+    const order = await prisma.orders.findFirst({ where: { OR: [{ id }, { display_order_number: id }], phone }, include: { items: true } });
     if (!order) return res.status(404).json({ success: false, message: 'Pesanan tidak ditemukan. Periksa kembali ID pesanan dan nomor telepon.' });
 
     res.json({ success: true, data: {
       id: order.id,
+      displayOrderNumber: order.display_order_number,
       customerName: order.customer_name,
       deliveryType: order.delivery_type,
       paymentMethod: order.payment_method,
@@ -261,9 +267,13 @@ export const createOrder = async (req, res) => {
       const totalAmount = subtotal + serviceFee;
       if (!Number.isSafeInteger(totalAmount) || totalAmount <= 0) return { invalidTotal: true };
 
+      const sequenceRows = await tx.$queryRaw`SELECT nextval('"orders_display_order_number_seq"')::text AS number`;
+      const displayOrderNumber = formatDisplayOrderNumber(sequenceRows[0].number);
+
       await tx.orders.create({
         data: {
           id: orderId,
+          display_order_number: displayOrderNumber,
           customer_id: req.user.id,
           pharmacy_id: pharmacy.id,
           customer_name: customerName,
@@ -287,7 +297,7 @@ export const createOrder = async (req, res) => {
           }
         }
       });
-      return { pharmacy, orderItems, subtotal, totalAmount };
+      return { pharmacy, orderItems, subtotal, totalAmount, displayOrderNumber };
     }, { isolationLevel: 'Serializable' });
 
     if (creation.notFound) return res.status(404).json({ success: false, message: 'Apotek tujuan tidak ditemukan atau sedang dinonaktifkan.' });
@@ -297,10 +307,11 @@ export const createOrder = async (req, res) => {
     if (creation.invalidTotal) {
       return res.status(400).json({ success: false, message: 'Total pembayaran tidak valid.' });
     }
-    const { pharmacy, orderItems, subtotal, totalAmount } = creation;
+    const { pharmacy, orderItems, subtotal, totalAmount, displayOrderNumber } = creation;
 
     const createdOrder = {
       id: orderId,
+      displayOrderNumber,
       pharmacyId: pharmacy.id,
       pharmacyName: pharmacy.name,
       customerName: customerName.trim(),

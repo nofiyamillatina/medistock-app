@@ -132,6 +132,7 @@ export async function seedDatabase() {
       await prisma.orders.create({
         data: {
           id: order.id,
+          display_order_number: order.id,
           customer_name: order.customerName,
           phone: order.phone,
           address: order.address,

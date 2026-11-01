@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowRight, ExternalLink, MapPin, Store } from 'lucide-react';
+import ThemeToggle from '../common/ThemeToggle.jsx';
 
 function PharmacyCard({ pharmacy, isSelected, onSelect }) {
   const [imageFailed, setImageFailed] = useState(false);
@@ -17,6 +18,7 @@ function PharmacyCard({ pharmacy, isSelected, onSelect }) {
         <h2 className="text-lg font-bold text-slate-900">{pharmacy.name}</h2>
         {pharmacy.isOpen ? <span className="inline-flex shrink-0 items-center gap-1.5 rounded border border-emerald-200 bg-success-soft px-2 py-1 text-[10px] font-bold text-emerald-700"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />Buka</span> : <span className="inline-flex shrink-0 items-center gap-1.5 rounded border border-slate-200 bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600"><span className="h-1.5 w-1.5 rounded-full bg-slate-400" />Tutup sementara</span>}
       </div>
+      {pharmacy.code && <p className="mt-1 font-mono text-[11px] font-semibold tracking-wide text-primary">{pharmacy.code}</p>}
       {address && <p className="mt-3 flex items-start gap-2 text-xs leading-relaxed text-slate-600"><MapPin size={15} aria-hidden="true" className="mt-0.5 shrink-0 text-primary" /><span className="whitespace-pre-line">{address}</span></p>}
       {mapsUrl && <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex w-fit items-center gap-1.5 text-xs font-semibold text-primary hover:underline" aria-label={`Lihat lokasi ${pharmacy.name} di Google Maps`}><MapPin size={14} aria-hidden="true" />Lihat di Google Maps<ExternalLink size={12} aria-hidden="true" /></a>}
       <button type="button" onClick={() => onSelect(pharmacy.id)} className="mt-auto inline-flex w-full items-center justify-between border-t border-slate-100 pt-4 text-left text-xs font-bold uppercase tracking-wide text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
@@ -34,7 +36,9 @@ export default function PharmacySelectionView({
   onRetry,
   onSelect,
   customerUser,
-  onLogout
+  onLogout,
+  theme = 'system',
+  onThemeChange
 }) {
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 py-8 sm:px-6">
@@ -43,10 +47,10 @@ export default function PharmacySelectionView({
           <img src="/images/medistock-wordmark.png" alt="MEDISTOCK" className="aspect-[5.2/1] w-52 object-cover sm:w-60" />
           <p className="mt-2 text-sm text-slate-500">Pilih apotek untuk melihat katalog dan ketersediaan obat.</p>
         </div>
-        {customerUser && <div className="flex items-center gap-3">
-          <span className="max-w-48 truncate text-xs text-slate-500">{customerUser.email}</span>
-          <button type="button" onClick={onLogout} className="text-xs font-bold text-primary hover:text-primary-hover">Keluar</button>
-        </div>}
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 text-right">
+          {onThemeChange && <ThemeToggle theme={theme} onThemeChange={onThemeChange} compact />}
+          {customerUser && <><span className="max-w-48 truncate text-xs text-slate-500">{customerUser.email}</span><button type="button" onClick={onLogout} className="text-xs font-bold text-primary hover:text-primary-hover">Keluar</button></>}
+        </div>
       </header>
 
       <main className="flex-1">

@@ -69,7 +69,7 @@ export default function QRISPaymentView({
         <div className="w-14 h-14 bg-success text-white rounded-full flex items-center justify-center mx-auto text-2xl font-bold" aria-hidden="true">✓</div>
         <h1 className="mt-4 text-xl font-bold text-slate-900">Konfirmasi Pembayaran Diterima</h1>
         <p className="mt-2 text-sm text-slate-600 leading-relaxed">Apotek sudah memeriksa pembayaran Anda. Konfirmasi diterima dan pesanan menunggu diproses.</p>
-        {currentOrder?.id && <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">ID pesanan: <strong className="font-mono">{currentOrder.id}</strong></p>}
+        {currentOrder?.id && <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">ID pesanan: <strong className="font-mono">{currentOrder.displayOrderNumber || currentOrder.id}</strong></p>}
         <button onClick={onOpenHistory} className="w-full mt-6 py-3 bg-primary hover:bg-primary-hover text-white text-xs font-bold tracking-wider uppercase">Lihat Riwayat & Progres</button>
         <button onClick={onReset} className="w-full mt-2 py-3 border border-slate-200 bg-white text-slate-700 text-xs font-bold tracking-wider uppercase">Kembali ke Beranda</button>
       </div>

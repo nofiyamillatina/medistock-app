@@ -3,6 +3,7 @@ import { KeyRound, Power, Save, Trash2, X } from 'lucide-react';
 import { apiService } from '../../services/api.js';
 import AppDialog from '../common/AppDialog.jsx';
 import PharmacyImageField from './PharmacyImageField.jsx';
+import PasswordInput from '../common/PasswordInput.jsx';
 
 const isHttpUrl = (value) => {
   try {
@@ -21,7 +22,7 @@ const isGoogleMapsUrl = (value) => {
     || /(^|\.)google\.(com|[a-z]{2}|co\.[a-z]{2})$/.test(hostname);
 };
 
-export default function PlatformPharmacyManager({ pharmacyId, token, onClose, onChanged, onLogout }) {
+export default function PlatformPharmacyManager({ pharmacyId, token, onClose, onChanged, onDeleted, onLogout }) {
   const [detail, setDetail] = useState(null);
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
@@ -35,6 +36,17 @@ export default function PlatformPharmacyManager({ pharmacyId, token, onClose, on
   const [message, setMessage] = useState('');
   const [formModal, setFormModal] = useState(null);
   const [modalFeedback, setModalFeedback] = useState(null);
+  const [dialog, setDialog] = useState(null);
+
+  const askConfirmation = (title, message) => new Promise((resolve) => {
+    setDialog({ type: 'confirm', title, message, resolve });
+  });
+  const closeDialog = (confirmed = false) => {
+    const pendingResolver = dialog?.resolve;
+    setDialog(null);
+    setMessage('');
+    pendingResolver?.(confirmed);
+  };
 
   const load = async () => {
     setError('');
@@ -57,7 +69,7 @@ export default function PlatformPharmacyManager({ pharmacyId, token, onClose, on
   const finishAction = async (result, successMessage) => {
     if (result?.httpStatus === 401 || result?.httpStatus === 403) onLogout();
     if (!result?.success) {
-      setError(result?.message || 'Perubahan tidak berhasil.');
+      setDialog({ type: 'error', title: 'Perubahan gagal', message: result?.message || 'Perubahan tidak berhasil.' });
       return false;
     }
     setError('');
@@ -74,7 +86,9 @@ export default function PlatformPharmacyManager({ pharmacyId, token, onClose, on
     }
     setError('');
     await Promise.all([load(), onChanged()]);
-    setModalFeedback({ type: 'success', message: successMessage || result.message || 'Perubahan berhasil.' });
+    setModalFeedback(null);
+    setFormModal(null);
+    setMessage(successMessage || result.message || 'Perubahan berhasil.');
     return true;
   };
 
@@ -130,22 +144,33 @@ export default function PlatformPharmacyManager({ pharmacyId, token, onClose, on
   const changeActive = async () => {
     if (!detail) return;
     const nextActive = !detail.isActive;
-    if (!window.confirm(nextActive ? `Aktifkan kembali ${detail.name}?` : `Nonaktifkan ${detail.name}? Staf tidak dapat login dan pelanggan tidak dapat membuat pesanan baru.`)) return;
+    const confirmed = await askConfirmation(
+      nextActive ? 'Aktifkan apotek?' : 'Nonaktifkan apotek?',
+      nextActive ? `Aktifkan kembali ${detail.name}?` : `Nonaktifkan ${detail.name}? Staf tidak dapat login dan pelanggan tidak dapat membuat pesanan baru.`
+    );
+    if (!confirmed) return;
     setBusy(true);
     await finishAction(await apiService.setPlatformAdminPharmacyActive(pharmacyId, nextActive, token));
     setBusy(false);
   };
 
   const deletePharmacy = async () => {
-    if (!detail || !window.confirm(`Hapus permanen ${detail.name}? Hanya apotek tanpa staf, obat, dan pesanan yang dapat dihapus.`)) return;
+    if (!detail) return;
+    const confirmed = await askConfirmation(
+      'Hapus apotek permanen?',
+      `Hapus ${detail.name} secara permanen? Penghapusan hanya berhasil bila tidak ada akun atau data terkait. Apotek dengan relasi akan ditolak dan tidak ada data terkait yang dihapus.`
+    );
+    if (!confirmed) return;
     setBusy(true);
     const result = await apiService.deletePlatformAdminPharmacy(pharmacyId, token);
     if (result?.httpStatus === 401 || result?.httpStatus === 403) onLogout();
     if (result?.success) {
-      setMessage('Apotek kosong berhasil dihapus.');
-      setDetail(null);
       await onChanged();
-    } else setError(result?.message || 'Apotek tidak dapat dihapus.');
+      setBusy(false);
+      onDeleted?.();
+      return;
+    }
+    setDialog({ type: 'error', title: 'Apotek tidak dihapus', message: result?.message || 'Apotek tidak dapat dihapus.' });
     setBusy(false);
   };
 
@@ -154,7 +179,7 @@ export default function PlatformPharmacyManager({ pharmacyId, token, onClose, on
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/50 p-3 sm:p-6" onClick={() => !busy && onClose()}>
     <section role="dialog" aria-modal="true" aria-labelledby="pharmacy-detail-title" onClick={(event) => event.stopPropagation()} className="my-auto max-h-[calc(100dvh-1.5rem)] w-full max-w-4xl overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl sm:max-h-[calc(100dvh-3rem)] sm:p-6">
       <header className="mb-5 flex items-start justify-between gap-3">
-        <div><h2 id="pharmacy-detail-title" className="text-lg font-bold text-slate-900">Detail apotek</h2><p className="mt-1 break-all font-mono text-xs text-slate-500">ID tetap: {pharmacyId}</p></div>
+        <div><h2 id="pharmacy-detail-title" className="text-lg font-bold text-slate-900">Detail apotek</h2><p className="mt-1 font-mono text-xs text-slate-500">{detail?.code || `Apotek ${pharmacyId}`}</p><p className="mt-1 break-all font-mono text-[10px] text-slate-400">ID internal tetap: {pharmacyId}</p></div>
         <button onClick={onClose} disabled={busy} aria-label="Tutup detail apotek" className="rounded-lg border border-slate-200 p-2 text-slate-600 disabled:opacity-50"><X size={16} /></button>
       </header>
       {error && !formModal && <div role="alert" className="mb-5 rounded border border-red-200 bg-red-50 p-3 text-xs font-medium text-red-700">{error}</div>}
@@ -166,7 +191,7 @@ export default function PlatformPharmacyManager({ pharmacyId, token, onClose, on
         <div className="grid gap-3 sm:grid-cols-3"><div className="rounded-xl border border-slate-200 bg-white p-4"><p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Status apotek</p><span className={`inline-flex items-center gap-1.5 rounded border px-2 py-0.5 text-[10px] font-bold ${detail.isActive ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-red-200 bg-red-50 text-red-700'}`}><span className={`h-1.5 w-1.5 rounded-full ${detail.isActive ? 'bg-emerald-500' : 'bg-red-500'}`} />{detail.isActive ? 'Aktif' : 'Nonaktif'}</span></div><div className="rounded-xl border border-slate-200 bg-white p-4"><p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Operasional</p><span className={`inline-flex items-center gap-1.5 rounded border px-2 py-0.5 text-[10px] font-bold ${detail.isOpen ? 'border-sky-200 bg-sky-50 text-sky-700' : 'border-slate-200 bg-slate-100 text-slate-600'}`}><span className={`h-1.5 w-1.5 rounded-full ${detail.isOpen ? 'bg-sky-500' : 'bg-slate-400'}`} />{detail.isOpen ? 'Buka' : 'Tutup'}</span></div><div className="rounded-xl border border-slate-200 bg-white p-4"><p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Data apotek</p><p className="text-sm font-semibold text-slate-800">{detail.medicineCount} obat · {detail.orderCount} pesanan</p></div></div>
         <div><h3 className="mb-3 font-bold text-slate-900">Akun staf ({detail.staff.length})</h3>
           {detail.staff.length === 0 ? <p className="rounded-xl border border-dashed border-slate-200 bg-white p-5 text-center text-sm text-slate-500">Belum ada akun staf.</p> : <div className="space-y-4">{detail.staff.map((staff) => <article key={staff.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="break-all font-mono text-xs text-slate-500">Akun {staff.id}</p><p className="mt-2 text-sm text-slate-800">{staff.email}<span className="text-slate-500">{staff.username ? ` · ${staff.username}` : ' · Tanpa username'}</span></p>
+            <p className="break-all font-mono text-xs text-slate-500">Akun {staff.id}</p><p className="mt-2 text-sm text-slate-800">{staff.email}<span className="text-slate-500">{staff.username ? ` · ${staff.username}` : ' · Tanpa username'}</span></p><p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-xs leading-relaxed text-slate-600"><strong>Status password:</strong> Disimpan sebagai hash dan tidak dapat dilihat. Gunakan Reset Password jika staf perlu menggantinya.</p>
             <div className="mt-3 flex flex-wrap gap-2"><button type="button" disabled={busy} onClick={() => { setModalFeedback(null); setFormModal({ type: 'staff', staffId: staff.id }); }} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 disabled:opacity-60"><Save size={14} /> Edit akun</button><button type="button" disabled={busy} onClick={() => { setModalFeedback(null); setFormModal({ type: 'password', staffId: staff.id }); }} className="inline-flex items-center gap-2 rounded-lg border border-amber-300 px-3 py-2 text-xs font-bold text-amber-800 disabled:opacity-60"><KeyRound size={14} /> Reset password</button></div>
           </article>)}</div>}
         </div>
@@ -185,12 +210,12 @@ export default function PlatformPharmacyManager({ pharmacyId, token, onClose, on
             <div className="flex justify-end gap-2"><button type="button" disabled={busy} onClick={() => { setName(detail.name); setAddress(detail.address || ''); setMapsUrl(detail.maps_url || ''); setImageUrl(detail.image_url || ''); setImageUploadPending(false); setModalFeedback(null); setFormModal(null); }} className="border border-slate-300 px-4 py-2.5 text-xs font-bold uppercase text-slate-700">Batal</button><button disabled={busy} className="bg-primary px-4 py-2.5 text-xs font-bold uppercase text-white hover:bg-primary-hover disabled:opacity-50">{busy ? <span className="inline-flex items-center gap-2"><span className="loading-spinner" aria-hidden="true" />Menyimpan...</span> : 'Simpan'}</button></div>
           </form>}
           {formModal.type === 'staff' && <form onSubmit={(event) => { event.preventDefault(); saveStaff(formModal.staffId); }} className="space-y-4"><label className="block text-xs font-bold uppercase text-slate-700">Email<input type="email" required value={staffDrafts[formModal.staffId]?.email || ''} onChange={(event) => setStaffDrafts((drafts) => ({ ...drafts, [formModal.staffId]: { ...drafts[formModal.staffId], email: event.target.value } }))} className="mt-1 w-full border border-slate-300 p-3 text-sm font-normal normal-case text-slate-900 focus:outline-none focus:border-primary" /></label><label className="block text-xs font-bold uppercase text-slate-700">Username<input value={staffDrafts[formModal.staffId]?.username || ''} onChange={(event) => setStaffDrafts((drafts) => ({ ...drafts, [formModal.staffId]: { ...drafts[formModal.staffId], username: event.target.value } }))} className="mt-1 w-full border border-slate-300 p-3 text-sm font-normal normal-case text-slate-900 focus:outline-none focus:border-primary" /></label><div className="flex justify-end gap-2"><button type="button" disabled={busy} onClick={() => { setStaffDrafts((drafts) => ({ ...drafts, [formModal.staffId]: { email: detail.staff.find((staff) => staff.id === formModal.staffId)?.email || '', username: detail.staff.find((staff) => staff.id === formModal.staffId)?.username || '' } })); setFormModal(null); }} className="border border-slate-300 px-4 py-2.5 text-xs font-bold uppercase text-slate-700">Batal</button><button disabled={busy} className="bg-primary px-4 py-2.5 text-xs font-bold uppercase text-white hover:bg-primary-hover disabled:opacity-50">{busy ? <span className="inline-flex items-center gap-2"><span className="loading-spinner" aria-hidden="true" />Menyimpan...</span> : 'Simpan'}</button></div></form>}
-          {formModal.type === 'password' && <form onSubmit={(event) => { event.preventDefault(); resetPassword(formModal.staffId); }} className="space-y-4"><label className="block text-xs font-bold uppercase text-slate-700">Password baru<input type="password" autoComplete="new-password" required minLength={10} maxLength={128} value={passwordDrafts[formModal.staffId] || ''} onChange={(event) => setPasswordDrafts((drafts) => ({ ...drafts, [formModal.staffId]: event.target.value }))} className="mt-1 w-full border border-slate-300 p-3 text-sm font-normal normal-case text-slate-900 focus:outline-none focus:border-primary" /><span className="mt-1 block font-normal normal-case">Minimal 10 karakter: huruf besar, huruf kecil, angka, dan simbol.</span></label><div className="flex justify-end gap-2"><button type="button" disabled={busy} onClick={() => { setPasswordDrafts((drafts) => ({ ...drafts, [formModal.staffId]: '' })); setFormModal(null); }} className="border border-slate-300 px-4 py-2.5 text-xs font-bold uppercase text-slate-700">Batal</button><button disabled={busy} className="bg-primary px-4 py-2.5 text-xs font-bold uppercase text-white hover:bg-primary-hover disabled:opacity-50">{busy ? <span className="inline-flex items-center gap-2"><span className="loading-spinner" aria-hidden="true" />Memproses...</span> : 'Reset password'}</button></div></form>}
+          {formModal.type === 'password' && <form onSubmit={(event) => { event.preventDefault(); resetPassword(formModal.staffId); }} className="space-y-4"><label className="block text-xs font-bold uppercase text-slate-700">Password baru<PasswordInput id={`reset-staff-password-${formModal.staffId}`} autoComplete="new-password" required minLength={10} maxLength={128} value={passwordDrafts[formModal.staffId] || ''} onChange={(event) => setPasswordDrafts((drafts) => ({ ...drafts, [formModal.staffId]: event.target.value }))} className="mt-1 w-full border border-slate-300 p-3 text-sm font-normal normal-case text-slate-900 focus:outline-none focus:border-primary" /><span className="mt-1 block font-normal normal-case">Minimal 10 karakter: huruf besar, huruf kecil, angka, dan simbol.</span></label><div className="flex justify-end gap-2"><button type="button" disabled={busy} onClick={() => { setPasswordDrafts((drafts) => ({ ...drafts, [formModal.staffId]: '' })); setFormModal(null); }} className="border border-slate-300 px-4 py-2.5 text-xs font-bold uppercase text-slate-700">Batal</button><button disabled={busy} className="bg-primary px-4 py-2.5 text-xs font-bold uppercase text-white hover:bg-primary-hover disabled:opacity-50">{busy ? <span className="inline-flex items-center gap-2"><span className="loading-spinner" aria-hidden="true" />Memproses...</span> : 'Reset password'}</button></div></form>}
         </section>
       </div>}
     </section>
     </div>
-    <AppDialog dialog={message ? { type: 'success', title: 'Perubahan berhasil', message } : null} onClose={() => setMessage('')} />
+    <AppDialog dialog={dialog || (message ? { type: 'success', title: 'Perubahan berhasil', message } : null)} onClose={closeDialog} />
     </>
   );
 }

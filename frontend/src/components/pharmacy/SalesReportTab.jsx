@@ -45,14 +45,14 @@ export default function SalesReportTab({ orders, onResetOrders }) {
   const visibleOrders = useMemo(() => {
     const query = searchQuery.trim().toLocaleLowerCase('id');
     const filtered = completedOrders.filter((order) => {
-      const matchesQuery = !query || [order.id, order.customerName, order.orderStatus]
+      const matchesQuery = !query || [order.displayOrderNumber, order.id, order.customerName, order.orderStatus]
         .some((value) => String(value || '').toLocaleLowerCase('id').includes(query));
       const matchesStatus = statusFilter === 'all' || order.orderStatus === statusFilter;
       return matchesQuery && matchesStatus;
     });
 
     return filtered.sort((a, b) => {
-      if (sortBy === 'id') return String(a.id).localeCompare(String(b.id), 'id');
+      if (sortBy === 'id') return String(a.displayOrderNumber || a.id).localeCompare(String(b.displayOrderNumber || b.id), 'id', { numeric: true });
       if (sortBy === 'name') return String(a.customerName).localeCompare(String(b.customerName), 'id');
       if (sortBy === 'status') return String(a.orderStatus).localeCompare(String(b.orderStatus), 'id');
       const partsA = getTransactionDateParts(a.timestamp);
@@ -131,7 +131,7 @@ export default function SalesReportTab({ orders, onResetOrders }) {
               {visibleOrders.map((order) => (
                 <tr key={order.id} className="hover:bg-slate-50/50">
                   <td className="p-3 text-slate-500 whitespace-nowrap">{formatTransactionDateTime(order.timestamp)}</td>
-                  <td className="p-3 font-bold text-slate-900">{order.id}</td>
+                  <td className="p-3 font-bold text-slate-900">{order.displayOrderNumber || order.id}</td>
                   <td className="p-3 text-slate-700">{order.customerName}</td>
                   <td className="p-3 font-bold text-slate-900">{formatIDR(order.totalAmount)}</td>
                   <td className="p-3 text-center">

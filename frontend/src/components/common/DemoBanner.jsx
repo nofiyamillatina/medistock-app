@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function DemoBanner({ currentView, setCurrentView, isLoggedIn, onOpenPharmacy, onCustomerLogin, theme, onThemeChange }) {
+export default function DemoBanner({ currentView, setCurrentView, isLoggedIn, onOpenPharmacy, onCustomerLogin, theme, onThemeChange, hideTheme = false }) {
   return (
     <div className="bg-navy text-white px-4 py-2.5 flex flex-wrap items-center justify-between text-xs font-sans border-b border-slate-800">
       <div className="flex items-center space-x-2 py-1">
@@ -35,17 +35,19 @@ export default function DemoBanner({ currentView, setCurrentView, isLoggedIn, on
         >
           medistock.id/apotek (Pharmacy Flow)
         </button>
-        <label className="sr-only" htmlFor="site-theme">Tema tampilan</label>
-        <select
-          id="site-theme"
-          value={theme}
-          onChange={(event) => onThemeChange(event.target.value)}
-          className="min-h-8 border border-slate-700 bg-navy px-2 text-xs font-semibold text-white focus:border-primary focus:outline-none"
-        >
-          <option value="light">Tema terang</option>
-          <option value="dark">Tema gelap</option>
-          <option value="system">Ikuti perangkat</option>
-        </select>
+        {!hideTheme && <>
+          <label className="sr-only" htmlFor="site-theme">Tema tampilan</label>
+          <select
+            id="site-theme"
+            value={theme}
+            onChange={(event) => onThemeChange(event.target.value)}
+            className="min-h-8 border border-slate-700 bg-navy px-2 text-xs font-semibold text-white focus:border-primary focus:outline-none"
+          >
+            <option value="light">Tema terang</option>
+            <option value="dark">Tema gelap</option>
+            <option value="system">Ikuti perangkat</option>
+          </select>
+        </>}
       </div>
     </div>
   );

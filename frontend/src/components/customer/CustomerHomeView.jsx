@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
-import { Search, Store, Sun, Moon, Monitor } from 'lucide-react';
+import { Search, Store } from 'lucide-react';
 import MedicineCard from './MedicineCard.jsx';
 import { formatIDR } from '../../services/formatters.js';
+import ThemeToggle from '../common/ThemeToggle.jsx';
 
 export default function CustomerHomeView({
   medicines = [],
@@ -49,37 +50,7 @@ export default function CustomerHomeView({
             </button>
           </div>
                     <div className="flex flex-col items-end gap-2 text-right">
-            {onThemeChange && (
-              <button
-                type="button"
-                onClick={() =>
-                  onThemeChange(
-                    theme === 'light'
-                      ? 'dark'
-                      : theme === 'dark'
-                        ? 'system'
-                        : 'light'
-                  )
-                }
-                title={
-                  theme === 'light'
-                    ? 'Tema terang'
-                    : theme === 'dark'
-                      ? 'Tema gelap'
-                      : 'Sesuai perangkat'
-                }
-                aria-label="Ganti mode tampilan"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                {theme === 'light' ? (
-                  <Sun size={16} />
-                ) : theme === 'dark' ? (
-                  <Moon size={16} />
-                ) : (
-                  <Monitor size={16} />
-                )}
-              </button>
-            )}
+            {onThemeChange && <ThemeToggle theme={theme} onThemeChange={onThemeChange} compact />}
             <span
               className={`inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded border ${isStoreOpen
                   ? 'bg-success-soft text-emerald-700 border-emerald-200'

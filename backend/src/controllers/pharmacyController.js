@@ -114,7 +114,7 @@ export const getPharmaciesForPlatformAdmin = async (req, res) => {
   try {
     const pharmacies = await prisma.pharmacy_info.findMany({
       select: {
-        id: true, name: true, address: true, maps_url: true, image_url: true, is_open: true, is_active: true,
+        id: true, pharmacy_code_number: true, name: true, address: true, maps_url: true, image_url: true, is_open: true, is_active: true,
         users: { where: { role: 'pharmacy_staff' }, select: { email: true, username: true }, orderBy: { email: 'asc' } },
         _count: { select: { orders: true } }
       },
@@ -122,8 +122,9 @@ export const getPharmaciesForPlatformAdmin = async (req, res) => {
     });
     return res.json({
       success: true,
-      data: pharmacies.map(({ is_open, is_active, _count, users, ...pharmacy }) => ({
+      data: pharmacies.map(({ is_open, is_active, _count, users, pharmacy_code_number, ...pharmacy }) => ({
         ...pharmacy,
+        code: `APOTEK-${pharmacy_code_number}`,
         isOpen: Boolean(is_open),
         isActive: is_active,
         orderCount: _count.orders,
@@ -188,6 +189,7 @@ export const createPharmacyWithStaff = async (req, res) => {
       data: {
         pharmacy: {
           id: result.pharmacy.id,
+          code: `APOTEK-${result.pharmacy.pharmacy_code_number}`,
           name: result.pharmacy.name,
           address: result.pharmacy.address,
           maps_url: result.pharmacy.maps_url,
@@ -212,6 +214,7 @@ export const getPlatformPharmacyDetail = async (req, res) => {
       where: { id: req.params.id },
       select: {
         id: true,
+        pharmacy_code_number: true,
         name: true,
         address: true,
         maps_url: true,
@@ -231,6 +234,7 @@ export const getPlatformPharmacyDetail = async (req, res) => {
       success: true,
       data: {
         id: pharmacy.id,
+        code: `APOTEK-${pharmacy.pharmacy_code_number}`,
         name: pharmacy.name,
         address: pharmacy.address,
         maps_url: pharmacy.maps_url,
@@ -341,21 +345,32 @@ export const deleteEmptyPlatformPharmacy = async (req, res) => {
     const deleted = await prisma.$transaction(async (tx) => {
       const pharmacy = await tx.pharmacy_info.findUnique({ where: { id: req.params.id }, select: { id: true } });
       if (!pharmacy) return { status: 404 };
-      const [staffCount, medicineCount, orderCount] = await Promise.all([
+      const [accountCount, medicineCount, orderCount] = await Promise.all([
         tx.users.count({ where: { pharmacy_id: pharmacy.id } }),
         tx.medicines.count({ where: { pharmacy_id: pharmacy.id } }),
         tx.orders.count({ where: { pharmacy_id: pharmacy.id } })
       ]);
-      if (staffCount || medicineCount || orderCount) return { status: 409 };
+      if (accountCount || medicineCount || orderCount) return { status: 409, accountCount, medicineCount, orderCount };
       await tx.pharmacy_info.delete({ where: { id: pharmacy.id } });
       return { status: 204 };
     }, { isolationLevel: 'Serializable' });
     if (deleted.status === 404) return res.status(404).json({ success: false, message: 'Apotek tidak ditemukan.' });
-    if (deleted.status === 409) return res.status(409).json({ success: false, message: 'Apotek memiliki akun atau data terkait dan tidak dapat dihapus. Nonaktifkan apotek untuk mempertahankan riwayat.' });
+    if (deleted.status === 409) {
+      const relatedData = [
+        deleted.accountCount && `${deleted.accountCount} akun pengguna`,
+        deleted.medicineCount && `${deleted.medicineCount} obat`,
+        deleted.orderCount && `${deleted.orderCount} pesanan/riwayat transaksi`
+      ].filter(Boolean);
+      return res.status(409).json({
+        success: false,
+        message: `Apotek tidak dapat dihapus permanen karena masih memiliki ${relatedData.join(', ')}. Tidak ada data terkait yang dihapus. Nonaktifkan apotek untuk mempertahankan data dan riwayat.`
+      });
+    }
     return res.status(204).end();
   } catch (error) {
     console.error('Platform pharmacy deletion failed.', error?.code || 'UNKNOWN');
     if (error.code === 'P2034') return res.status(409).json({ success: false, message: 'Data apotek berubah selama penghapusan. Muat ulang detail dan coba lagi.' });
+    if (error.code === 'P2003') return res.status(409).json({ success: false, message: 'Apotek masih memiliki relasi data yang tercatat di database. Tidak ada data terkait yang dihapus. Nonaktifkan apotek untuk mempertahankan data dan riwayat.' });
     return res.status(500).json({ success: false, message: 'Gagal menghapus apotek.' });
   }
 };
@@ -364,10 +379,10 @@ export const getPharmacies = async (req, res) => {
   try {
     const pharmacies = await prisma.pharmacy_info.findMany({
       where: { is_active: true },
-      select: { id: true, name: true, address: true, maps_url: true, image_url: true, is_open: true },
+      select: { id: true, pharmacy_code_number: true, name: true, address: true, maps_url: true, image_url: true, is_open: true },
       orderBy: { name: 'asc' }
     });
-    res.json({ success: true, data: pharmacies.map((pharmacy) => ({ ...pharmacy, isOpen: Boolean(pharmacy.is_open) })) });
+    res.json({ success: true, data: pharmacies.map(({ pharmacy_code_number, ...pharmacy }) => ({ ...pharmacy, code: `APOTEK-${pharmacy_code_number}`, isOpen: Boolean(pharmacy.is_open) })) });
   } catch (error) {
     console.error('Pharmacy list query failed.', error?.code || 'UNKNOWN');
     res.status(500).json({ success: false, message: 'Gagal mengambil daftar apotek.' });

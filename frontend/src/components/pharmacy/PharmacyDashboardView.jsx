@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import {BarChart3,ClipboardList,Menu,Package,PanelLeftClose,PanelLeftOpen,X,Sun,Moon,Monitor} from 'lucide-react';
+import {BarChart3,ClipboardList,Menu,Package,PanelLeftClose,PanelLeftOpen,X} from 'lucide-react';
+import ThemeToggle from '../common/ThemeToggle.jsx';
 import IncomingOrdersTab from './IncomingOrdersTab.jsx';
 import InventoryTab from './InventoryTab.jsx';
 import SalesReportTab from './SalesReportTab.jsx';
@@ -73,37 +74,7 @@ export default function PharmacyDashboardView({
 
                     
           <div className="flex flex-col items-end gap-2">
-            {onThemeChange && (
-              <button
-                type="button"
-                onClick={() =>
-                  onThemeChange(
-                    theme === 'light'
-                      ? 'dark'
-                      : theme === 'dark'
-                        ? 'system'
-                        : 'light'
-                  )
-                }
-                title={
-                  theme === 'light'
-                    ? 'Tema terang'
-                    : theme === 'dark'
-                      ? 'Tema gelap'
-                      : 'Sesuai perangkat'
-                }
-                aria-label="Ganti mode tampilan"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                {theme === 'light' ? (
-                  <Sun size={16} />
-                ) : theme === 'dark' ? (
-                  <Moon size={16} />
-                ) : (
-                  <Monitor size={16} />
-                )}
-              </button>
-            )}
+            {onThemeChange && <ThemeToggle theme={theme} onThemeChange={onThemeChange} compact />}
 
             <div className="flex items-center gap-4">
               <div className="flex items-center space-x-2 border border-slate-200 rounded-lg px-3 py-2 bg-white shadow-sm">
