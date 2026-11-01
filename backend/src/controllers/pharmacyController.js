@@ -1,6 +1,70 @@
 import prisma from '../config/database.js';
 import bcrypt from 'bcryptjs';
 import { randomUUID } from 'node:crypto';
+import { v2 as cloudinary } from 'cloudinary';
+import { MAX_PHARMACY_IMAGE_BYTES_ALLOWED } from '../middleware/pharmacyImageUpload.js';
+
+const detectPharmacyImageType = (buffer) => {
+  if (buffer.length >= 24
+    && buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+    && buffer.toString('ascii', 12, 16) === 'IHDR'
+    && buffer.readUInt32BE(16) > 0
+    && buffer.readUInt32BE(20) > 0) return 'image/png';
+  if (buffer.length >= 4
+    && buffer[0] === 0xff
+    && buffer[1] === 0xd8
+    && buffer[2] === 0xff
+    && buffer[buffer.length - 2] === 0xff
+    && buffer[buffer.length - 1] === 0xd9) return 'image/jpeg';
+  if (buffer.length >= 16
+    && buffer.toString('ascii', 0, 4) === 'RIFF'
+    && buffer.toString('ascii', 8, 12) === 'WEBP'
+    && buffer.readUInt32LE(4) + 8 <= buffer.length) return 'image/webp';
+  return null;
+};
+
+export const uploadPlatformPharmacyImage = async (req, res) => {
+  if (!req.file?.buffer?.length) {
+    return res.status(400).json({ success: false, message: 'Pilih satu file foto untuk diunggah.' });
+  }
+  if (req.file.size > MAX_PHARMACY_IMAGE_BYTES_ALLOWED) {
+    return res.status(413).json({ success: false, message: 'Ukuran foto maksimal 4 MB.' });
+  }
+  const detectedMimeType = detectPharmacyImageType(req.file.buffer);
+  if (!detectedMimeType || detectedMimeType !== req.file.mimetype) {
+    return res.status(400).json({ success: false, message: 'Isi file bukan gambar JPG, PNG, atau WebP yang valid.' });
+  }
+
+  const { CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET } = process.env;
+  if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET) {
+    return res.status(503).json({ success: false, message: 'Layanan upload foto belum dikonfigurasi.' });
+  }
+
+  cloudinary.config({
+    cloud_name: CLOUDINARY_CLOUD_NAME,
+    api_key: CLOUDINARY_API_KEY,
+    api_secret: CLOUDINARY_API_SECRET,
+    secure: true
+  });
+
+  try {
+    const uploaded = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream({
+        resource_type: 'image',
+        folder: 'medistock/pharmacy-profiles',
+        allowed_formats: ['jpg', 'png', 'webp'],
+        max_bytes: MAX_PHARMACY_IMAGE_BYTES_ALLOWED
+      }, (error, result) => error ? reject(error) : resolve(result));
+      stream.on('error', reject);
+      stream.end(req.file.buffer);
+    });
+    if (!uploaded?.secure_url) throw new Error('Cloudinary returned no secure image URL.');
+    return res.status(201).json({ success: true, data: { image_url: uploaded.secure_url } });
+  } catch (error) {
+    console.error('Cloudinary pharmacy image upload failed.', error?.http_code || error?.name || 'UNKNOWN');
+    return res.status(502).json({ success: false, message: 'Foto gagal diunggah ke Cloudinary. Periksa koneksi lalu coba lagi.' });
+  }
+};
 
 const pharmacyProfileFields = [
   ['address', 'Alamat', 500],

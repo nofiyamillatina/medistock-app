@@ -1,12 +1,14 @@
 import express from 'express';
-import { createPharmacyWithStaff, deleteEmptyPlatformPharmacy, getPharmacyInfo, getPharmacies, getPharmaciesForPlatformAdmin, getPlatformPharmacyDetail, resetPlatformStaffPassword, setPlatformPharmacyActive, toggleStoreStatus, updatePlatformPharmacy, updatePlatformStaff } from '../controllers/pharmacyController.js';
+import { createPharmacyWithStaff, deleteEmptyPlatformPharmacy, getPharmacyInfo, getPharmacies, getPharmaciesForPlatformAdmin, getPlatformPharmacyDetail, resetPlatformStaffPassword, setPlatformPharmacyActive, toggleStoreStatus, updatePlatformPharmacy, updatePlatformStaff, uploadPlatformPharmacyImage } from '../controllers/pharmacyController.js';
 import { authenticateToken, optionalAuthenticateToken, requireRole } from '../middleware/authMiddleware.js';
+import { parsePharmacyImageUpload } from '../middleware/pharmacyImageUpload.js';
 
 const router = express.Router();
 
 router.get('/list', getPharmacies);
 router.get('/admin', authenticateToken, requireRole('platform_admin'), getPharmaciesForPlatformAdmin);
 router.post('/admin', authenticateToken, requireRole('platform_admin'), createPharmacyWithStaff);
+router.post('/admin/upload-image', authenticateToken, requireRole('platform_admin'), parsePharmacyImageUpload, uploadPlatformPharmacyImage);
 router.get('/admin/:id', authenticateToken, requireRole('platform_admin'), getPlatformPharmacyDetail);
 router.patch('/admin/:id', authenticateToken, requireRole('platform_admin'), updatePlatformPharmacy);
 router.patch('/admin/:id/status', authenticateToken, requireRole('platform_admin'), setPlatformPharmacyActive);

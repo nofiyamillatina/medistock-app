@@ -347,6 +347,25 @@ export const apiService = {
     }
   },
 
+  async uploadPlatformPharmacyImage(file, token) {
+    try {
+      const headers = {};
+      const accessToken = token ?? localStorage.getItem('medistock_platform_admin_token');
+      if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+      const formData = new FormData();
+      formData.append('image', file);
+      const res = await fetch(`${API_BASE_URL}/pharmacy/admin/upload-image`, {
+        method: 'POST',
+        headers,
+        body: formData
+      });
+      const result = await res.json();
+      return { ...result, httpStatus: res.status };
+    } catch {
+      return { success: false, httpStatus: 0, message: 'Server backend tidak dapat dihubungi.' };
+    }
+  },
+
   async updatePlatformAdminPharmacy(id, data, token) {
     try {
       const res = await fetch(`${API_BASE_URL}/pharmacy/admin/${encodeURIComponent(id)}`, {
