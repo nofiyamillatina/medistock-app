@@ -10,6 +10,9 @@ datasource db {
 model pharmacy_info {
   id         String    @id
   name       String
+  address    String?
+  maps_url   String?
+  image_url  String?
   is_open    Int       @default(1)
   is_active  Boolean   @default(true)
   updated_at DateTime? @default(now())

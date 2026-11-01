@@ -2,11 +2,55 @@ import prisma from '../config/database.js';
 import bcrypt from 'bcryptjs';
 import { randomUUID } from 'node:crypto';
 
+const pharmacyProfileFields = [
+  ['address', 'Alamat', 500],
+  ['maps_url', 'URL Google Maps', 2048],
+  ['image_url', 'URL foto toko', 2048]
+];
+
+const parsePharmacyProfile = (body, { includeMissing = false } = {}) => {
+  const data = {};
+  for (const [field, label, maxLength] of pharmacyProfileFields) {
+    if (!includeMissing && !Object.hasOwn(body, field)) continue;
+    const rawValue = body[field];
+    if (rawValue == null || rawValue === '') {
+      data[field] = null;
+      continue;
+    }
+    if (typeof rawValue !== 'string') return { error: `${label} tidak valid.` };
+    const value = rawValue.trim();
+    if (!value) {
+      data[field] = null;
+      continue;
+    }
+    if (value.length > maxLength) return { error: `${label} maksimal ${maxLength} karakter.` };
+    if (field !== 'address') {
+      try {
+        const url = new URL(value);
+        if (!['http:', 'https:'].includes(url.protocol) || !url.hostname || url.username || url.password) {
+          return { error: `${label} harus berupa URL HTTP atau HTTPS yang valid.` };
+        }
+        if (field === 'maps_url') {
+          const hostname = url.hostname.toLowerCase();
+          const googleMapsHost = hostname === 'maps.app.goo.gl'
+            || hostname === 'goo.gl'
+            || /(^|\.)google\.(com|[a-z]{2}|co\.[a-z]{2})$/.test(hostname);
+          if (!googleMapsHost) return { error: 'URL Google Maps harus menggunakan domain Google Maps yang valid.' };
+        }
+      } catch {
+        return { error: `${label} harus berupa URL HTTP atau HTTPS yang valid.` };
+      }
+    }
+    data[field] = value;
+  }
+  return { data };
+};
+
 export const getPharmaciesForPlatformAdmin = async (req, res) => {
   try {
     const pharmacies = await prisma.pharmacy_info.findMany({
       select: {
-        id: true, name: true, is_open: true, is_active: true,
+        id: true, name: true, address: true, maps_url: true, image_url: true, is_open: true, is_active: true,
         users: { where: { role: 'pharmacy_staff' }, select: { email: true, username: true }, orderBy: { email: 'asc' } },
         _count: { select: { orders: true } }
       },
@@ -31,6 +75,7 @@ export const getPharmaciesForPlatformAdmin = async (req, res) => {
 export const createPharmacyWithStaff = async (req, res) => {
   const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
   const name = typeof body.name === 'string' ? body.name.trim() : '';
+  const profile = parsePharmacyProfile(body, { includeMissing: true });
   const email = typeof body.staffEmail === 'string' ? body.staffEmail.trim().toLowerCase() : '';
   const password = typeof body.staffPassword === 'string' ? body.staffPassword : '';
   const username = typeof body.staffUsername === 'string' ? body.staffUsername.trim() : '';
@@ -42,6 +87,7 @@ export const createPharmacyWithStaff = async (req, res) => {
   if (name.length < 2 || name.length > 120) {
     return res.status(400).json({ success: false, message: 'Nama apotek harus terdiri dari 2 sampai 120 karakter.' });
   }
+  if (profile.error) return res.status(400).json({ success: false, message: profile.error });
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return res.status(400).json({ success: false, message: 'Email staf tidak valid.' });
   }
@@ -57,7 +103,7 @@ export const createPharmacyWithStaff = async (req, res) => {
     const pharmacyId = `APT-${randomUUID()}`;
     const result = await prisma.$transaction(async (tx) => {
       const pharmacy = await tx.pharmacy_info.create({
-        data: { id: pharmacyId, name, is_open: 1, is_active: true }
+        data: { id: pharmacyId, name, ...profile.data, is_open: 1, is_active: true }
       });
       const staff = await tx.users.create({
         data: {
@@ -76,7 +122,14 @@ export const createPharmacyWithStaff = async (req, res) => {
       success: true,
       message: 'Apotek dan akun staf berhasil dibuat.',
       data: {
-        pharmacy: { id: result.pharmacy.id, name: result.pharmacy.name, isOpen: Boolean(result.pharmacy.is_open) },
+        pharmacy: {
+          id: result.pharmacy.id,
+          name: result.pharmacy.name,
+          address: result.pharmacy.address,
+          maps_url: result.pharmacy.maps_url,
+          image_url: result.pharmacy.image_url,
+          isOpen: Boolean(result.pharmacy.is_open)
+        },
         staff: { id: result.staff.id, email: result.staff.email, username: result.staff.username }
       }
     });
@@ -96,6 +149,9 @@ export const getPlatformPharmacyDetail = async (req, res) => {
       select: {
         id: true,
         name: true,
+        address: true,
+        maps_url: true,
+        image_url: true,
         is_open: true,
         is_active: true,
         users: {
@@ -112,6 +168,9 @@ export const getPlatformPharmacyDetail = async (req, res) => {
       data: {
         id: pharmacy.id,
         name: pharmacy.name,
+        address: pharmacy.address,
+        maps_url: pharmacy.maps_url,
+        image_url: pharmacy.image_url,
         isOpen: Boolean(pharmacy.is_open),
         isActive: pharmacy.is_active,
         staff: pharmacy.users,
@@ -126,17 +185,20 @@ export const getPlatformPharmacyDetail = async (req, res) => {
 };
 
 export const updatePlatformPharmacy = async (req, res) => {
-  const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+  const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
+  const name = typeof body.name === 'string' ? body.name.trim() : '';
+  const profile = parsePharmacyProfile(body);
   if (name.length < 2 || name.length > 120) {
     return res.status(400).json({ success: false, message: 'Nama apotek harus terdiri dari 2 sampai 120 karakter.' });
   }
+  if (profile.error) return res.status(400).json({ success: false, message: profile.error });
   try {
     const updated = await prisma.pharmacy_info.updateMany({
       where: { id: req.params.id },
-      data: { name, updated_at: new Date() }
+      data: { name, ...profile.data, updated_at: new Date() }
     });
     if (updated.count !== 1) return res.status(404).json({ success: false, message: 'Apotek tidak ditemukan.' });
-    return res.json({ success: true, message: 'Informasi apotek berhasil diperbarui.', data: { id: req.params.id, name } });
+    return res.json({ success: true, message: 'Informasi apotek berhasil diperbarui.', data: { id: req.params.id, name, ...profile.data } });
   } catch (error) {
     console.error('Platform pharmacy update failed.', error?.code || 'UNKNOWN');
     return res.status(500).json({ success: false, message: 'Gagal memperbarui informasi apotek.' });
@@ -238,7 +300,7 @@ export const getPharmacies = async (req, res) => {
   try {
     const pharmacies = await prisma.pharmacy_info.findMany({
       where: { is_active: true },
-      select: { id: true, name: true, is_open: true },
+      select: { id: true, name: true, address: true, maps_url: true, image_url: true, is_open: true },
       orderBy: { name: 'asc' }
     });
     res.json({ success: true, data: pharmacies.map((pharmacy) => ({ ...pharmacy, isOpen: Boolean(pharmacy.is_open) })) });
@@ -259,6 +321,9 @@ export const getPharmacyInfo = async (req, res) => {
       data: {
         id: info.id,
         name: info.name,
+        address: info.address,
+        maps_url: info.maps_url,
+        image_url: info.image_url,
         isOpen: Boolean(info.is_open)
       }
     });

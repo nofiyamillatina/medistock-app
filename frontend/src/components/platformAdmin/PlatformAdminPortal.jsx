@@ -43,6 +43,9 @@ function PlatformAdminLogin({ onLogin }) {
 
 function NewPharmacyForm({ token, onCreated, onUnauthorized }) {
   const [name, setName] = useState('');
+  const [address, setAddress] = useState('');
+  const [mapsUrl, setMapsUrl] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
   const [staffEmail, setStaffEmail] = useState('');
   const [staffUsername, setStaffUsername] = useState('');
   const [staffPassword, setStaffPassword] = useState('');
@@ -55,10 +58,21 @@ function NewPharmacyForm({ token, onCreated, onUnauthorized }) {
     setBusy(true);
     setError('');
     setNotice(null);
-    const result = await apiService.createPharmacyWithStaff({ name, staffEmail, staffUsername, staffPassword }, token);
+    const result = await apiService.createPharmacyWithStaff({
+      name,
+      address,
+      maps_url: mapsUrl,
+      image_url: imageUrl,
+      staffEmail,
+      staffUsername,
+      staffPassword
+    }, token);
     if (result?.success) {
       setNotice({ type: 'success', title: 'Apotek berhasil didaftarkan', message: `${result.data.pharmacy.name} berhasil dibuat. Akun staf: ${result.data.staff.email}. Simpan password yang diberikan kepada staf dengan aman.` });
       setName('');
+      setAddress('');
+      setMapsUrl('');
+      setImageUrl('');
       setStaffEmail('');
       setStaffUsername('');
       setStaffPassword('');
@@ -76,6 +90,9 @@ function NewPharmacyForm({ token, onCreated, onUnauthorized }) {
       {error && <div role="alert" className="mb-5 rounded border border-red-200 bg-red-50 p-3 text-xs font-medium text-red-700">{error}</div>}
       <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2"><label htmlFor="new-pharmacy-name" className="mb-1 block text-xs font-bold uppercase text-slate-700">Nama apotek</label><input id="new-pharmacy-name" required minLength={2} maxLength={120} value={name} onChange={(event) => setName(event.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-primary" /></div>
+        <div className="sm:col-span-2"><label htmlFor="new-pharmacy-address" className="mb-1 block text-xs font-bold uppercase text-slate-700">Alamat apotek <span className="font-normal normal-case text-slate-400">(opsional)</span></label><textarea id="new-pharmacy-address" maxLength={500} rows={2} value={address} onChange={(event) => setAddress(event.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-primary" /></div>
+        <div><label htmlFor="new-pharmacy-maps" className="mb-1 block text-xs font-bold uppercase text-slate-700">URL Google Maps <span className="font-normal normal-case text-slate-400">(opsional)</span></label><input id="new-pharmacy-maps" type="url" maxLength={2048} value={mapsUrl} onChange={(event) => setMapsUrl(event.target.value)} placeholder="https://maps.app.goo.gl/..." className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-primary" /></div>
+        <div><label htmlFor="new-pharmacy-image" className="mb-1 block text-xs font-bold uppercase text-slate-700">URL foto toko <span className="font-normal normal-case text-slate-400">(opsional)</span></label><input id="new-pharmacy-image" type="url" maxLength={2048} value={imageUrl} onChange={(event) => setImageUrl(event.target.value)} placeholder="https://example.com/foto.jpg" className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-primary" /></div>
         <div><label htmlFor="new-staff-email" className="mb-1 block text-xs font-bold uppercase text-slate-700">Email staf</label><input id="new-staff-email" type="email" autoComplete="off" required value={staffEmail} onChange={(event) => setStaffEmail(event.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-primary" /></div>
         <div><label htmlFor="new-staff-username" className="mb-1 block text-xs font-bold uppercase text-slate-700">Username staf <span className="font-normal normal-case text-slate-400">(opsional)</span></label><input id="new-staff-username" autoComplete="off" minLength={3} maxLength={40} value={staffUsername} onChange={(event) => setStaffUsername(event.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-primary" /></div>
         <div className="sm:col-span-2"><label htmlFor="new-staff-password" className="mb-1 block text-xs font-bold uppercase text-slate-700">Password awal staf</label><input id="new-staff-password" type="password" autoComplete="new-password" required minLength={10} maxLength={128} value={staffPassword} onChange={(event) => setStaffPassword(event.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-primary" /><p className="mt-1 text-xs text-slate-500">Minimal 10 karakter: huruf besar, huruf kecil, angka, dan simbol.</p></div>

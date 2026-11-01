@@ -12,12 +12,42 @@ const getHeaders = (customToken = null, tokenStorageKey = 'medistock_token') => 
 
 const getCustomerHeaders = () => getHeaders(null, 'medistock_customer_token');
 
+const normalizePharmacyProfile = (pharmacy) => ({
+  ...pharmacy,
+  address: pharmacy.address ?? null,
+  maps_url: pharmacy.maps_url ?? null,
+  image_url: pharmacy.image_url ?? null
+});
+
+const normalizePharmacyResult = (result) => {
+  if (Array.isArray(result?.data)) {
+    return { ...result, data: result.data.map(normalizePharmacyProfile) };
+  }
+  if (result?.data && typeof result.data === 'object') {
+    const data = { ...result.data };
+    if (data.pharmacy) data.pharmacy = normalizePharmacyProfile(data.pharmacy);
+    else Object.assign(data, normalizePharmacyProfile(data));
+    return { ...result, data };
+  }
+  return result;
+};
+
+const normalizePharmacyPayload = (payload) => {
+  const normalized = { ...payload };
+  for (const field of ['address', 'maps_url', 'image_url']) {
+    if (!Object.hasOwn(payload, field)) continue;
+    const value = payload[field];
+    normalized[field] = typeof value === 'string' && value.trim() ? value.trim() : null;
+  }
+  return normalized;
+};
+
 export const apiService = {
   // Pharmacy info & status
   async getPharmacies() {
     try {
       const res = await fetch(`${API_BASE_URL}/pharmacy/list`);
-      return await res.json();
+      return normalizePharmacyResult(await res.json());
     } catch (err) {
       console.error('API Error getPharmacies:', err);
       return { success: false, message: 'Server backend tidak dapat dihubungi.' };
@@ -29,7 +59,7 @@ export const apiService = {
       const query = pharmacyId ? `?pharmacyId=${encodeURIComponent(pharmacyId)}` : '';
       const res = await fetch(`${API_BASE_URL}/pharmacy/info${query}`, { headers: token ? getHeaders(token) : { 'Content-Type': 'application/json' } });
       if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
-      return await res.json();
+      return normalizePharmacyResult(await res.json());
     } catch (err) {
       console.error('API Error getPharmacyInfo:', err);
       return { success: false, message: 'Server backend tidak dapat dihubungi.' };
@@ -299,7 +329,7 @@ export const apiService = {
     try {
       const res = await fetch(`${API_BASE_URL}/pharmacy/admin`, { headers: getHeaders(token) });
       const result = await res.json();
-      return { ...result, httpStatus: res.status };
+      return { ...normalizePharmacyResult(result), httpStatus: res.status };
     } catch (err) {
       console.error('API Error getPlatformAdminPharmacies:', err);
       return { success: false, message: 'Server backend tidak dapat dihubungi.' };
@@ -310,7 +340,7 @@ export const apiService = {
     try {
       const res = await fetch(`${API_BASE_URL}/pharmacy/admin/${encodeURIComponent(id)}`, { headers: getHeaders(token) });
       const result = await res.json();
-      return { ...result, httpStatus: res.status };
+      return { ...normalizePharmacyResult(result), httpStatus: res.status };
     } catch (err) {
       console.error('API Error getPlatformAdminPharmacy:', err);
       return { success: false, httpStatus: 0, message: 'Server backend tidak dapat dihubungi.' };
@@ -320,10 +350,10 @@ export const apiService = {
   async updatePlatformAdminPharmacy(id, data, token) {
     try {
       const res = await fetch(`${API_BASE_URL}/pharmacy/admin/${encodeURIComponent(id)}`, {
-        method: 'PATCH', headers: getHeaders(token), body: JSON.stringify(data)
+        method: 'PATCH', headers: getHeaders(token), body: JSON.stringify(normalizePharmacyPayload(data))
       });
       const result = await res.json();
-      return { ...result, httpStatus: res.status };
+      return { ...normalizePharmacyResult(result), httpStatus: res.status };
     } catch (err) {
       console.error('API Error updatePlatformAdminPharmacy:', err);
       return { success: false, httpStatus: 0, message: 'Server backend tidak dapat dihubungi.' };
@@ -386,10 +416,10 @@ export const apiService = {
       const res = await fetch(`${API_BASE_URL}/pharmacy/admin`, {
         method: 'POST',
         headers: getHeaders(token),
-        body: JSON.stringify(payload)
+        body: JSON.stringify(normalizePharmacyPayload(payload))
       });
       const result = await res.json();
-      return { ...result, httpStatus: res.status };
+      return { ...normalizePharmacyResult(result), httpStatus: res.status };
     } catch (err) {
       console.error('API Error createPharmacyWithStaff:', err);
       return { success: false, message: 'Server backend tidak dapat dihubungi.' };

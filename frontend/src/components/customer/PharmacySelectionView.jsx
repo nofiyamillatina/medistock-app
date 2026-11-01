@@ -1,5 +1,30 @@
-import React from 'react';
-import { ArrowRight, MapPin, Store } from 'lucide-react';
+import React, { useState } from 'react';
+import { ArrowRight, ExternalLink, MapPin, Store } from 'lucide-react';
+
+function PharmacyCard({ pharmacy, isSelected, onSelect }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const imageUrl = pharmacy.image_url || pharmacy.imageUrl;
+  const mapsUrl = pharmacy.maps_url || pharmacy.mapsUrl;
+  const address = pharmacy.address;
+
+  return <article className={`flex min-h-full flex-col overflow-hidden rounded-xl border bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md ${isSelected ? 'border-primary ring-2 ring-primary/10' : 'border-slate-200'}`}>
+    <div className="relative aspect-[16/9] w-full overflow-hidden bg-slate-100">
+      <div className="absolute inset-0 flex items-center justify-center bg-primary-soft text-primary" aria-hidden="true"><Store size={34} /></div>
+      {imageUrl && !imageFailed && <img src={imageUrl} alt={`Foto ${pharmacy.name}`} loading="lazy" onError={() => setImageFailed(true)} className="absolute inset-0 h-full w-full object-cover" />}
+    </div>
+    <div className="flex flex-1 flex-col p-5">
+      <div className="flex items-start justify-between gap-3">
+        <h2 className="text-lg font-bold text-slate-900">{pharmacy.name}</h2>
+        {pharmacy.isOpen ? <span className="inline-flex shrink-0 items-center gap-1.5 rounded border border-emerald-200 bg-success-soft px-2 py-1 text-[10px] font-bold text-emerald-700"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />Buka</span> : <span className="inline-flex shrink-0 items-center gap-1.5 rounded border border-slate-200 bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600"><span className="h-1.5 w-1.5 rounded-full bg-slate-400" />Tutup sementara</span>}
+      </div>
+      {address && <p className="mt-3 flex items-start gap-2 text-xs leading-relaxed text-slate-600"><MapPin size={15} aria-hidden="true" className="mt-0.5 shrink-0 text-primary" /><span className="whitespace-pre-line">{address}</span></p>}
+      {mapsUrl && <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex w-fit items-center gap-1.5 text-xs font-semibold text-primary hover:underline" aria-label={`Lihat lokasi ${pharmacy.name} di Google Maps`}><MapPin size={14} aria-hidden="true" />Lihat di Google Maps<ExternalLink size={12} aria-hidden="true" /></a>}
+      <button type="button" onClick={() => onSelect(pharmacy.id)} className="mt-auto inline-flex w-full items-center justify-between border-t border-slate-100 pt-4 text-left text-xs font-bold uppercase tracking-wide text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
+        <span>{isSelected ? 'Lanjutkan ke katalog' : 'Lihat katalog'}</span><ArrowRight size={16} aria-hidden="true" />
+      </button>
+    </div>
+  </article>;
+}
 
 export default function PharmacySelectionView({
   pharmacies = [],
@@ -45,20 +70,12 @@ export default function PharmacySelectionView({
           <h2 className="font-bold text-slate-800">Belum ada apotek aktif</h2>
           <p className="mt-1 text-sm text-slate-500">Silakan kembali lagi nanti untuk melihat apotek yang tersedia.</p>
         </div> : <div className="grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 sm:gap-5">
-          {pharmacies.map((pharmacy) => {
-            const isSelected = pharmacy.id === selectedPharmacyId;
-            return <button key={pharmacy.id} type="button" onClick={() => onSelect(pharmacy.id)} className={`group flex min-h-52 flex-col rounded-xl border bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md focus-visible:ring-2 focus-visible:ring-primary ${isSelected ? 'border-primary ring-2 ring-primary/10' : 'border-slate-200'}`}>
-              <div className="flex w-full items-start justify-between gap-3">
-                <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary-soft text-primary"><Store size={23} aria-hidden="true" /></span>
-                {pharmacy.isOpen ? <span className="inline-flex items-center gap-1.5 rounded border border-emerald-200 bg-success-soft px-2 py-1 text-[10px] font-bold text-emerald-700"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />Buka</span> : <span className="inline-flex items-center gap-1.5 rounded border border-slate-200 bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600"><span className="h-1.5 w-1.5 rounded-full bg-slate-400" />Tutup sementara</span>}
-              </div>
-              <h2 className="mt-5 text-lg font-bold text-slate-900 transition group-hover:text-primary">{pharmacy.name}</h2>
-              <p className="mt-1 flex items-center gap-1 text-xs text-slate-500"><MapPin size={13} aria-hidden="true" />Apotek tujuan pesanan</p>
-              <span className="mt-auto inline-flex items-center justify-between border-t border-slate-100 pt-4 text-xs font-bold uppercase tracking-wide text-primary">
-                {isSelected ? 'Lanjutkan ke katalog' : 'Lihat katalog'}<ArrowRight size={16} aria-hidden="true" />
-              </span>
-            </button>;
-          })}
+          {pharmacies.map((pharmacy) => <PharmacyCard
+            key={pharmacy.id}
+            pharmacy={pharmacy}
+            isSelected={pharmacy.id === selectedPharmacyId}
+            onSelect={onSelect}
+          />)}
         </div>}
       </main>
     </div>
